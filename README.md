@@ -1,6 +1,6 @@
 # henyo-pi-core
 
-Pi coding agent extension for henyo core functionality.
+Pi coding agent extensions for long-horizon agentic SWE using local models.
 
 ## Structure
 
@@ -10,16 +10,22 @@ henyo-pi-core/
 ├── .gitignore
 ├── README.md
 ├── src/
-│   └── index.ts          # Main extension entry point
-├── tools/                # Custom tool definitions
-│   └── _placeholder.ts
-├── events/               # Event handler modules
-│   └── _placeholder.ts
-├── utils/                # Shared utilities
-│   └── _placeholder.ts
-└── resources/            # Static resources (prompts, templates, configs)
-    └── _placeholder.txt
+│   ├── index.ts          # Main extension entry point (registers all commands/tools/etc.)
+│   ├── commands/         # Custom slash commands
+│   │   └── cwd.ts
+│   ├── tools/            # Custom tool definitions
+│   ├── events/           # Event handler modules
+│   ├── utils/            # Shared utilities
+│   └── resources/        # Static resources (prompts, templates, configs)
 ```
+
+## Registered Commands
+
+### `/cwd [path]`
+
+Switch to another project directory and start a new session in the target dir.
+- With no args: shows the current working directory.
+- With a path argument: creates a new session in that directory.
 
 ## Development
 
