@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import cwdCommand from "./commands/cwd";
+import newpCommand from "./commands/newp";
 
 /**
  * henyo-pi-core extension entry point.
@@ -17,6 +18,7 @@ export default function (pi: ExtensionAPI) {
 
   // ─── Custom commands ───────────────────────────────────────────────
   cwdCommand(pi);
+  newpCommand(pi);
 
   // ─── Provider registration (if needed) ─────────────────────────────
   // pi.registerProvider(...);
