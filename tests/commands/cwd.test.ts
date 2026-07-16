@@ -6,21 +6,19 @@ import { join } from "node:path";
 // Mock @earendil-works/pi-coding-agent since it's resolved at runtime by pi
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   SessionManager: {
-    create: vi.fn((cwd: string) => {
-      // Return null sessionFile for paths containing "fail" to test the error branch
-      if (cwd.includes("session-fail")) {
-        return {
-          getSessionFile: () => null as unknown as string,
-          getSessionId: () => "test-session-123",
-          getSessionDir: () => join(cwd, ".pi", "sessions"),
-        };
-      }
-      return {
-        getSessionFile: () => join(cwd, ".pi", "sessions", "test-session.json"),
-        getSessionId: () => "test-session-123",
-        getSessionDir: () => join(cwd, ".pi", "sessions"),
-      };
-    }),
+    create: vi.fn((cwd: string) => ({
+      getSessionFile: () => join(cwd, ".pi", "sessions", `session-${Date.now()}.json`),
+      getSessionId: () => `test-session-${Math.random().toString(36).slice(2)}`,
+      getSessionDir: () => join(cwd, ".pi", "sessions"),
+      getHeader: () => ({
+        type: "session" as const,
+        version: 3,
+        id: `test-session-${Math.random().toString(36).slice(2)}`,
+        timestamp: new Date().toISOString(),
+        cwd,
+      }),
+      writeSession: vi.fn(),
+    })),
   },
 }));
 
@@ -76,6 +74,37 @@ describe("cwd command", () => {
     await capturedCommand!.opts.handler("/definitely/nonexistent/path", ctx as any);
 
     expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: /definitely/nonexistent/path", "error");
+  });
+
+  it("skips mkdir when session directory already exists", async () => {
+    cwdCommand(createMockPi() as any);
+    expect(capturedCommand).not.toBeNull();
+
+    const testCwd = join(tmpdir(), `cwd-existing-${Date.now()}`);
+    mkdirSync(testCwd, { recursive: true });
+
+    const targetDir = join(tmpdir(), `cwd-existing-target-${Date.now()}`);
+    const sessionDir = join(targetDir, ".pi", "sessions");
+    mkdirSync(sessionDir, { recursive: true }); // pre-create the directory
+
+    const ctx = {
+      cwd: testCwd,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn((_file: string, opts?: { withSession?: Function }) => {
+        if (opts?.withSession) {
+          opts.withSession({ ui: ctx.ui, cwd: targetDir });
+        }
+        return Promise.resolve({ cancelled: false });
+      }),
+    };
+
+    await capturedCommand!.opts.handler(targetDir, ctx as any);
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(`Now in: ${targetDir}`, "info");
+
+    // Cleanup
+    rmSync(targetDir, { recursive: true, force: true });
+    rmSync(testCwd, { recursive: true, force: true });
   });
 
   it("shows error for path that is a file, not a directory", async () => {
@@ -167,29 +196,24 @@ describe("cwd command", () => {
     rmSync(testCwd, { recursive: true, force: true });
   });
 
-  it("handles invalid path relative to cwd", async () => {
-    cwdCommand(createMockPi() as any);
-    expect(capturedCommand).not.toBeNull();
-
-    const ctx = {
-      cwd: "/root/workspace",
-      ui: { notify: vi.fn() },
-      switchSession: vi.fn(() => Promise.resolve({ cancelled: false })),
-    };
-
-    await capturedCommand!.opts.handler("../nonexistent-dir-xyz", ctx as any);
-
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: /root/nonexistent-dir-xyz", "error");
-  });
-
   it("handles SessionManager returning null sessionFile", async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
+    // Re-mock SessionManager for this specific test
+    const { SessionManager } = await import("@earendil-works/pi-coding-agent");
+    vi.spyOn(SessionManager, "create").mockReturnValueOnce({
+      getSessionFile: () => null as unknown as string,
+      getSessionId: () => "test-session-null",
+      getSessionDir: () => "/tmp/.pi/sessions",
+      getHeader: () => ({}),
+      writeSession: vi.fn(),
+    });
+
     const testCwd = join(tmpdir(), `cwd-test-${Date.now()}`);
     mkdirSync(testCwd, { recursive: true });
 
-    const targetDir = join(tmpdir(), `session-fail-target-${Date.now()}`);
+    const targetDir = join(tmpdir(), `cwd-null-target-${Date.now()}`);
     mkdirSync(targetDir, { recursive: true });
 
     const ctx = {
@@ -205,5 +229,20 @@ describe("cwd command", () => {
     // Cleanup
     rmSync(targetDir, { recursive: true, force: true });
     rmSync(testCwd, { recursive: true, force: true });
+  });
+
+  it("handles invalid path relative to cwd", async () => {
+    cwdCommand(createMockPi() as any);
+    expect(capturedCommand).not.toBeNull();
+
+    const ctx = {
+      cwd: "/root/workspace",
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn(() => Promise.resolve({ cancelled: false })),
+    };
+
+    await capturedCommand!.opts.handler("../nonexistent-dir-xyz", ctx as any);
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: /root/nonexistent-dir-xyz", "error");
   });
 });
