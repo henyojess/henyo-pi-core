@@ -2,7 +2,6 @@
   "name": "henyo-pi-core",
   "version": "0.1.0",
   "description": "Pi coding agent extension - henyo core functionality",
-  "private": true,
   "type": "module",
   "files": [
     "index.ts",
