@@ -9,7 +9,7 @@ export default function (pi: ExtensionAPI) {
     handler: async (args, ctx) => {
       // No args — show current CWD
       if (!args || !args.trim()) {
-        ctx.ui.notify(`CWD: ${ctx.cwd}`, "info");
+        ctx.ui.notify(`CWD: ${ctx.cwd}`, 'info');
         return;
       }
 
@@ -19,11 +19,11 @@ export default function (pi: ExtensionAPI) {
       try {
         const stat = statSync(target);
         if (!stat.isDirectory()) {
-          ctx.ui.notify(`Not a directory: ${target}`, "error");
+          ctx.ui.notify(`Not a directory: ${target}`, 'error');
           return;
         }
       } catch {
-        ctx.ui.notify(`Path not found: ${target}`, "error");
+        ctx.ui.notify(`Path not found: ${target}`, 'error');
         return;
       }
 
@@ -34,7 +34,7 @@ export default function (pi: ExtensionAPI) {
       const sessionFile = newSession.getSessionFile();
 
       if (!sessionFile) {
-        ctx.ui.notify("Failed to create new session", "error");
+        ctx.ui.notify('Failed to create new session', 'error');
         return;
       }
 
@@ -58,12 +58,12 @@ export default function (pi: ExtensionAPI) {
       // Switch to the new session — it reads CWD from the header
       const result = await ctx.switchSession(sessionFile, {
         withSession: async (newCtx) => {
-          newCtx.ui.notify(`Now in: ${newCtx.cwd}`, "info");
+          newCtx.ui.notify(`Now in: ${newCtx.cwd}`, 'info');
         },
       });
 
       if (result.cancelled) {
-        ctx.ui.notify("Session switch cancelled", "info");
+        ctx.ui.notify('Session switch cancelled', 'info');
       }
     },
   });

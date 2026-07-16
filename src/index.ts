@@ -1,6 +1,6 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import cwdCommand from "./commands/cwd";
-import newpCommand from "./commands/newp";
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import cwdCommand from './commands/cwd.js';
+import newpCommand from './commands/newp.js';
 
 /**
  * henyo-pi-core extension entry point.
