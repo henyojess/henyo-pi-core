@@ -6,9 +6,12 @@
   "files": [
     "index.ts",
     "src/",
+    "scripts/",
+    "SAMPLE_AGENTS.md",
     "!tests/"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "test": "vitest run",
     "lint": "tsc --noEmit && eslint src/",
     "lint:fix": "eslint src/ --fix",
