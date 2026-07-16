@@ -11,7 +11,7 @@
     "!tests/"
   ],
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
+    "postinstall": "node scripts/postinstall.cjs",
     "test": "vitest run",
     "lint": "tsc --noEmit && eslint src/",
     "lint:fix": "eslint src/ --fix",
