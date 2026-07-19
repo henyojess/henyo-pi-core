@@ -12,7 +12,8 @@ henyo-pi-core/
 ├── src/
 │   ├── index.ts          # Main extension entry point (registers all commands/tools/etc.)
 │   ├── commands/         # Custom slash commands
-│   │   └── cwd.ts
+│   │   ├── cwd.ts
+│   │   └── newp.ts
 │   ├── tools/            # Custom tool definitions
 │   ├── events/           # Event handler modules
 │   ├── utils/            # Shared utilities
@@ -26,6 +27,11 @@ henyo-pi-core/
 Switch to another project directory and start a new session in the target dir.
 - With no args: shows the current working directory.
 - With a path argument: creates a new session in that directory.
+
+### `/newp <prompt>`
+
+Start a new session with an initial prompt. The prompt is sent as the
+first user message in the new session.
 
 ## Development
 
