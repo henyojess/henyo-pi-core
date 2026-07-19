@@ -48,7 +48,7 @@ No configuration needed. Repair is active by default.
 
 The submodule is pinned to a specific upstream commit. Update with:
 ```bash
-git -C ext/pi-repair-layer pull origin main
+git -C .ext/pi-repair-layer pull origin main
 ```
 
 ## Development
