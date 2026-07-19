@@ -243,6 +243,6 @@ describe("cwd command", () => {
 
     await capturedCommand!.opts.handler("../nonexistent-dir-xyz", ctx as any);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: /root/nonexistent-dir-xyz", "error");
+    expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: ../nonexistent-dir-xyz", "error");
   });
 });

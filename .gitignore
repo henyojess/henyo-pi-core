@@ -3,7 +3,10 @@ package-lock.json
 coverage/
 .pi/
 
+# Build output
+dist/
+
 # Submodule: pi-repair-layer test artifacts
-ext/pi-repair-layer/node_modules/
-ext/pi-repair-layer/.mise.toml
-ext/pi-repair-layer/mise.toml
+.ext/pi-repair-layer/node_modules/
+.ext/pi-repair-layer/.mise.toml
+.ext/pi-repair-layer/mise.toml

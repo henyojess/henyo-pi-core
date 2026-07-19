@@ -1,9 +1,9 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 
-export default function (pi: ExtensionAPI) {
+export default function (pi: _ExtensionAPI) {
   pi.registerCommand('cwd', {
     description: 'Switch to another project directory (new session in target dir)',
     handler: async (args, ctx) => {
@@ -20,7 +20,7 @@ export default function (pi: ExtensionAPI) {
       try {
         statResult = statSync(target);
       } catch {
-        ctx.ui.notify(`Path not found: ${target}`, 'error');
+        ctx.ui.notify(`Path not found: ${args.trim()}`, 'error');
         return;
       }
 
