@@ -2,8 +2,17 @@
 // Dynamic import avoids TypeScript following the vendored submodule chain
 const { default: toolRepair } = await import('#pi-repair-layer');
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Resolve a path relative to this extension's installed location. */
+function extPath(...segments: string[]) {
+  return join(__dirname, '..', ...segments);
+}
 
 /**
  * henyo-pi-core extension entry point.
@@ -16,6 +25,13 @@ export default function (pi: _ExtensionAPI) {
   toolRepair(pi);
 
   // ─── Event subscriptions ───────────────────────────────────────────
+  pi.on('resources_discover', async (_event, _ctx) => {
+    // Bundle the deep-research skill so it ships with this extension
+    return {
+      skillPaths: [extPath('skills', 'deep-research')],
+    };
+  });
+
   // pi.on("session_start", ...);
   // pi.on("tool_call", ...);
 

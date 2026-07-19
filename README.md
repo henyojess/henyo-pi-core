@@ -15,6 +15,8 @@ henyo-pi-core/
 ├── tsconfig.json         # TypeScript compiler options
 ├── vitest.config.ts      # Vitest test runner config
 ├── index.ts              # Re-export for pi extension loading
+├── skills/               # Bundled pi skills
+│   └── deep-research/    # Multi-step autonomous research workflow
 └── src/
     ├── index.ts          # Extension factory (registers commands, tools, events)
     └── commands/         # Custom slash commands
@@ -34,6 +36,14 @@ Switch to another project directory and start a new session in the target dir.
 
 Start a new session with an initial prompt. The prompt is sent as the first
 user message in the new session.
+
+## Bundled Skills
+
+### `/skill:deep-research`
+
+A structured methodology for conducting deep, multi-step research. Guides the agent through planning, iterative retrieval, cross-source validation, and synthesis into a structured report with full citations. Use for complex research questions, competitive analysis, literature reviews, or any task requiring thorough investigation beyond a single search.
+
+**Workflow:** Plan → Retrieve → Cross-Validate → Synthesize → Report
 
 ## Bundled Extensions
 

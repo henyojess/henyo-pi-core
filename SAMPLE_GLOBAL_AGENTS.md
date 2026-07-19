@@ -59,3 +59,9 @@ Designed to call tools, browse codebases, and iterate. Trust it to call bash/rea
 Tool-call repair is active by default (bundled from @r3b1s/pi-repair-layer).
 - View stats: `/repair-stats`
 - Configure: `/repair-settings`
+
+## Bundled Skills
+
+### Deep Research (`/skill:deep-research`)
+
+Multi-step autonomous research workflow. Guides planning, iterative retrieval, cross-source validation, and structured report generation with full citations. Use for complex research questions, competitive analysis, literature reviews, and trend mapping.
