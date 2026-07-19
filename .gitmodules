@@ -1,0 +1,3 @@
+[submodule ".ext/pi-repair-layer"]
+	path = .ext/pi-repair-layer
+	url = https://github.com/r3b1s/pi-repair-layer.git
