@@ -11,7 +11,7 @@ export default defineConfig({
         "node_modules/",
         "dist/",
         "**/*.config.*",
-        "**/test*/**",
+        "**/tests/**",
       ],
       thresholds: {
         statements: 80,
