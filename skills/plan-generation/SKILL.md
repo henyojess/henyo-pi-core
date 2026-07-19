@@ -21,12 +21,13 @@ Instruct the agent how to execute the plan:
 ### Execution Loop (per sub-step)
 1. Find the first unchecked `[ ]` sub-step in the current step.
 2. Do the work described in that sub-step.
-3. **Immediately** mark it `[x]` in the plan file.
+3. **Immediately** mark it `[x]` in the plan file, adding implementation notes (details, deviations, assumptions).
 4. Move to the next `[ ]` sub-step.
 5. When all sub-steps in a step are `[x]`, run verification + commit.
 
 ### Discipline
 - Mark each checkbox **right after completing that sub-step**, not at the end of the step.
+- Add implementation details, deviations, and assumptions alongside the marked sub-step.
 - Do not batch-mark checkboxes. Each `[x]` is a record, not a pre-commitment.
 - If a sub-step is unclear, stop and ask. Do not guess.
 - One sub-step at a time. It is better to do one correctly than five poorly.
@@ -186,5 +187,6 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 13 | Agent can execute without asking clarifying questions | Agent would need to guess line numbers, test structure, or file content |
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
 | 15 | Plan tells agent to be deliberate | Missing discipline reminder ("do not rush", "be deliberate") |
+| 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
 
-If any row fails, edit the plan and re-check. Do not present until all 15 pass.
+If any row fails, edit the plan and re-check. Do not present until all 16 pass.
