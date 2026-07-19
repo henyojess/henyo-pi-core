@@ -1,5 +1,15 @@
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+
+const repoRoot = path.join(__dirname, '..');
+
+// Init submodules
+try {
+  execSync('git submodule update --init --recursive', { cwd: repoRoot, stdio: 'ignore' });
+} catch (e) {
+  // Ignore if not a git repo
+}
 
 const src = path.join(__dirname, '..', 'SAMPLE_GLOBAL_AGENTS.md');
 const dst = path.join(process.env.HOME || '', '.pi', 'agent', 'AGENTS.md');
