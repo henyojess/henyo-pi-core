@@ -53,3 +53,9 @@ Designed to call tools, browse codebases, and iterate. Trust it to call bash/rea
 - Write to auto-generated directories (dependencies, caches, build artifacts)
 - Commit/push without user confirmation
 - Modify session storage directly
+
+## Bundled Tool Repair
+
+Tool-call repair is active by default (bundled from @r3b1s/pi-repair-layer).
+- View stats: `/repair-stats`
+- Configure: `/repair-settings`

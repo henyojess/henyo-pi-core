@@ -35,6 +35,22 @@ Switch to another project directory and start a new session in the target dir.
 Start a new session with an initial prompt. The prompt is sent as the first
 user message in the new session.
 
+## Bundled Extensions
+
+### Tool Call Repair
+
+This extension includes [@r3b1s/pi-repair-layer](https://pi.dev/packages/@r3b1s/pi-repair-layer) as a git submodule. It validates and repairs malformed tool calls from LLMs before they reach the agent — fixing null fields, stringified arrays, wrong field names, markdown auto-links, anchor bleed, and more.
+
+No configuration needed. Repair is active by default.
+
+**View repair stats:** `/repair-stats`
+**Configure:** `/repair-settings`
+
+The submodule is pinned to a specific upstream commit. Update with:
+```bash
+git -C ext/pi-repair-layer pull origin main
+```
+
 ## Development
 
 ### Prerequisites
