@@ -1,11 +1,11 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { resolve } from "node:path";
-import { existsSync, mkdirSync, writeFileSync, statSync } from "node:fs";
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
+import { resolve } from 'node:path';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
 
 export default function (pi: ExtensionAPI) {
-  pi.registerCommand("cwd", {
-    description: "Switch to another project directory (new session in target dir)",
+  pi.registerCommand('cwd', {
+    description: 'Switch to another project directory (new session in target dir)',
     handler: async (args, ctx) => {
       // No args — show current CWD
       if (!args || !args.trim()) {
@@ -16,20 +16,21 @@ export default function (pi: ExtensionAPI) {
       const target = resolve(ctx.cwd, args.trim());
 
       // Validate target is an existing directory
+      let statResult: ReturnType<typeof statSync>;
       try {
-        const stat = statSync(target);
-        if (!stat.isDirectory()) {
-          ctx.ui.notify(`Not a directory: ${target}`, 'error');
-          return;
-        }
+        statResult = statSync(target);
       } catch {
         ctx.ui.notify(`Path not found: ${target}`, 'error');
         return;
       }
 
-      // Create a new session in the target directory's own session folder.
-      // SessionManager.create() derives both the session file path and the
-      // session directory from the target CWD, so everything stays consistent.
+      if (!statResult.isDirectory()) {
+        ctx.ui.notify(`Not a directory: ${target}`, 'error');
+        return;
+      }
+
+      // Create a new session in the target directory using SessionManager.
+      // It derives both the session file path and directory from the target CWD.
       const newSession = SessionManager.create(target);
       const sessionFile = newSession.getSessionFile();
 
@@ -38,14 +39,9 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const sessionId = newSession.getSessionId();
-      const header = {
-        type: "session" as const,
-        version: 3,
-        id: sessionId,
-        timestamp: new Date().toISOString(),
-        cwd: target,
-      };
+      // Serialize the session header using SessionManager's own getter
+      // to keep the metadata consistent with pi's expected format.
+      const header = newSession.getHeader();
 
       // Ensure the target session directory exists
       const sessionDir = newSession.getSessionDir();
@@ -53,7 +49,7 @@ export default function (pi: ExtensionAPI) {
         mkdirSync(sessionDir, { recursive: true });
       }
 
-      writeFileSync(sessionFile, JSON.stringify(header) + "\n", "utf-8");
+      writeFileSync(sessionFile, JSON.stringify(header) + '\n', 'utf-8');
 
       // Switch to the new session — it reads CWD from the header
       const result = await ctx.switchSession(sessionFile, {
