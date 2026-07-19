@@ -1,19 +1,16 @@
 # Pi Agent Guidelines
 
-- The TUI displays thinking traces. Be **concise**: short responses, skip preamble, show results directly — never restate what was already in your thinking trace.
+- The TUI displays thinking traces. Skip preamble, show results directly — never restate what was already in your thinking trace.
 - Responds well to explicit constraints over implicit ones. If a rule is being ignored, re-state it rather than assuming it was forgotten.
 - Prefer structured output (tables, lists, code blocks) over prose paragraphs. Dense text consumes more visible context in the TUI.
 
-## Key Paths (know these up front)
+## Key Paths
 | What | Path |
 |------|------|
 | This file | `~/.pi/agent/AGENTS.md` |
 | Pi settings | `~/.pi/settings.json` |
 | Models config | `~/.pi/agent/models.json` |
 | Session storage | `~/.pi/agent/sessions/` (one dir per project, named with project path) |
-| Pi docs | `/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/docs/` |
-| Pi examples | `/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/examples/` |
-| Pi README | `/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/README.md` |
 
 ## Work Patterns
 
@@ -23,7 +20,7 @@
 3. Use `find` to list relevant source files, not `ls -R`.
 
 ### Plan for scope
-If change touches >3 files or modifies architecture, state the plan in your response before coding. Skip planning for obvious fixes (typo, rename).
+If a change modifies 4+ files or touches core architecture, state the plan in your response before coding. Skip planning for obvious fixes (typo, rename).
 
 ### Implement iteratively
 1. Read the relevant file(s) first — never assume structure.
@@ -39,7 +36,7 @@ Designed to call tools, browse codebases, and iterate. Trust it to call bash/rea
 
 ### When a tool fails
 - Check exit code: `143` = killed (SIGTERM), `130` = interrupted (Ctrl+C).
-- For pi extension issues: check `~/.pi/settings.json` and docs **before** reading dist source files. 353 wasted tool calls taught this the hard way.
+- For pi extension issues: check `~/.pi/settings.json` and docs **before** reading dist source files.
 
 ## Tool Conventions
 
@@ -56,7 +53,3 @@ Designed to call tools, browse codebases, and iterate. Trust it to call bash/rea
 - Write to auto-generated directories (dependencies, caches, build artifacts)
 - Commit/push without user confirmation
 - Modify session storage directly
-
-## Project Conventions
-- Subagents use `checklist.md` in workspace root to track items — update it when completing tasks.
-- Plans live in `plans/` directory. Reference them directly by path, don't search for them.
