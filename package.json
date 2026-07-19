@@ -11,7 +11,7 @@
     "src/",
     ".ext/",
     "scripts/",
-    "SAMPLE_AGENTS.md",
+    "SAMPLE_GLOBAL_AGENTS.md",
     "!tests/"
   ],
   "scripts": {
