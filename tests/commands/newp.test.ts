@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock @earendil-works/pi-coding-agent since it's resolved at runtime by pi
 vi.mock("@earendil-works/pi-coding-agent");
 
-import newpCommand from "./newp";
+import newpCommand from "../../src/commands/newp";
 
 describe("newp command", () => {
   let capturedCommand: { name: string; opts: { description: string; handler: Function } } | null = null;

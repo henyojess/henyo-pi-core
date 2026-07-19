@@ -6,15 +6,25 @@ import { join } from "node:path";
 // Mock @earendil-works/pi-coding-agent since it's resolved at runtime by pi
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   SessionManager: {
-    create: vi.fn((cwd: string) => ({
-      getSessionFile: () => join(cwd, ".pi", "sessions", "test-session.json"),
-      getSessionId: () => "test-session-123",
-      getSessionDir: () => join(cwd, ".pi", "sessions"),
-    })),
+    create: vi.fn((cwd: string) => {
+      // Return null sessionFile for paths containing "fail" to test the error branch
+      if (cwd.includes("session-fail")) {
+        return {
+          getSessionFile: () => null as unknown as string,
+          getSessionId: () => "test-session-123",
+          getSessionDir: () => join(cwd, ".pi", "sessions"),
+        };
+      }
+      return {
+        getSessionFile: () => join(cwd, ".pi", "sessions", "test-session.json"),
+        getSessionId: () => "test-session-123",
+        getSessionDir: () => join(cwd, ".pi", "sessions"),
+      };
+    }),
   },
 }));
 
-import cwdCommand from "./cwd";
+import cwdCommand from "../../src/commands/cwd";
 
 describe("cwd command", () => {
   let capturedCommand: { name: string; opts: { description: string; handler: Function } } | null = null;
@@ -170,5 +180,30 @@ describe("cwd command", () => {
     await capturedCommand!.opts.handler("../nonexistent-dir-xyz", ctx as any);
 
     expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: /root/nonexistent-dir-xyz", "error");
+  });
+
+  it("handles SessionManager returning null sessionFile", async () => {
+    cwdCommand(createMockPi() as any);
+    expect(capturedCommand).not.toBeNull();
+
+    const testCwd = join(tmpdir(), `cwd-test-${Date.now()}`);
+    mkdirSync(testCwd, { recursive: true });
+
+    const targetDir = join(tmpdir(), `session-fail-target-${Date.now()}`);
+    mkdirSync(targetDir, { recursive: true });
+
+    const ctx = {
+      cwd: testCwd,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn(() => Promise.resolve({ cancelled: false })),
+    };
+
+    await capturedCommand!.opts.handler(targetDir, ctx as any);
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith("Failed to create new session", "error");
+
+    // Cleanup
+    rmSync(targetDir, { recursive: true, force: true });
+    rmSync(testCwd, { recursive: true, force: true });
   });
 });
