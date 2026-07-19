@@ -4,15 +4,16 @@
   "description": "Pi coding agent extension - henyo core functionality",
   "private": true,
   "type": "module",
+  "files": [
+    "index.ts",
+    "src/",
+    "!tests/"
+  ],
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run"
   },
   "pi": {
-    "extensions": [
-      "./src/index.ts"
-    ]
+    "extensions": ["./index.ts"]
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",
