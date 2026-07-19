@@ -3,9 +3,13 @@
   "version": "0.1.2",
   "description": "Pi coding agent extension - henyo core functionality",
   "type": "module",
+  "imports": {
+    "#pi-repair-layer": "./.ext/pi-repair-layer/index.ts"
+  },
   "files": [
     "index.ts",
     "src/",
+    ".ext/",
     "scripts/",
     "SAMPLE_AGENTS.md",
     "!tests/"
