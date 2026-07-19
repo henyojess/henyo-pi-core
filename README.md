@@ -2,6 +2,13 @@
 
 Pi coding agent extensions for long-horizon agentic SWE using local models.
 
+## Installation
+
+When installed via `npm install`, the package runs a `postinstall` script that:
+
+1. **Initializes git submodules** — pulls in `@r3b1s/pi-repair-layer` (see [Bundled Extensions](#bundled-extensions)).
+2. **Seeds `~/.pi/agent/AGENTS.md`** — copies `SAMPLE_GLOBAL_AGENTS.md` to your pi config directory on first install only (if the file doesn't already exist). This provides default guidelines for new users.
+
 ## Structure
 
 ```
