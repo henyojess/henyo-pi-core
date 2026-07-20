@@ -49,7 +49,7 @@ henyo-pi-core/
 
 Switch to another project directory and start a new session in the target dir.
 - With no args: shows the current working directory.
-- With a path argument: creates a new session in that directory using `SessionManager`.
+- With a path argument: creates an in-memory session in that directory. The session file is only written to disk when the user sends their first message.
 
 ### `/newp <prompt>`
 
@@ -112,7 +112,7 @@ The extension follows a factory pattern — `src/index.ts` exports a default fun
 
 **Command registration:** Each command lives in its own file under `src/commands/`, exporting a function that accepts the API instance and calls `pi.registerCommand()`.
 
-**Session management:** The `/cwd` command uses `SessionManager.create(target)` which handles path derivation and header serialization, keeping session metadata consistent with pi's expected format.
+**Session management:** The `/cwd` command uses `ctx.newSession()` with `SessionManager.inMemory()` to create an in-memory session. The session is persisted to disk only on the user's first message, avoiding empty session files.
 
 ### Testing
 
