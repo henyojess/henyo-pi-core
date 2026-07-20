@@ -15,20 +15,32 @@ When installed via `npm install`, the package runs a `postinstall` script that:
 henyo-pi-core/
 ├── package.json          # Extension manifest with pi entry point
 ├── .gitignore
+├── .gitmodules           # Git submodule config (pi-repair-layer)
 ├── README.md
+├── SAMPLE_GLOBAL_AGENTS.md  # Default AGENTS.md template (copied on install)
 ├── eslint.config.mjs     # ESLint flat config (style rules + Prettier integration)
 ├── .prettierrc.json      # Prettier configuration
 ├── .prettierignore       # Files to exclude from formatting
 ├── tsconfig.json         # TypeScript compiler options
 ├── vitest.config.ts      # Vitest test runner config
 ├── index.ts              # Re-export for pi extension loading
+├── scripts/
+│   ├── postinstall.cjs   # Postinstall: init submodules + seed AGENTS.md
+│   └── update-submodules.sh  # Helper to update git submodules
 ├── skills/               # Bundled pi skills
-│   └── deep-research/    # Multi-step autonomous research workflow
-└── src/
-    ├── index.ts          # Extension factory (registers commands, tools, events)
-    └── commands/         # Custom slash commands
-        ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
-        └── newp.ts       # /newp: start a new session with an initial prompt
+│   ├── deep-research/    # Multi-step autonomous research workflow
+│   │   └── references/   # Reference docs (evidence collection, report templates, source credibility)
+│   └── plan-generation/  # Structured plan generation for multi-step tasks
+├── src/
+│   ├── index.ts          # Extension factory (registers commands, tools, events)
+│   ├── pi-repair-layer.d.ts  # Type declarations for pi-repair-layer
+│   └── commands/         # Custom slash commands
+│       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
+│       └── newp.ts       # /newp: start a new session with an initial prompt
+└── tests/
+    └── commands/         # Unit tests for command handlers
+        ├── cwd.test.ts
+        └── newp.test.ts
 ```
 
 ## Registered Commands
@@ -51,6 +63,12 @@ user message in the new session.
 A structured methodology for conducting deep, multi-step research. Guides the agent through planning, iterative retrieval, cross-source validation, and synthesis into a structured report with full citations. Use for complex research questions, competitive analysis, literature reviews, or any task requiring thorough investigation beyond a single search.
 
 **Workflow:** Plan → Retrieve → Cross-Validate → Synthesize → Report
+
+### `/skill:plan-generation`
+
+A structured methodology for producing plans that an agent can execute without human clarification. Every plan is a checklist: read, check off steps, commit, verify. Produces plans with measurable acceptance criteria, scope boundaries, dependency ordering, and per-step verification. Use whenever a plan is requested or when a task involves multiple steps, file changes, or dependencies.
+
+**Workflow:** Plan → Execute → Verify
 
 ## Bundled Extensions
 
@@ -78,11 +96,14 @@ git -C .ext/pi-repair-layer pull origin main
 ### Available Scripts
 
 ```bash
-npm test          # Run Vitest unit tests
-npm run lint      # Type-check (tsc) + ESLint style checks
-npm run format    # Check Prettier formatting
-npm run format:fix  # Auto-format with Prettier
-npm test -- --coverage  # Run tests with coverage report (80% thresholds)
+npm test                   # Run Vitest unit tests
+npm run lint               # Type-check (tsc) + ESLint style checks
+npm run lint:fix           # Auto-fix ESLint issues
+npm run format             # Check Prettier formatting
+npm run format:fix         # Auto-format with Prettier
+npm run build              # TypeScript type-check build
+npm run update-submodules  # Update git submodules
+npm test -- --coverage     # Run tests with coverage report (80% thresholds)
 ```
 
 ### Architecture
