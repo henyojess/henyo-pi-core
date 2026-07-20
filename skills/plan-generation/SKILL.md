@@ -57,7 +57,35 @@ Simple list. No diagrams.
 
 One row per thing being changed. Problem and Fix must be specific.
 
-### 5. Steps
+### 5. Documentation Update (when coding changes)
+
+Include this section when the plan modifies source code, tests, config, or any non-doc file.
+
+**When to update:**
+- The plan modifies source code files
+- The plan adds or changes tests
+- The plan modifies configuration files
+- The plan changes behavior or public APIs
+
+**What to update:**
+- README.md — usage, setup, or feature changes
+- SKILL.md — skill description, parameters, or behavior changes
+- API docs — new endpoints, changed signatures, new types
+- Inline comments — complex logic, edge cases, non-obvious behavior
+- Usage examples — new features, changed workflows, new patterns
+
+**Format:**
+
+```
+### 5.x Update Documentation
+- [ ] Update [file path]: [what changed]
+- [ ] Update [file path]: [what changed]
+- [ ] Verify docs build/compile without errors
+```
+
+**Scope boundary:** Do NOT update docs for purely refactoring changes that don't change behavior or public APIs.
+
+### 6. Steps
 
 Each step is a self-contained unit:
 
@@ -77,7 +105,7 @@ Each step is a self-contained unit:
 - [ ] Run `git add` and `git commit -m "[type](scope): [description]"`
 ```
 
-### 6. Checkpoints
+### 7. Checkpoints
 
 ```
 ## Checkpoints
@@ -87,7 +115,7 @@ Each step is a self-contained unit:
 | 1 | [verification] | All green before proceeding |
 ```
 
-### 6. Final Verification
+### 8. Final Verification
 
 ```
 ## Final Verification
@@ -98,7 +126,7 @@ Each step is a self-contained unit:
 - [ ] Git diff shows clean work
 ```
 
-### 7. Meta (optional)
+### 9. Meta (optional)
 
 ```
 ## Dependencies
@@ -122,6 +150,7 @@ Each step is a self-contained unit:
 8. **Each step is self-contained.** Can be executed in isolation and verified.
 9. **Inventory comes before steps.** Agent knows what it's working on before reading instructions.
 10. **Verify before claiming.** Every step ends with a verification command.
+11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
 
 ---
 
@@ -138,6 +167,7 @@ Each step is a self-contained unit:
 | Steps that modify shared state without ordering | Agent creates conflicts |
 | No scope boundaries | Agent does extra work, scope creep |
 | Acceptance criteria requiring human judgment | Agent can't self-verify |
+| Missing doc updates for coding changes | Docs go stale, users can't follow the code |
 
 ---
 
@@ -188,5 +218,6 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
 | 15 | Plan tells agent to be deliberate | Missing discipline reminder ("do not rush", "be deliberate") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
+| 17 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
 
-If any row fails, edit the plan and re-check. Do not present until all 16 pass.
+If any row fails, edit the plan and re-check. Do not present until all 17 pass.
