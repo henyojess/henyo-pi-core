@@ -1,7 +1,7 @@
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { resolve } from 'node:path';
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { statSync } from 'node:fs';
 
 export default function (pi: _ExtensionAPI) {
   pi.registerCommand('cwd', {
@@ -29,32 +29,20 @@ export default function (pi: _ExtensionAPI) {
         return;
       }
 
-      // Create a new session in the target directory using SessionManager.
-      // It derives both the session file path and directory from the target CWD.
-      const newSession = SessionManager.create(target);
-      const sessionFile = newSession.getSessionFile();
+      // Create an in-memory session for the target CWD — no file written until first message.
+      const inMemoryManager = SessionManager.inMemory(target);
 
-      if (!sessionFile) {
-        ctx.ui.notify('Failed to create new session', 'error');
-        return;
-      }
-
-      // Serialize the session header using SessionManager's own getter
-      // to keep the metadata consistent with pi's expected format.
-      const header = newSession.getHeader();
-
-      // Ensure the target session directory exists
-      const sessionDir = newSession.getSessionDir();
-      if (!existsSync(sessionDir)) {
-        mkdirSync(sessionDir, { recursive: true });
-      }
-
-      writeFileSync(sessionFile, JSON.stringify(header) + '\n', 'utf-8');
-
-      // Switch to the new session — it reads CWD from the header
-      const result = await ctx.switchSession(sessionFile, {
+      const result = await ctx.newSession({
+        setup: async (sessionManager) => {
+          // Replace the default manager with our in-memory instance so
+          // the new session uses the target CWD from the header.
+          sessionManager['sessionId'] = inMemoryManager.getSessionId();
+          sessionManager['sessionFile'] = inMemoryManager.getSessionFile();
+          sessionManager['sessionDir'] = inMemoryManager.getSessionDir();
+          sessionManager['cwd'] = target;
+        },
         withSession: async (newCtx) => {
-          newCtx.ui.notify(`Now in: ${newCtx.cwd}`, 'info');
+          newCtx.ui.notify(`Now in: ${target}`, 'info');
         },
       });
 
