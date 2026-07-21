@@ -1,6 +1,6 @@
 ---
 name: notes
-description: Manage ephemeral working notes for tracking context, decisions, and next steps during development sessions. Notes are stored in ~/.pi/agent/notes/ and deleted once an implementation plan exists. Use when capturing transient information that doesn't belong in code or documentation yet.
+description: Use when capturing transient information that doesn't belong in code or documentation yet. Manage ephemeral working notes for tracking context, decisions, and next steps during development. Notes are stored in ~/.pi/agent/notes/ and deleted once a plan exists.
 ---
 
 # Notes Workflow

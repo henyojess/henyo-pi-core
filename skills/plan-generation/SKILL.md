@@ -1,6 +1,6 @@
 ---
 name: plan-generation
-description: Generate structured, executable plans that an agent can follow end-to-end. Produces plans with measurable acceptance criteria, scope boundaries, dependency ordering, and per-step verification. Use whenever a plan is requested or when a task involves multiple steps, file changes, or dependencies.
+description: Use when a plan is requested, a task involves multiple steps or file changes, steps have interdependencies, or verification is required. Generate structured, executable plans with measurable acceptance criteria, scope boundaries, and per-step verification.
 ---
 
 # Plan Generation

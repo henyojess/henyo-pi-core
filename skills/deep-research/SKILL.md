@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Conduct deep, multi-step autonomous research on any topic. Performs iterative web search, multi-source evidence gathering, cross-validation, and produces a structured report with citations. Use for complex research questions, literature reviews, competitive analysis, trend mapping, or any task requiring thorough investigation beyond a single search.
+description: Use when the task requires thorough investigation beyond a single search — complex questions, literature reviews, competitive analysis, or trend mapping. Conduct deep, multi-step autonomous research with iterative web search, multi-source evidence gathering, cross-validation, and structured reports with citations.
 ---
 
 # Deep Research
