@@ -97,7 +97,7 @@ git -C .ext/pi-repair-layer pull origin main
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - Globally installed [Pi coding agent](https://pi.dev) (`npm install -g @earendil-works/pi-coding-agent`)
 
 ### Available Scripts
