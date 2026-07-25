@@ -28,7 +28,11 @@ export default function (pi: _ExtensionAPI) {
   pi.on('resources_discover', async (_event, _ctx) => {
     // Bundle the deep-research skill so it ships with this extension
     return {
-      skillPaths: [extPath('skills', 'deep-research'), extPath('skills', 'plan-generation')],
+      skillPaths: [
+        extPath('skills', 'deep-research'),
+        extPath('skills', 'plan-generation'),
+        extPath('skills', 'notes'),
+      ],
     };
   });
 

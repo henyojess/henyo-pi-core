@@ -30,7 +30,8 @@ henyo-pi-core/
 ├── skills/               # Bundled pi skills
 │   ├── deep-research/    # Multi-step autonomous research workflow
 │   │   └── references/   # Reference docs (evidence collection, report templates, source credibility)
-│   └── plan-generation/  # Structured plan generation for multi-step tasks
+│   ├── plan-generation/  # Structured plan generation for multi-step tasks
+│   └── notes/            # Ephemeral working notes for tracking context and decisions
 ├── src/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
 │   ├── pi-repair-layer.d.ts  # Type declarations for pi-repair-layer
@@ -69,6 +70,12 @@ A structured methodology for conducting deep, multi-step research. Guides the ag
 A structured methodology for producing plans that an agent can execute without human clarification. Every plan is a checklist: read, check off steps, commit, verify. Produces plans with measurable acceptance criteria, scope boundaries, dependency ordering, and per-step verification. Use whenever a plan is requested or when a task involves multiple steps, file changes, or dependencies.
 
 **Workflow:** Plan → Execute → Verify
+
+### `/skill:notes`
+
+A structured approach for creating ephemeral working notes during development sessions. Notes capture context, decisions, and next steps — they are not permanent artifacts. Notes are stored in `~/.pi/agent/notes/` and deleted once an implementation plan exists.
+
+**When to use:** Capturing transient information, tracking decisions, recording blockers, documenting context before a plan is written.
 
 ## Bundled Extensions
 
