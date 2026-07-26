@@ -34,6 +34,7 @@ henyo-pi-core/
 │   └── notes/            # Ephemeral working notes for tracking context and decisions
 ├── src/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
+│   ├── footer.ts         # Compact one-line footer: pwd · branch · context% · model
 │   ├── pi-repair-layer.d.ts  # Type declarations for pi-repair-layer
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
@@ -43,6 +44,20 @@ henyo-pi-core/
         ├── cwd.test.ts
         └── newp.test.ts
 ```
+
+## Custom Footer
+
+A compact one-line footer renders:
+```
+pwd · branch · context% · model
+```
+
+- Segments are separated by `·` (middle dot + space)
+- Hidden segments (no branch, no model) are omitted
+- Model is right-aligned with space padding
+- Context percentage is color-coded: green (<70%), yellow (70–90%), red (>90%)
+- All non-context text is dimmed
+- Truncation: if total width exceeds terminal width, pwd is truncated from the left while the model stays right-aligned
 
 ## Registered Commands
 
