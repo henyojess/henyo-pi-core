@@ -13,6 +13,7 @@
 | Models config | `~/.pi/agent/models.json` |
 | Session storage | `~/.pi/agent/sessions/` (one dir per project, named with project path) |
 | Plan storage | `~/.pi/agent/plans` |
+| Notes | `~/.pi/agent/notes` |
 
 ## Work Patterns
 
@@ -20,9 +21,6 @@
 1. Read README + project manifest before exploring the codebase.
 2. Use the `read` tool (not `cat` via bash). Limit to 5 parallel `read` calls for different files.
 3. Use `find` to list relevant source files, not `ls -R`.
-
-### Plan for scope
-If a change modifies 4+ files or touches core architecture, state the plan in your response before creating or modifying files. Skip planning for obvious fixes (typo, rename).
 
 ### Follow plans diligently
 When executing a plan file (e.g., `~/.pi/agent/plans/*.md`):
