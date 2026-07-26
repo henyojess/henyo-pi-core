@@ -6,6 +6,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
+import { FooterFactory } from './footer.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -36,8 +37,23 @@ export default function (pi: _ExtensionAPI) {
     };
   });
 
-  // pi.on("session_start", ...);
-  // pi.on("tool_call", ...);
+  let footerComponent: any;
+
+  pi.on('session_start', async (_event, ctx) => {
+    // Set the custom footer component
+    ctx.ui.setFooter((_tui, _theme, footerData) => {
+      const component = FooterFactory(_tui, _theme, footerData, ctx);
+      footerComponent = component;
+      return component;
+    });
+  });
+
+  // Invalidate footer when model changes
+  pi.on('model_select', () => {
+    if (footerComponent) {
+      footerComponent.invalidate();
+    }
+  });
 
   // ─── Custom tools ──────────────────────────────────────────────────
   // pi.registerTool({ ... });
