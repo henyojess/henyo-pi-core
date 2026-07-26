@@ -1,6 +1,6 @@
 ---
 name: plan-generation
-description: Use when a plan is requested, a task involves multiple steps or file changes, steps have interdependencies, or verification is required. Generate structured, executable plans with measurable acceptance criteria, scope boundaries, and per-step verification.
+description: Use when a plan is requested, a task involves multiple steps or file changes, steps have interdependencies, or verification is required. Generate structured, executable plans with measurable acceptance criteria, scope boundaries, and per-step verification. ALWAYS use when the user explicitly asks for a plan. When a task is multi-step or complex, default to using this skill rather than skipping it.
 ---
 
 # Plan Generation
