@@ -4,6 +4,7 @@ const { default: toolRepair } = await import('#pi-repair-layer');
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
 import { FooterFactory } from './footer.js';
@@ -34,7 +35,26 @@ export default function (pi: _ExtensionAPI) {
 
   let footerComponent: any;
 
+  // ─── Lazy init: copy SAMPLE_GLOBAL_AGENTS.md on first session ────
+  let agentsMdCopied = false;
+  async function ensureAgentsMd() {
+    if (agentsMdCopied) return;
+    agentsMdCopied = true;
+    const src = extPath('SAMPLE_GLOBAL_AGENTS.md');
+    const home = process.env.HOME || process.env.USERPROFILE || '';
+    const dst = join(home, '.pi', 'agent', 'AGENTS.md');
+    try {
+      if (!fs.existsSync(dst) && fs.existsSync(src)) {
+        fs.mkdirSync(join(home, '.pi', 'agent'), { recursive: true });
+        fs.copyFileSync(src, dst);
+      }
+    } catch {
+      // Silently fail — don't break sessions if copy fails
+    }
+  }
+
   pi.on('session_start', async (_event, ctx) => {
+    await ensureAgentsMd();
     // Set the custom footer component
     ctx.ui.setFooter((_tui, _theme, footerData) => {
       const component = FooterFactory(_tui, _theme, footerData, ctx);
