@@ -10,15 +10,15 @@ import type {
 
 /**
  * A compact one-line footer component that renders:
- *   pwd · branch · context% · model
+ *   model · context% · pwd · branch
  *
  * Segments are separated by `· ` (middle dot + space).
- * Hidden segments (no branch, no model) are omitted entirely.
- * Model is right-aligned with space padding.
+ * Hidden segments (no branch) are omitted entirely.
+ * Model is left-aligned (always visible on the left).
  * Context percentage is color-coded: green (<70%), yellow (70-90%), red (>90%).
- * All non-context text is dimmed.
- * Truncation: if total width > terminal width, truncate from the left (pwd goes first),
- *   model stays right-aligned.
+ * All non-model text is dimmed.
+ * Truncation: when space is tight, pwd and branch are truncated from the right,
+ *   model and context stay visible on the left.
  */
 class FooterComponent implements Component {
   private _focused = false;
@@ -98,6 +98,8 @@ class FooterComponent implements Component {
 
   /**
    * Build the rendered footer line.
+   * Layout: model · context% · pwd · branch
+   * Model is left-aligned (always visible). Cwd/branch grow from the right.
    * @param width - Available terminal width
    */
   private buildLine(width: number): string {
@@ -109,58 +111,55 @@ class FooterComponent implements Component {
     const contextUsage = this.getContextUsage();
     const model = this.getModel();
 
-    // Build right content (context + model)
-    let rightContent = theme.fg('dim', model);
-    let rightWidth = visibleWidth(model);
+    // ── Build left content (model · context%) ─────────────────────────
+    let leftContent = theme.fg('dim', model);
+    let leftWidth = visibleWidth(model);
     if (contextUsage) {
+      let ctxStr: string;
+      let ctxColor: 'dim' | 'success' | 'warning' | 'error' = 'dim';
       if (contextUsage.tokens !== null && contextUsage.percent !== null) {
         const tokensK = contextUsage.tokens >= 1000 ? `${Math.round(contextUsage.tokens / 1000)}k` : contextUsage.tokens;
-        const ctxStr = `${Math.round(contextUsage.percent)}%/${tokensK}`;
+        ctxStr = `${Math.round(contextUsage.percent)}%/${tokensK}`;
         const pct = Math.round(contextUsage.percent);
-        if (pct < 70) {
-          rightContent = theme.fg('success', ctxStr) + '·' + rightContent;
-        } else if (pct < 90) {
-          rightContent = theme.fg('warning', ctxStr) + '·' + rightContent;
-        } else {
-          rightContent = theme.fg('error', ctxStr) + '·' + rightContent;
-        }
-        rightWidth += visibleWidth(ctxStr) + 1;
+        if (pct < 70) ctxColor = 'success';
+        else if (pct < 90) ctxColor = 'warning';
+        else ctxColor = 'error';
       } else {
         const ctxWindow = contextUsage.contextWindow >= 1000
           ? `${Math.round(contextUsage.contextWindow / 1000)}k`
           : contextUsage.contextWindow;
-        const ctxStr = `?/${ctxWindow}`;
-        rightContent = theme.fg('dim', ctxStr) + '·' + rightContent;
-        rightWidth += visibleWidth(ctxStr) + 1;
+        ctxStr = `?/${ctxWindow}`;
       }
+      leftContent = leftContent + '·' + theme.fg(ctxColor, ctxStr);
+      leftWidth += 1 + visibleWidth(ctxStr);
     }
 
-    // Available width for left part (cwd·branch)
-    const availableLeftWidth = Math.max(0, width - rightWidth);
-
+    // ── Build right content (pwd · branch) ────────────────────────────
     const cwdFor = (idx: number): string => {
       const parts = cwdParts.slice(idx).join('/');
       return idx === 0 ? '/' + parts : parts;
     };
 
     if (!branch) {
-      // No branch — just show cwd
+      // No branch — just cwd, right-aligned
       let bestCwdIdx = cwdParts.length - 1;
       for (let i = cwdParts.length - 1; i >= 0; i--) {
         const cwdCandidate = cwdFor(i);
         const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-        if (cwdWidth <= availableLeftWidth) {
+        if (cwdWidth <= width - leftWidth) {
           bestCwdIdx = i;
         } else {
           break;
         }
       }
       const cwdCandidate = cwdFor(bestCwdIdx);
-      const padding = Math.max(0, availableLeftWidth - visibleWidth(theme.fg('dim', cwdCandidate)));
-      return cwdCandidate + ' '.repeat(padding) + rightContent;
+      const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
+      const padding = Math.max(0, width - leftWidth - cwdWidth);
+      return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate);
     }
 
-    // Start with minimum cwd (last segment), grow left while maintaining padding >= 1
+    // Branch present — cwd · branch, right-aligned
+    // Start with minimum cwd (last segment), grow left
     let bestCwdIdx = cwdParts.length - 1;
     let bestPadding = 0;
 
@@ -169,19 +168,14 @@ class FooterComponent implements Component {
       const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
       const branchWidth = visibleWidth(theme.fg('dim', branch));
       const totalWidth = cwdWidth + 1 + branchWidth;
-      const padding = availableLeftWidth - totalWidth;
+      const padding = (width - leftWidth) - totalWidth;
 
       if (padding >= 1) {
         bestCwdIdx = i;
         bestPadding = padding;
       } else if (padding === 0 && bestCwdIdx === i) {
-        // First iteration with padding 0 — keep but mark for truncation
         bestPadding = 0;
-      } else if (padding < 0) {
-        // Can't fit, stop
-        break;
       } else {
-        // padding < 0 but we already found a better cwd, stop
         break;
       }
     }
@@ -194,15 +188,15 @@ class FooterComponent implements Component {
 
     // If padding is 0, truncate branch to ensure padding >= 1
     if (bestPadding === 0) {
-      const maxBranchWidth = availableLeftWidth - cwdWidth - 1 - 1; // -1 for padding
+      const maxBranchWidth = (width - leftWidth) - cwdWidth - 1 - 1;
       if (maxBranchWidth > 0) {
         finalBranch = truncateToWidth(branch, maxBranchWidth, '');
         finalBranchWidth = visibleWidth(finalBranch);
       }
     }
 
-    const padding = Math.max(0, availableLeftWidth - cwdWidth - 1 - finalBranchWidth);
-    return cwdCandidate + '·' + finalBranch + ' '.repeat(padding) + rightContent;
+    const padding = Math.max(0, (width - leftWidth) - cwdWidth - 1 - finalBranchWidth);
+    return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate) + '·' + finalBranch;
   }
 
   /** Render the footer as a single line. */
