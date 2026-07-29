@@ -98,8 +98,8 @@ class FooterComponent implements Component {
 
   /**
    * Build the rendered footer line.
-   * Layout: model · context% · pwd · branch
-   * Model is left-aligned (always visible). Cwd/branch grow from the right.
+   * Layout: model · context% · pwd · branch (no padding between segments).
+   * Model is left-aligned (always visible). Cwd and branch flow immediately after model/context.
    * @param width - Available terminal width
    */
   private buildLine(width: number): string {
@@ -144,63 +144,45 @@ class FooterComponent implements Component {
       return idx === 0 ? '/' + parts : parts;
     };
 
+    const cwdStyled = (cwdIdx: number): string => {
+      const segments = cwdParts.slice(cwdIdx);
+      if (segments.length <= 1) return theme.fg('text', segments[0] || '/');
+      const prefix = (cwdIdx === 0 ? '/' : '') + segments.slice(0, -1).join('/') + '/';
+      const last = segments[segments.length - 1];
+      return theme.fg('dim', prefix) + theme.fg('text', last);
+    };
+
     if (!branch) {
       // No branch — just cwd, right-aligned
       let bestCwdIdx = cwdParts.length - 1;
       for (let i = cwdParts.length - 1; i >= 0; i--) {
         const cwdCandidate = cwdFor(i);
-        const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-        if (cwdWidth <= width - leftWidth) {
+        const cwdWidth = visibleWidth(cwdStyled(i));
+        if (cwdWidth + 1 <= width - leftWidth) {
           bestCwdIdx = i;
         } else {
           break;
         }
       }
-      const cwdCandidate = cwdFor(bestCwdIdx);
-      const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-      const padding = Math.max(0, width - leftWidth - cwdWidth);
-      return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate);
+      return leftContent + '·' + cwdStyled(bestCwdIdx);
     }
 
-    // Branch present — cwd · branch, right-aligned
+    // Branch present — cwd · branch, no padding
     // Start with minimum cwd (last segment), grow left
     let bestCwdIdx = cwdParts.length - 1;
-    let bestPadding = 0;
 
     for (let i = cwdParts.length - 1; i >= 0; i--) {
-      const cwdCandidate = cwdFor(i);
-      const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
+      const cwdWidth = visibleWidth(cwdStyled(i));
       const branchWidth = visibleWidth(theme.fg('dim', branch));
-      const totalWidth = cwdWidth + 1 + branchWidth;
-      const padding = width - leftWidth - totalWidth;
 
-      if (padding >= 1) {
+      if (cwdWidth + 1 + 1 + branchWidth <= width - leftWidth) {
         bestCwdIdx = i;
-        bestPadding = padding;
-      } else if (padding === 0 && bestCwdIdx === i) {
-        bestPadding = 0;
       } else {
         break;
       }
     }
 
-    const cwdCandidate = cwdFor(bestCwdIdx);
-    const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-
-    let finalBranch = branch;
-    let finalBranchWidth = visibleWidth(theme.fg('dim', branch));
-
-    // If padding is 0, truncate branch to ensure padding >= 1
-    if (bestPadding === 0) {
-      const maxBranchWidth = width - leftWidth - cwdWidth - 1 - 1;
-      if (maxBranchWidth > 0) {
-        finalBranch = truncateToWidth(branch, maxBranchWidth, '');
-        finalBranchWidth = visibleWidth(finalBranch);
-      }
-    }
-
-    const padding = Math.max(0, width - leftWidth - cwdWidth - 1 - finalBranchWidth);
-    return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate) + '·' + finalBranch;
+    return leftContent + '·' + cwdStyled(bestCwdIdx) + '·' + theme.fg('dim', branch);
   }
 
   /** Render the footer as a single line. */
