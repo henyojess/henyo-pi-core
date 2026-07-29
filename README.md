@@ -100,6 +100,90 @@ The submodule is pinned to a specific upstream commit. Update with:
 git -C .ext/pi-repair-layer pull origin main
 ```
 
+## Settings
+
+All henyo-pi-core features can be individually enabled or disabled via a `henyo` block in `~/.pi/agent/settings.json`. The block is created automatically on first load with all features enabled.
+
+### Feature Toggles
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `toolRepair` | `boolean` | `true` | Validate and repair malformed tool calls from LLMs |
+| `footer` | `boolean` | `true` | Render compact one-line footer (pwd · branch · context% · model) |
+| `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first install |
+| `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |
+| `commands.<name>` | `boolean` | `true` | Enable/disable individual custom commands |
+
+### Nested Keys
+
+**Skills:**
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `plan-generation` | `true` | Structured plan generation for multi-step tasks |
+| `notes` | `true` | Ephemeral working notes for tracking context and decisions |
+
+**Commands:**
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `cwd` | `true` | `/cwd` — switch project directory |
+| `newp` | `true` | `/newp` — start a new session with an initial prompt |
+
+### Example Configuration
+
+```json
+{
+  "henyo": {
+    "toolRepair": true,
+    "footer": true,
+    "agentsMd": true,
+    "skills": {
+      "plan-generation": true,
+      "notes": false
+    },
+    "commands": {
+      "cwd": true,
+      "newp": false
+    }
+  }
+}
+```
+
+To disable only the notes skill:
+
+```json
+{
+  "henyo": {
+    "skills": {
+      "notes": false
+    }
+  }
+}
+```
+
+To disable all henyo features:
+
+```json
+{
+  "henyo": {
+    "toolRepair": false,
+    "footer": false,
+    "agentsMd": false,
+    "skills": {
+      "plan-generation": false,
+      "notes": false
+    },
+    "commands": {
+      "cwd": false,
+      "newp": false
+    }
+  }
+}
+```
+
+**Note:** When the `henyo` block is absent from `settings.json`, all features remain enabled (default behavior unchanged).
+
 ## Development
 
 ### Prerequisites

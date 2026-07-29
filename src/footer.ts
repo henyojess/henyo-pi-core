@@ -118,16 +118,20 @@ class FooterComponent implements Component {
       let ctxStr: string;
       let ctxColor: 'dim' | 'success' | 'warning' | 'error' = 'dim';
       if (contextUsage.tokens !== null && contextUsage.percent !== null) {
-        const tokensK = contextUsage.tokens >= 1000 ? `${Math.round(contextUsage.tokens / 1000)}k` : contextUsage.tokens;
+        const tokensK =
+          contextUsage.tokens >= 1000
+            ? `${Math.round(contextUsage.tokens / 1000)}k`
+            : contextUsage.tokens;
         ctxStr = `${Math.round(contextUsage.percent)}%/${tokensK}`;
         const pct = Math.round(contextUsage.percent);
         if (pct < 70) ctxColor = 'success';
         else if (pct < 90) ctxColor = 'warning';
         else ctxColor = 'error';
       } else {
-        const ctxWindow = contextUsage.contextWindow >= 1000
-          ? `${Math.round(contextUsage.contextWindow / 1000)}k`
-          : contextUsage.contextWindow;
+        const ctxWindow =
+          contextUsage.contextWindow >= 1000
+            ? `${Math.round(contextUsage.contextWindow / 1000)}k`
+            : contextUsage.contextWindow;
         ctxStr = `?/${ctxWindow}`;
       }
       leftContent = leftContent + '·' + theme.fg(ctxColor, ctxStr);
@@ -168,7 +172,7 @@ class FooterComponent implements Component {
       const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
       const branchWidth = visibleWidth(theme.fg('dim', branch));
       const totalWidth = cwdWidth + 1 + branchWidth;
-      const padding = (width - leftWidth) - totalWidth;
+      const padding = width - leftWidth - totalWidth;
 
       if (padding >= 1) {
         bestCwdIdx = i;
@@ -188,14 +192,14 @@ class FooterComponent implements Component {
 
     // If padding is 0, truncate branch to ensure padding >= 1
     if (bestPadding === 0) {
-      const maxBranchWidth = (width - leftWidth) - cwdWidth - 1 - 1;
+      const maxBranchWidth = width - leftWidth - cwdWidth - 1 - 1;
       if (maxBranchWidth > 0) {
         finalBranch = truncateToWidth(branch, maxBranchWidth, '');
         finalBranchWidth = visibleWidth(finalBranch);
       }
     }
 
-    const padding = Math.max(0, (width - leftWidth) - cwdWidth - 1 - finalBranchWidth);
+    const padding = Math.max(0, width - leftWidth - cwdWidth - 1 - finalBranchWidth);
     return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate) + '·' + finalBranch;
   }
 
