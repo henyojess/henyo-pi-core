@@ -173,16 +173,32 @@ class FooterComponent implements Component {
 
     for (let i = cwdParts.length - 1; i >= 0; i--) {
       const cwdWidth = visibleWidth(cwdStyled(i));
-      const branchWidth = visibleWidth(theme.fg('dim', branch));
+      const branchWidth = visibleWidth(theme.fg('dim', '(' + branch + ')'));
 
-      if (cwdWidth + 1 + 1 + branchWidth <= width - leftWidth) {
+      if (cwdWidth + 1 + 2 + branchWidth <= width - leftWidth) {
         bestCwdIdx = i;
       } else {
         break;
       }
     }
 
-    return leftContent + '·' + cwdStyled(bestCwdIdx) + '·' + theme.fg('dim', branch);
+    const cwdWidth = visibleWidth(cwdStyled(bestCwdIdx));
+    const branchWithParens = '(' + branch + ')';
+    const branchWidth = visibleWidth(branchWithParens);
+    const available = width - leftWidth - 1 - cwdWidth;
+
+    let finalBranch = branchWithParens;
+    if (branchWidth > available) {
+      // Truncate branch to fit, preserving parens and adding ellipsis
+      const maxBranch = available - 5; // leave room for (...)
+      if (maxBranch > 0) {
+        finalBranch = '(' + truncateToWidth(branch, maxBranch, '') + '...)';
+      } else {
+        finalBranch = '(...)';
+      }
+    }
+
+    return leftContent + '·' + cwdStyled(bestCwdIdx) + theme.fg('dim', finalBranch);
   }
 
   /** Render the footer as a single line. */
