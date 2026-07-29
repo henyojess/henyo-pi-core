@@ -98,8 +98,8 @@ class FooterComponent implements Component {
 
   /**
    * Build the rendered footer line.
-   * Layout: model · context% · pwd · branch
-   * Model is left-aligned (always visible). Cwd/branch grow from the right.
+   * Layout: model · context% · pwd · branch (no padding between segments).
+   * Model is left-aligned (always visible). Cwd and branch flow immediately after model/context.
    * @param width - Available terminal width
    */
   private buildLine(width: number): string {
@@ -116,7 +116,7 @@ class FooterComponent implements Component {
     let leftWidth = visibleWidth(model);
     if (contextUsage) {
       let ctxStr: string;
-      let ctxColor: 'dim' | 'success' | 'warning' | 'error' = 'dim';
+      let ctxColor: 'text' | 'warning' | 'error' = 'text';
       if (contextUsage.tokens !== null && contextUsage.percent !== null) {
         const tokensK =
           contextUsage.tokens >= 1000
@@ -124,9 +124,8 @@ class FooterComponent implements Component {
             : contextUsage.tokens;
         ctxStr = `${Math.round(contextUsage.percent)}%/${tokensK}`;
         const pct = Math.round(contextUsage.percent);
-        if (pct < 70) ctxColor = 'success';
-        else if (pct < 90) ctxColor = 'warning';
-        else ctxColor = 'error';
+        if (pct >= 50 && pct < 81) ctxColor = 'warning';
+        else if (pct >= 81) ctxColor = 'error';
       } else {
         const ctxWindow =
           contextUsage.contextWindow >= 1000
@@ -144,63 +143,61 @@ class FooterComponent implements Component {
       return idx === 0 ? '/' + parts : parts;
     };
 
+    const cwdStyled = (cwdIdx: number): string => {
+      const segments = cwdParts.slice(cwdIdx);
+      if (segments.length <= 1) return theme.fg('text', segments[0] || '/');
+      const prefix = (cwdIdx === 0 ? '/' : '') + segments.slice(0, -1).join('/') + '/';
+      const last = segments[segments.length - 1];
+      return theme.fg('dim', prefix) + theme.fg('text', last);
+    };
+
     if (!branch) {
       // No branch — just cwd, right-aligned
       let bestCwdIdx = cwdParts.length - 1;
       for (let i = cwdParts.length - 1; i >= 0; i--) {
         const cwdCandidate = cwdFor(i);
-        const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-        if (cwdWidth <= width - leftWidth) {
+        const cwdWidth = visibleWidth(cwdStyled(i));
+        if (cwdWidth + 1 <= width - leftWidth) {
           bestCwdIdx = i;
         } else {
           break;
         }
       }
-      const cwdCandidate = cwdFor(bestCwdIdx);
-      const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-      const padding = Math.max(0, width - leftWidth - cwdWidth);
-      return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate);
+      return leftContent + '·' + cwdStyled(bestCwdIdx);
     }
 
-    // Branch present — cwd · branch, right-aligned
+    // Branch present — cwd · branch, no padding
     // Start with minimum cwd (last segment), grow left
     let bestCwdIdx = cwdParts.length - 1;
-    let bestPadding = 0;
 
     for (let i = cwdParts.length - 1; i >= 0; i--) {
-      const cwdCandidate = cwdFor(i);
-      const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
-      const branchWidth = visibleWidth(theme.fg('dim', branch));
-      const totalWidth = cwdWidth + 1 + branchWidth;
-      const padding = width - leftWidth - totalWidth;
+      const cwdWidth = visibleWidth(cwdStyled(i));
+      const branchWidth = visibleWidth(theme.fg('dim', '(' + branch + ')'));
 
-      if (padding >= 1) {
+      if (cwdWidth + 1 + 2 + branchWidth <= width - leftWidth) {
         bestCwdIdx = i;
-        bestPadding = padding;
-      } else if (padding === 0 && bestCwdIdx === i) {
-        bestPadding = 0;
       } else {
         break;
       }
     }
 
-    const cwdCandidate = cwdFor(bestCwdIdx);
-    const cwdWidth = visibleWidth(theme.fg('dim', cwdCandidate));
+    const cwdWidth = visibleWidth(cwdStyled(bestCwdIdx));
+    const branchWithParens = '(' + branch + ')';
+    const branchWidth = visibleWidth(branchWithParens);
+    const available = width - leftWidth - 1 - cwdWidth;
 
-    let finalBranch = branch;
-    let finalBranchWidth = visibleWidth(theme.fg('dim', branch));
-
-    // If padding is 0, truncate branch to ensure padding >= 1
-    if (bestPadding === 0) {
-      const maxBranchWidth = width - leftWidth - cwdWidth - 1 - 1;
-      if (maxBranchWidth > 0) {
-        finalBranch = truncateToWidth(branch, maxBranchWidth, '');
-        finalBranchWidth = visibleWidth(finalBranch);
+    let finalBranch = branchWithParens;
+    if (branchWidth > available) {
+      // Truncate branch to fit, preserving parens and adding ellipsis
+      const maxBranch = available - 5; // leave room for (...)
+      if (maxBranch > 0) {
+        finalBranch = '(' + truncateToWidth(branch, maxBranch, '') + '...)';
+      } else {
+        finalBranch = '(...)';
       }
     }
 
-    const padding = Math.max(0, width - leftWidth - cwdWidth - 1 - finalBranchWidth);
-    return leftContent + ' '.repeat(padding) + theme.fg('dim', cwdCandidate) + '·' + finalBranch;
+    return leftContent + '·' + cwdStyled(bestCwdIdx) + theme.fg('dim', finalBranch);
   }
 
   /** Render the footer as a single line. */
