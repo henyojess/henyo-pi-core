@@ -116,7 +116,7 @@ class FooterComponent implements Component {
     let leftWidth = visibleWidth(model);
     if (contextUsage) {
       let ctxStr: string;
-      let ctxColor: 'dim' | 'success' | 'warning' | 'error' = 'dim';
+      let ctxColor: 'text' | 'warning' | 'error' = 'text';
       if (contextUsage.tokens !== null && contextUsage.percent !== null) {
         const tokensK =
           contextUsage.tokens >= 1000
@@ -124,9 +124,8 @@ class FooterComponent implements Component {
             : contextUsage.tokens;
         ctxStr = `${Math.round(contextUsage.percent)}%/${tokensK}`;
         const pct = Math.round(contextUsage.percent);
-        if (pct < 70) ctxColor = 'success';
-        else if (pct < 90) ctxColor = 'warning';
-        else ctxColor = 'error';
+        if (pct >= 50 && pct < 81) ctxColor = 'warning';
+        else if (pct >= 81) ctxColor = 'error';
       } else {
         const ctxWindow =
           contextUsage.contextWindow >= 1000
