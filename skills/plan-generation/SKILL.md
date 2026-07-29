@@ -18,6 +18,9 @@ Instruct the agent how to execute the plan:
 ```
 ## How to Use This Plan
 
+> **Execution Discipline — read before starting.**
+> Mark each checkbox **immediately after completing that sub-step**, not at the end. Do not batch-mark. Each `[x]` is a record, not a pre-commitment. One sub-step at a time — discipline over momentum.
+
 ### Execution Loop (per sub-step)
 1. Find the first unchecked `[ ]` sub-step in the current step.
 2. Do the work described in that sub-step.
@@ -87,7 +90,7 @@ Include this section when the plan modifies source code, tests, config, or any n
 
 ### 6. Steps
 
-Each step is a self-contained unit:
+Each step is a self-contained unit. Every sub-step includes a mandatory plan-marking sub-step:
 
 ```
 ## - [ ] Step N: [What] → [Result]
@@ -97,8 +100,8 @@ Each step is a self-contained unit:
 **Scope:** [what NOT to do]
 
 ### N.x [Sub-task]
-- [ ] [action]
-- [ ] [action]
+- [ ] [action] — do the work
+  - [ ] Mark [x] in plan file with implementation notes (details, deviations, assumptions)
 
 ### N.x Verify + commit
 - [ ] [verification command] passes
@@ -218,6 +221,8 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
 | 15 | Plan tells agent to be deliberate | Missing discipline reminder ("do not rush", "be deliberate") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
-| 17 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
+| 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
+| 18 | Every sub-step has mandatory plan-marking sub-step | Missing "Mark [x] in plan file" sub-sub-step |
+| 19 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
 
-If any row fails, edit the plan and re-check. Do not present until all 17 pass.
+If any row fails, edit the plan and re-check. Do not present until all 19 pass.
