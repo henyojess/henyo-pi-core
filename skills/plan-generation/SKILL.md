@@ -21,6 +21,10 @@ Instruct the agent how to execute the plan:
 > **Execution Discipline — read before starting.**
 > Mark each checkbox **immediately after completing that sub-step**, not at the end. Do not batch-mark. Each `[x]` is a record, not a pre-commitment. One sub-step at a time — discipline over momentum.
 
+## Before You Start
+
+Read this entire plan. Then state how you will work with it.
+
 ### Execution Loop (per sub-step)
 1. Find the first unchecked `[ ]` sub-step in the current step.
 2. Do the work described in that sub-step.
@@ -30,10 +34,13 @@ Instruct the agent how to execute the plan:
 
 ### Discipline
 - Mark each checkbox **right after completing that sub-step**, not at the end of the step.
+  - If the session is interrupted, the plan file reflects actual progress and work can resume without re-doing anything.
 - Add implementation details, deviations, and assumptions alongside the marked sub-step.
+  - This preserves context for anyone (or any session) that picks up the work later.
 - Do not batch-mark checkboxes. Each `[x]` is a record, not a pre-commitment.
-- If a sub-step is unclear, stop and ask. Do not guess.
+  - Batching creates false progress — you haven't actually verified the work is done.
 - One sub-step at a time. It is better to do one correctly than five poorly.
+  - Doing five poorly means five things to fix. Doing one correctly means one thing done.
 ```
 ### 2. Goal (1 line)
 
