@@ -97,7 +97,7 @@ Include this section when the plan modifies source code, tests, config, or any n
 
 ### 6. Steps
 
-Each step is a self-contained unit. Every sub-step includes a mandatory plan-marking sub-step:
+Each step is a self-contained unit. Mark checkboxes as you complete each sub-step (see Discipline section for process):
 
 ```
 ## - [ ] Step N: [What] → [Result]
@@ -108,7 +108,6 @@ Each step is a self-contained unit. Every sub-step includes a mandatory plan-mar
 
 ### N.x [Sub-task]
 - [ ] [action] — do the work
-  - [ ] Mark [x] in plan file with implementation notes (details, deviations, assumptions)
 
 ### N.x Verify + commit
 - [ ] [verification command] passes
@@ -229,7 +228,6 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 15 | Plan tells agent to be deliberate | Missing discipline reminder ("do not rush", "be deliberate") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
 | 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
-| 18 | Every sub-step has mandatory plan-marking sub-step | Missing "Mark [x] in plan file" sub-sub-step |
-| 19 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
+| 18 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
 
-If any row fails, edit the plan and re-check. Do not present until all 19 pass.
+If any row fails, edit the plan and re-check. Do not present until all 18 pass.
