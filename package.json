@@ -3,14 +3,10 @@
   "version": "0.1.6",
   "description": "Pi coding agent extension - henyo core functionality",
   "type": "module",
-  "imports": {
-    "#pi-repair-layer": "./.ext/pi-repair-layer/index.ts"
-  },
   "files": [
     "index.ts",
     "src/",
     "skills/",
-    ".ext/",
     "scripts/",
     "SAMPLE_GLOBAL_AGENTS.md",
     "!tests/"
@@ -42,6 +38,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "prettier": "^3.9.5",
+    "typebox": "^1.1.38",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   }
