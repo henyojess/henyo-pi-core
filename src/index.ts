@@ -1,7 +1,7 @@
-// @ts-nocheck — vendored submodule (.ext/pi-repair-layer) has its own build/dependencies
-/* eslint-disable no-undef */
-// Dynamic import avoids TypeScript following the vendored submodule chain
-const { default: toolRepair } = await import('#pi-repair-layer');
+// @ts-nocheck — pre-existing type issues in this file
+// Inline modular repair layer
+
+import toolRepairExtension from './tool-repair/index.js';
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -131,7 +131,7 @@ export default function (pi: _ExtensionAPI) {
 
   // ─── Tool repair (must run first — overrides built-in tools) ────────
   if (henyoSettings.toolRepair !== false) {
-    toolRepair(pi);
+    toolRepairExtension(pi);
   }
 
   // ─── Event subscriptions ───────────────────────────────────────────

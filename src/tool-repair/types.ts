@@ -96,10 +96,14 @@ export interface TelemetryRecord {
   ts: string;
   tool?: string;
   model: string | undefined;
-  outcome: "repaired" | "unrepairable";
+  outcome: "repaired" | "unrepairable" | "recovered" | "stripped";
   rules: string[];
   issues?: string;
   fingerprint?: string;
+  /** "tool" (default) or "message" channel. */
+  channel?: "tool" | "message";
+  /** Grammar family for recovered/stripped events. */
+  grammar?: string;
 }
 
 // ---------------------------------------------------------------------------
