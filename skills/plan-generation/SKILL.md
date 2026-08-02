@@ -160,6 +160,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 9. **Inventory comes before steps.** Agent knows what it's working on before reading instructions.
 10. **Verify before claiming.** Every step ends with a verification command.
 11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
+12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory.
 
 ---
 
@@ -198,7 +199,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md`
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (absolute path: `/home/node/.pi/agent/plans/<name>.md`)
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user
@@ -229,5 +230,6 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
 | 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
 | 18 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
+| 19 | Plan saved to correct location | Plan was written to `~/.pi/agent/plans/`, not `/tmp` |
 
-If any row fails, edit the plan and re-check. Do not present until all 18 pass.
+If any row fails, edit the plan and re-check. Do not present until all 19 pass.

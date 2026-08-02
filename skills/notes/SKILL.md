@@ -34,7 +34,7 @@ Key observations, findings, or decisions. Use lists and tables.
 ## Rules
 
 - **Lowercase-slug filenames:** e.g., `fix-auth-timeout.md`, not `Fix Auth Timeout.md`
-- **Notes are ephemeral:** Delete once an implementation plan exists in `~/.pi/agent/plans/`
+- **Notes are ephemeral:** Delete once an implementation plan exists in `~/.pi/agent/plans/` (absolute: `/home/node/.pi/agent/plans/`)
 - **Location:** `~/.pi/agent/notes/`
 - **One note per file:** Each note addresses a single topic or problem
 
