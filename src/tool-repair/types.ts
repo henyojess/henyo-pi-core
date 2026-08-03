@@ -107,28 +107,6 @@ export interface TelemetryRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Value-strips types (pre-pass before the engine)
-// ---------------------------------------------------------------------------
-
-/**
- * Result of the value-strips pre-pass (anchor bleed, grammar token leaks).
- */
-export interface StripResult {
-  changed: boolean;
-  rules: string[];
-  notes: string[];
-}
-
-/**
- * Signature for a value-strips function that mutates input in place.
- */
-export type StripFunction = (
-  input: Record<string, unknown>,
-  toolName: string,
-  modelId?: string,
-) => StripResult;
-
-// ---------------------------------------------------------------------------
 // Settings types
 // ---------------------------------------------------------------------------
 
