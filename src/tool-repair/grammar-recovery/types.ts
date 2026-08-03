@@ -99,5 +99,12 @@ export interface GrammarRecoveryResult {
 /** All grammar families, used as the default when no filter is provided. */
 const ALL_GRAMMARS = [...GRAMMAR_NAMES];
 
-export { Candidate, Range, Candidate as CandidateType, Range as RangeType };
+export {
+  Candidate,
+  Range,
+  MinimalTextContent,
+  MinimalThinkingContent,
+  MinimalToolCallContent,
+  MinimalAssistantContent,
+};
 export { ALL_GRAMMARS };
