@@ -4,7 +4,7 @@ import {
   recoverGrammarLeaks,
   parseToolGrammarLeaks,
   GRAMMAR_NAMES,
-} from "../../src/tool-repair/grammar-recovery.js";
+} from "../../src/tool-repair/grammar-recovery/index.js";
 
 describe("grammar recovery", () => {
   describe("modelLeaksGrammar", () => {

@@ -36,7 +36,7 @@ import {
   type GrammarRecoveryMode,
   type MinimalAssistantMessage,
   type RecoveredToolCall,
-} from "./grammar-recovery.js";
+} from "./grammar-recovery/index.js";
 
 // ---------------------------------------------------------------------------
 // Built-in tool factories
