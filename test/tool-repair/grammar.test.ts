@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   modelLeaksGrammar,
   recoverGrammarLeaks,
+  parseToolGrammarLeaks,
   GRAMMAR_NAMES,
 } from "../../src/tool-repair/grammar-recovery.js";
 
