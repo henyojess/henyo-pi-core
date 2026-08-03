@@ -326,6 +326,57 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+// ─── Pythonic call parsing (shared by olmo, llama, granite) ──────────────────
+
+function parsePythonicCalls(
+  text: string,
+): Array<Omit<Candidate, "range" | "grammar">> {
+  const calls: Array<Omit<Candidate, "range" | "grammar">> = [];
+  const re = /(?:^|\n)\s*([A-Za-z_][\w.-]*)\s*\(/g;
+  for (const match of text.matchAll(re)) {
+    if (match.index === undefined) continue;
+    const name = match[1];
+    const openParen = match.index + match[0].lastIndexOf("(");
+    const closeParen = findMatching(text, openParen, "(", ")");
+    if (closeParen === undefined) continue;
+    const argsText = text.slice(openParen + 1, closeParen);
+    calls.push({ name, arguments: parseKeywordArguments(argsText) });
+  }
+  return calls;
+}
+
+function parseKeywordArguments(text: string): Record<string, unknown> {
+  const args: Record<string, unknown> = {};
+  for (const part of splitTopLevel(text, ",")) {
+    const eq = findTopLevelChar(part, "=");
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim();
+    if (!/^[A-Za-z_][\w.-]*$/.test(key)) continue;
+    args[key] = parsePythonishValue(part.slice(eq + 1).trim());
+  }
+  return args;
+}
+
+function parsePythonishValue(raw: string): unknown {
+  const trimmed = raw.trim();
+  if (trimmed === "True") return true;
+  if (trimmed === "False") return false;
+  if (trimmed === "None") return null;
+  if (/^[-+]?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+  ) {
+    return trimmed.slice(1, -1).replace(/\\(['"\\])/g, "$1");
+  }
+  return parseJsonValueOrString(
+    trimmed
+      .replace(/\bTrue\b/g, "true")
+      .replace(/\bFalse\b/g, "false")
+      .replace(/\bNone\b/g, "null"),
+  );
+}
+
 // ─── Exports (internal module use only) ───────────────────────────────────────
 
 export {
@@ -354,4 +405,7 @@ export {
   callsFromJsonValue,
   callFromJsonObject,
   normalizeArgumentsObject,
+  parsePythonicCalls,
+  parseKeywordArguments,
+  parsePythonishValue,
 };
