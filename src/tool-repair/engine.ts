@@ -57,12 +57,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function isContainer(
-  value: unknown,
-): value is Record<string, unknown> | unknown[] {
-  return value !== null && typeof value === "object";
-}
-
 function schemaAccepts(schema: TSchema, value: unknown): boolean {
   return Value.Check(schema, value);
 }
@@ -72,13 +66,6 @@ function schemaAccepts(schema: TSchema, value: unknown): boolean {
 // ---------------------------------------------------------------------------
 
 const MAX_ISSUES = 32;
-
-interface IssueSite {
-  parent: Record<string, unknown> | unknown[];
-  key: string | number;
-  keyword: string;
-  expected: string | undefined;
-}
 
 function collectErrors(schema: TSchema, value: unknown): RawIssue[] {
   const out: RawIssue[] = [];
@@ -94,69 +81,6 @@ function collectErrors(schema: TSchema, value: unknown): RawIssue[] {
     if (out.length >= MAX_ISSUES) break;
   }
   return out;
-}
-
-function parsePointer(pointer: string): (string | number)[] {
-  if (pointer === "" || pointer === "/") return [];
-  return pointer
-    .split("/")
-    .slice(1)
-    .map((segment) => {
-      const decoded = segment.replace(/~1/g, "/").replace(/~0/g, "~");
-      return /^\d+$/.test(decoded) ? Number(decoded) : decoded;
-    });
-}
-
-function resolveAt(root: unknown, segments: (string | number)[]): unknown {
-  let current: unknown = root;
-  for (const segment of segments) {
-    if (current === null || typeof current !== "object") return undefined;
-    current = (current as Record<string | number, unknown>)[segment];
-  }
-  return current;
-}
-
-function collectIssueSites(schema: TSchema, value: unknown): IssueSite[] {
-  const sites: IssueSite[] = [];
-  const seen = new Set<string>();
-  const push = (site: IssueSite, pointerKey: string) => {
-    if (seen.has(pointerKey)) return;
-    seen.add(pointerKey);
-    sites.push(site);
-  };
-  for (const issue of collectErrors(schema, value)) {
-    if (issue.keyword === "required") {
-      const container = resolveAt(value, parsePointer(issue.instancePath));
-      if (!isPlainObject(container)) continue;
-      const missing = issue.params?.requiredProperties;
-      if (!Array.isArray(missing)) continue;
-      for (const key of missing) {
-        if (typeof key !== "string") continue;
-        push(
-          {
-            parent: container,
-            key,
-            keyword: issue.keyword,
-            expected: undefined,
-          },
-          `${issue.instancePath}::${key}`,
-        );
-      }
-      continue;
-    }
-    const segments = parsePointer(issue.instancePath);
-    if (segments.length === 0) continue;
-    const parent = resolveAt(value, segments.slice(0, -1));
-    if (!isContainer(parent)) continue;
-    const key = segments[segments.length - 1];
-    const expected =
-      typeof issue.params?.type === "string" ? issue.params.type : undefined;
-    push(
-      { parent, key, keyword: issue.keyword, expected },
-      `${issue.instancePath}`,
-    );
-  }
-  return sites;
 }
 
 // ---------------------------------------------------------------------------
