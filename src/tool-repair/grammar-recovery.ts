@@ -95,7 +95,7 @@ const ALL_GRAMMARS = [...GRAMMAR_NAMES];
  * safety is the known-tool / empty-args / stopReason gates; this list is the
  * cheap first filter and can be loosened as telemetry warrants.
  */
-export const GRAMMAR_RECOVERY_MODELS: readonly RegExp[] = [
+const MODEL_LEAKS_GRAMMAR_RE: readonly RegExp[] = [
   /glm/i,
   /kimi/i,
   /minimax/i,
@@ -110,7 +110,7 @@ export const GRAMMAR_RECOVERY_MODELS: readonly RegExp[] = [
 /** Whether grammar recovery's model gate matches the given model id. */
 export function modelLeaksGrammar(modelId: string | undefined): boolean {
   if (!modelId) return false;
-  return GRAMMAR_RECOVERY_MODELS.some((re) => re.test(modelId));
+  return MODEL_LEAKS_GRAMMAR_RE.some((re) => re.test(modelId));
 }
 
 export interface GrammarRecoveryOptions {
