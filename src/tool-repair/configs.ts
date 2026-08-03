@@ -13,51 +13,8 @@ import { createParseStringifiedMiddleware } from "./middleware/parseStringified.
 import { extractPathMiddleware } from "./middleware/extractPath.js";
 
 // ---------------------------------------------------------------------------
-// Retry examples — model-readable examples for unrepairable inputs
-// ---------------------------------------------------------------------------
-
-export const RETRY_EXAMPLES: Record<string, string> = {
-  edit: `{ "path": "/file.txt", "edits": [{ "oldText": "...", "newText": "..." }] }`,
-};
-
-// ---------------------------------------------------------------------------
 // Edit tool config
 // ---------------------------------------------------------------------------
-
-/**
- * TypeBox schema for the edit tool's parameters.
- *
- * This is a simplified schema that matches the expected structure.
- * In production, this would be imported from the tool's actual schema definition.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const editSchema: any = {
-  type: "object",
-  required: ["path", "edits"],
-  properties: {
-    path: { type: "string" },
-    edits: {
-      type: "array",
-      items: {
-        type: "object",
-        required: ["oldText", "newText"],
-        properties: {
-          oldText: { type: "string" },
-          newText: { type: "string" },
-          options: {
-            type: "object",
-            properties: {
-              validateOptions: { type: "boolean" },
-              ignoreChanges: { type: "string" },
-              ignoreWhitespace: { type: "boolean" },
-            },
-          },
-        },
-      },
-    },
-    dryRun: { type: "boolean" },
-  },
-};
 
 /**
  * Field aliases for the edit tool — common variations the model might emit.
@@ -84,7 +41,34 @@ const EDIT_PATH_FIELDS: readonly string[] = ["path"];
  * 5. renameAliases — rename `file_path` → `path`, etc.
  */
 export const editConfig: ToolRepairConfig = {
-  schema: editSchema,
+  // Simplified schema matching the expected structure.
+  schema: {
+    type: "object",
+    required: ["path", "edits"],
+    properties: {
+      path: { type: "string" },
+      edits: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["oldText", "newText"],
+          properties: {
+            oldText: { type: "string" },
+            newText: { type: "string" },
+            options: {
+              type: "object",
+              properties: {
+                validateOptions: { type: "boolean" },
+                ignoreChanges: { type: "string" },
+                ignoreWhitespace: { type: "boolean" },
+              },
+            },
+          },
+        },
+      },
+      dryRun: { type: "boolean" },
+    },
+  },
   middleware: [
     createUnwrapAutoLinksMiddleware(EDIT_PATH_FIELDS),
     createParseRootStringMiddleware(),
