@@ -26,7 +26,12 @@ interface HenyoSettings {
   commands: Record<string, boolean>;
 }
 
-const SETTINGS_PATH = join(process.env.HOME || '', '.pi', 'agent', 'settings.json');
+const SETTINGS_PATH = join(
+  process.env.HOME || process.env.USERPROFILE || '',
+  '.pi',
+  'agent',
+  'settings.json',
+);
 const FEATURE_KEYS: (keyof Omit<HenyoSettings, 'skills' | 'commands'>)[] = [
   'toolRepair',
   'footer',

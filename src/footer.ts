@@ -63,7 +63,7 @@ class FooterComponent implements Component {
 
   /** Get the current working directory path segments (for growing). */
   private getCwdParts(): string[] {
-    const full = this.ctx.sessionManager.getCwd().replace(process.env.HOME ?? '', '~');
+    const full = this.ctx.sessionManager.getCwd().replace(process.env.HOME || process.env.USERPROFILE || '', '~');
     return full.split('/').filter(Boolean);
   }
 

@@ -65,7 +65,7 @@ const TOOL_CONFIGS: Record<string, typeof editConfig> = {
 // ---------------------------------------------------------------------------
 
 const SETTINGS_PATH = join(
-  process.env.HOME || "",
+  process.env.HOME || process.env.USERPROFILE || "",
   ".pi",
   "agent",
   "settings.json",
