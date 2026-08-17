@@ -203,6 +203,36 @@ describe("parseDsml", () => {
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("calc");
   });
+  it("parses invoke body as JSON object when no parameter tags present", () => {
+    const result = parseDsml("<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"calc\">\n{\"a\": 1}\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>");
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("calc");
+    expect(result[0].arguments.a).toBe(1);
+  });
+  it("falls back to empty arguments for non-JSON invoke body", () => {
+    const result = parseDsml("<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"calc\">\nplain text not json\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>");
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("calc");
+    expect(result[0].arguments).toEqual({});
+  });
+  it("extracts embedded JSON object from invoke body noise", () => {
+    const result = parseDsml("<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"calc\">\nnoise {\"a\": 2} noise\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>");
+    expect(result).toHaveLength(1);
+    expect(result[0].arguments.a).toBe(2);
+  });
+  it("skips invoke without a closing tag", () => {
+    const result = parseDsml("<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"open\">\n<｜DSML｜parameter name=\"k\">\nv\n</｜DSML｜parameter>\n</｜DSML｜tool_calls>");
+    expect(result).toHaveLength(0);
+  });
+  it("returns empty for unclosed tool_calls with no invokes", () => {
+    const result = parseDsml("<｜DSML｜tool_calls>\njust text, no invokes");
+    expect(result).toHaveLength(0);
+  });
+  it("ignores parameter with blank name", () => {
+    const result = parseDsml("<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"calc\">\n<｜DSML｜parameter name=\" \">\nv\n</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>");
+    expect(result).toHaveLength(1);
+    expect(result[0].arguments).toEqual({});
+  });
 });
 
 describe("parseDsmlDanglingMarkers", () => {
