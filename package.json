@@ -8,8 +8,7 @@
     "src/",
     "skills/",
     "scripts/",
-    "SAMPLE_GLOBAL_AGENTS.md",
-    "!tests/"
+    "SAMPLE_GLOBAL_AGENTS.md"
   ],
   "scripts": {
     "test": "vitest run",
