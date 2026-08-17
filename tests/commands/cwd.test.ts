@@ -88,7 +88,7 @@ describe("cwd command", () => {
 
     expect(ctx.switchSession).toHaveBeenCalledTimes(1);
     expect(ctx.switchSession).toHaveBeenCalledWith(
-      expect.stringMatching(/\.pi\/agent\/sessions\/.*\.jsonl$/),
+      expect.stringMatching(/\.pi[\\/]agent[\\/]sessions[\\/].*\.jsonl$/),
       expect.objectContaining({
         withSession: expect.any(Function),
       }),
