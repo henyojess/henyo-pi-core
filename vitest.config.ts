@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    exclude: ["**/.ext/**", "**/ext/**", "**/node_modules/**"],
+    exclude: ["**/node_modules/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
