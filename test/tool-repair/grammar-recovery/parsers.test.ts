@@ -184,7 +184,9 @@ describe("parseDsml", () => {
     expect(result).toHaveLength(2);
   });
   it("ignores DSML inside code fences", () => {
-    const result = parseDsml("```\n<${fp()}DSML${fp()}tool_calls>\n<${fp()}DSML${fp()}invoke name=\"inside_fence\">\n</${fp()}DSML${fp()}invoke>\n</${fp()}DSML${fp()}tool_calls>\n```");
+    const content =
+      `\`\`\`\n<｜DSML｜tool_calls>\n<｜DSML｜invoke name="inside_fence">\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>\n\`\`\``;
+    const result = parseDsml(content);
     expect(result).toHaveLength(0);
   });
   it("returns empty for text without DSML markers", () => {
@@ -215,7 +217,9 @@ describe("parseDsmlDanglingMarkers", () => {
     expect(result[0].stripOnly).toBe(true);
   });
   it("ignores dangling markers inside code fences", () => {
-    const result = parseDsmlDanglingMarkers("```\n<${fp()}DSML${fp()}tool_calls>\n</${fp()}DSML${fp()}tool_calls>\n```");
+    const content =
+      `\`\`\`\n<｜DSML｜tool_calls>\n</｜DSML｜tool_calls>\n\`\`\``;
+    const result = parseDsmlDanglingMarkers(content);
     expect(result).toHaveLength(0);
   });
   it("returns empty when no DSML text present", () => {
