@@ -1,4 +1,3 @@
-// @ts-nocheck — pre-existing type issues in this file
 // Inline modular repair layer
 
 import toolRepairExtension from './tool-repair/index.js';
@@ -135,9 +134,9 @@ export default function (pi: _ExtensionAPI) {
   }
 
   // ─── Event subscriptions ───────────────────────────────────────────
-  const enabledSkillPaths = Object.keys(SKILLS)
-    .filter((name) => henyoSettings.skills[name] !== false)
-    .map((name) => extPath(SKILLS[name]));
+  const enabledSkillPaths = Object.entries(SKILLS)
+    .filter(([name]) => henyoSettings.skills[name] !== false)
+    .map(([, path]) => extPath(path));
 
   if (enabledSkillPaths.length > 0) {
     pi.on('resources_discover', async (_event, _ctx) => {
@@ -192,9 +191,9 @@ export default function (pi: _ExtensionAPI) {
   // pi.registerTool({ ... });
 
   // ─── Custom commands ───────────────────────────────────────────────
-  for (const cmdName of Object.keys(COMMANDS)) {
+  for (const [cmdName, register] of Object.entries(COMMANDS)) {
     if (henyoSettings.commands[cmdName] !== false) {
-      COMMANDS[cmdName](pi);
+      register(pi);
     }
   }
 
