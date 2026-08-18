@@ -1,63 +1,39 @@
 # Pi Agent Guidelines
 
-- The TUI displays thinking traces. Skip preamble, show results directly — never restate what was already in your thinking trace.
-- State rules explicitly rather than implying them. If a rule is being ignored, re-state it rather than assuming it was forgotten.
-- In interactive mode, ask clarifying questions before proceeding. When asked to implement a plan, document your assumptions.
-- Prefer structured output (tables, lists, code blocks) over prose paragraphs. Dense text consumes more visible context in the TUI.
+## Output
+- Skip preamble, show results directly.
+- The TUI shows your thinking trace — never repeat what it already shows,
+  even in different words.
+- Prefer structured output (tables, lists, code blocks) over prose.
 
-## Key Paths
-| What | Path |
-|------|------|
-| This file | `~/.pi/agent/AGENTS.md` |
-| Pi settings | `~/.pi/agent/settings.json` |
-| Models config | `~/.pi/agent/models.json` |
-| Session storage | `~/.pi/agent/sessions/` (one dir per project, named with project path) |
-| Plan storage | `~/.pi/agent/plans` |
-| Notes | `~/.pi/agent/notes` |
+## Key paths
+All pi state lives under `~/.pi/agent/` — `settings.json`, `models.json`,
+`sessions/` (one dir per project, named with project path), `plans/`, `notes/`.
+~ = user home; always expand to absolute paths in tool calls.
 
-`~` = user home dir (`$HOME` on POSIX, `%USERPROFILE%` on Windows). **Always expand `~` to an absolute path in tool calls** — never pass it unexpanded, and never rebase it onto the cwd.
+## Workflow
+Phase defaults — when a plan file or skill is loaded, it outranks these.
 
-## Work Patterns
+- **Clarify:** if the task is ambiguous, ask first.
+- **Before changing anything:** understand it — project README + manifest for new
+  projects, current file state before editing (never assume structure).
+- **While changing:** do targeted edits, never whole-file rewrites; split edits
+  of the same file into chunks of ~34 lines or fewer; match existing patterns —
+  introduce a new one only if the change requires it, keep it minimal, and flag
+  it (in the reply; as `[deviation]` in plans).
+- **After changing:** run the project's test/lint; fix failures before reporting success.
+- **Executing a plan file?** The plan itself outranks these defaults — follow it.
 
-### Explore first
-1. Read README + project manifest before exploring the codebase.
-2. Use the `read` tool (not `cat` via bash). Limit to 5 parallel `read` calls for different files.
-3. Use `find` to list relevant source files, not `ls -R`.
+## Tool notes
+- Use dedicated tools, not bash equivalents: `read` (not `cat`), `find` (not `ls -R`). ≤5 parallel reads.
+- bash: one-liners inline; anything multi-line goes to a temp file (reusable, keeps context clean).
+- pi extension issues: check settings.json and docs before reading dist source.
 
-### Follow plans diligently
-When executing a plan file (e.g., `~/.pi/agent/plans/*.md`):
-1. Mark each sub-step `[x]` **immediately after completing it**, not at the end of the step.
-2. Add implementation details, deviations from the plan, and assumptions alongside the marked sub-step.
-3. Do not batch-mark checkboxes — each `[x]` is a record of completed work, not a pre-commitment.
-4. The plan file is a living execution log, not a static reference document.
-
-### Implement iteratively
-1. Read the relevant file(s) first — never assume structure.
-2. Split large edits (>55 lines) into smaller, logical changes.
-3. Match existing patterns — don't introduce new ones without justification.
-4. Call tools freely — don't second-guess each individual command.
-
-### Verify always
-1. Run the project's test/lint/check commands after code changes.
-2. Fix failures before reporting success. The agent should close its own verification loop.
-
-### When a tool fails
-- Check exit code: `143` = killed (SIGTERM), `130` = interrupted (Ctrl+C).
-- For pi extension issues: check `~/.pi/agent/settings.json` and docs **before** reading dist source files.
-
-## Tool Conventions
-
-- **bash**: Keep commands short. Write scripts larger than one-liners to a temp file (reusable, doesn't bloat context).
-- **read**: Use with `offset`/`limit` for large files (>500 lines).
-- **edit**: Provide exact matching text; prefer small, targeted replacements. Split edits >55 lines into logical chunks.
-
-## Working Boundaries
-
-### ⚠️ Ask first
-- Modifying pi internals, adding dependencies, or changing config files
-
-### 🚫 Never
-- Write to auto-generated directories (dependencies, caches, build artifacts)
-- Push without user confirmation
-- Modify session storage directly
-
+## Boundaries
+- **Ask first:**
+  - modifying pi's internals or its config (`settings.json`, `models.json`)
+  - adding dependencies — during plan implementation, the plan is the approval
+  - destructive git ops (`reset --hard`, `clean -fdx`) — or shell ops
+    (`rm -rf` outside the project)
+- **Never:** write to generated dirs (dependencies, caches, build artifacts), push without
+  confirmation, modify session storage directly.
