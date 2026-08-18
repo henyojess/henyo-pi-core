@@ -28,15 +28,27 @@ Read this entire plan. Then state how you will work with it.
 ### Execution Loop (per sub-step)
 1. Find the first unchecked `[ ]` sub-step in the current step.
 2. Do the work described in that sub-step.
-3. **Immediately** mark it `[x]` in the plan file, adding implementation notes (details, deviations, assumptions).
+3. **Immediately** mark it `[x]` in the plan file, adding implementation notes — prefix
+   assumptions and deviations with `[assumption]:` / `[deviation]:`.
 4. Move to the next `[ ]` sub-step.
 5. When all sub-steps in a step are `[x]`, run verification + commit.
 
 ### Discipline
 - Mark each checkbox **right after completing that sub-step**, not at the end of the step.
   - If the session is interrupted, the plan file reflects actual progress and work can resume without re-doing anything.
-- Add implementation details, deviations, and assumptions alongside the marked sub-step.
+- Add implementation details alongside the marked sub-step. Prefix assumptions and
+  deviations with `[assumption]:` / `[deviation]:` so they stay greppable after an
+  unattended run.
   - This preserves context for anyone (or any session) that picks up the work later.
+- Implementing this plan is unattended by default: do not ask clarifying questions.
+  - Recoverable ambiguity (many valid paths) → choose the best option, log it as
+    `[assumption]: ...` next to the sub-step, and continue.
+  - True blocker (no valid path: missing prerequisite, breakage that blocks later
+    steps) → log `[blocker]:` there, continue with independent sub-steps, then stop.
+    Do not improvise around it.
+  - Every `[assumption]`/`[blocker]` is a morning-review item — the trail must be visible.
+- Dependencies: add only what the plan lists. A needed dependency that the plan
+  doesn't list is a `[blocker]` — log it and continue independent work.
 - Do not batch-mark checkboxes. Each `[x]` is a record, not a pre-commitment.
   - Batching creates false progress — you haven't actually verified the work is done.
 - One sub-step at a time. It is better to do one correctly than five poorly.
@@ -60,14 +72,31 @@ Simple list. No diagrams.
 - Recommended order: 1 → 3 → 2
 ```
 
-### 4. Inventory (table)
+### 4. Assumptions & Open Questions (required)
+
+Every ambiguity the agent could not resolve while writing the plan goes here as a row — nothing hidden in prose. Populated at generation; resolved during review.
+
+```
+## Assumptions & Open Questions
+
+| # | Item | Agent's read | Status |
+|---|------|--------------|--------|
+| 1 | [ambiguous point] | [what the agent assumed or would choose] | `[open]` |
+
+Statuses:
+- `[open]` — needs a user decision
+- `[assumption]` — user deferred it; implementation proceeds with "Agent's read"
+- `[decision]` — user confirmed during review; binding, do not revisit in implementation
+```
+
+### 5. Inventory (table)
 
 | # | Item | Current State | Problem | Fix |
 |---|------|---------------|---------|-----|
 
 One row per thing being changed. Problem and Fix must be specific.
 
-### 5. Documentation Update (when coding changes)
+### 6. Documentation Update (when coding changes)
 
 Include this section when the plan modifies source code, tests, config, or any non-doc file.
 
@@ -95,7 +124,7 @@ Include this section when the plan modifies source code, tests, config, or any n
 
 **Scope boundary:** Do NOT update docs for purely refactoring changes that don't change behavior or public APIs.
 
-### 6. Steps
+### 7. Steps
 
 Each step is a self-contained unit. Mark checkboxes as you complete each sub-step (see Discipline section for process):
 
@@ -114,7 +143,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - [ ] Run `git add` and `git commit -m "[type](scope): [description]"`
 ```
 
-### 7. Checkpoints
+### 8. Checkpoints
 
 ```
 ## Checkpoints
@@ -124,7 +153,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 | 1 | [verification] | All green before proceeding |
 ```
 
-### 8. Final Verification
+### 9. Final Verification
 
 ```
 ## Final Verification
@@ -135,7 +164,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - [ ] Git diff shows clean work
 ```
 
-### 9. Meta (optional)
+### 10. Meta (optional)
 
 ```
 ## Dependencies
@@ -199,7 +228,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (absolute path: `/home/node/.pi/agent/plans/<name>.md`)
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path)
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user
@@ -224,12 +253,16 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 10 | Every step ends with verification | Any step lacks a verify + commit subsection |
 | 11 | Undefined terms are defined | Words like "large", "better", "fix" appear without context |
 | 12 | No duplicate sections | Same section appears twice |
-| 13 | Agent can execute without asking clarifying questions | Agent would need to guess line numbers, test structure, or file content |
+| 13 | Every ambiguity surfaced in Assumptions & Open Questions | Ambiguity silently baked into a step |
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
 | 15 | Plan tells agent to be deliberate | Missing discipline reminder ("do not rush", "be deliberate") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
 | 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
 | 18 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
 | 19 | Plan saved to correct location | Plan was written to `~/.pi/agent/plans/`, not `/tmp` |
+| 20 | Plan documents assumption logging | Discipline section lacks the `[assumption]`/`[deviation]` prefix convention |
+| 21 | Assumptions & Open Questions section present | Ambiguities hidden in prose/steps instead of the table |
+| 22 | Unattended rule in embedded instructions | Template still says "if told to proceed without asking" |
+| 23 | Out-of-plan dependency rule in embedded instructions | Template lacks the "deps beyond the plan's list are `[blocker]`s" line |
 
-If any row fails, edit the plan and re-check. Do not present until all 19 pass.
+If any row fails, edit the plan and re-check. Do not present until all 23 pass.
