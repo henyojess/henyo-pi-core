@@ -15,6 +15,8 @@
 | Plan storage | `~/.pi/agent/plans` |
 | Notes | `~/.pi/agent/notes` |
 
+`~` = user home dir (`$HOME` on POSIX, `%USERPROFILE%` on Windows). **Always expand `~` to an absolute path in tool calls** — never pass it unexpanded, and never rebase it onto the cwd.
+
 ## Work Patterns
 
 ### Explore first
