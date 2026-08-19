@@ -8,6 +8,10 @@ import babelParser from "@babel/eslint-parser";
 // with TypeScript 7.x. Using @babel/eslint-parser as a fallback for style
 // checks. Unused import warnings on `import type` are expected and harmless
 // — TSC catches these correctly.
+// `no-undef` is disabled for `.ts` because the babel parser strips TS syntax
+// and can't resolve type-only names, imports, or globals (false positives);
+// `tsc --noEmit` (run in the same `lint` script) is authoritative for
+// undefined identifiers.
 export default [
   js.configs.recommended,
   prettier,
@@ -29,6 +33,7 @@ export default [
       // eslint-disable-next-line object-shorthand
       "no-unused-vars": ["warn", { varsIgnorePattern: "^_", argsIgnorePattern: "^_" }],
       "no-console": "warn",
+      "no-undef": "off",
     },
   },
   {
