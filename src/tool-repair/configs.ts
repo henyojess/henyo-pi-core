@@ -5,12 +5,12 @@
  * list, field aliases, and path fields for auto-link unwrapping.
  */
 
-import type { ToolRepairConfig } from "./types.js";
-import { createUnwrapAutoLinksMiddleware } from "./middleware/unwrapAutoLinks.js";
-import { createParseRootStringMiddleware } from "./middleware/parseRootString.js";
-import { createRenameAliasesMiddleware } from "./middleware/renameAliases.js";
-import { createParseStringifiedMiddleware } from "./middleware/parseStringified.js";
-import { extractPathMiddleware } from "./middleware/extractPath.js";
+import type { ToolRepairConfig } from './types.js';
+import { createUnwrapAutoLinksMiddleware } from './middleware/unwrapAutoLinks.js';
+import { createParseRootStringMiddleware } from './middleware/parseRootString.js';
+import { createRenameAliasesMiddleware } from './middleware/renameAliases.js';
+import { createParseStringifiedMiddleware } from './middleware/parseStringified.js';
+import { extractPathMiddleware } from './middleware/extractPath.js';
 
 // ---------------------------------------------------------------------------
 // Edit tool config
@@ -20,15 +20,15 @@ import { extractPathMiddleware } from "./middleware/extractPath.js";
  * Field aliases for the edit tool — common variations the model might emit.
  */
 const EDIT_ALIASES: Record<string, readonly string[]> = {
-  path: ["file_path", "filePath"],
-  oldText: ["old_text", "oldText"],
-  newText: ["new_text", "newText"],
+  path: ['file_path', 'filePath'],
+  oldText: ['old_text', 'oldText'],
+  newText: ['new_text', 'newText'],
 };
 
 /**
  * Path-type fields in the edit tool — subject to markdown auto-link unwrapping.
  */
-const EDIT_PATH_FIELDS: readonly string[] = ["path"];
+const EDIT_PATH_FIELDS: readonly string[] = ['path'];
 
 /**
  * Repair configuration for the edit tool.
@@ -43,37 +43,37 @@ const EDIT_PATH_FIELDS: readonly string[] = ["path"];
 export const editConfig: ToolRepairConfig = {
   // Simplified schema matching the expected structure.
   schema: {
-    type: "object",
-    required: ["path", "edits"],
+    type: 'object',
+    required: ['path', 'edits'],
     properties: {
-      path: { type: "string" },
+      path: { type: 'string' },
       edits: {
-        type: "array",
+        type: 'array',
         items: {
-          type: "object",
-          required: ["oldText", "newText"],
+          type: 'object',
+          required: ['oldText', 'newText'],
           properties: {
-            oldText: { type: "string" },
-            newText: { type: "string" },
+            oldText: { type: 'string' },
+            newText: { type: 'string' },
             options: {
-              type: "object",
+              type: 'object',
               properties: {
-                validateOptions: { type: "boolean" },
-                ignoreChanges: { type: "string" },
-                ignoreWhitespace: { type: "boolean" },
+                validateOptions: { type: 'boolean' },
+                ignoreChanges: { type: 'string' },
+                ignoreWhitespace: { type: 'boolean' },
               },
             },
           },
         },
       },
-      dryRun: { type: "boolean" },
+      dryRun: { type: 'boolean' },
     },
   },
   middleware: [
     createUnwrapAutoLinksMiddleware(EDIT_PATH_FIELDS),
     createParseRootStringMiddleware(),
     extractPathMiddleware,
-    createParseStringifiedMiddleware(["array", "object"]),
+    createParseStringifiedMiddleware(['array', 'object']),
     createRenameAliasesMiddleware(EDIT_ALIASES),
   ],
   fieldAliases: EDIT_ALIASES,

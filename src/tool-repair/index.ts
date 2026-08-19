@@ -6,8 +6,8 @@
  * and handle grammar leak recovery.
  */
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import {
   createBashToolDefinition,
   createEditToolDefinition,
@@ -19,24 +19,18 @@ import {
   type ExtensionAPI,
   getAgentDir,
   type ToolDefinition,
-} from "@earendil-works/pi-coding-agent";
-import { repairToolInput } from "./engine.js";
-import { editConfig } from "./configs.js";
-import type {
-  RepairResult,
-  RepairSettings,
-} from "./types.js";
-import {
-  DEFAULT_REPAIR_SETTINGS,
-  type TelemetryRecord,
-} from "./types.js";
+} from '@earendil-works/pi-coding-agent';
+import { repairToolInput } from './engine.js';
+import { editConfig } from './configs.js';
+import type { RepairResult, RepairSettings } from './types.js';
+import { DEFAULT_REPAIR_SETTINGS, type TelemetryRecord } from './types.js';
 import {
   modelLeaksGrammar,
   recoverGrammarLeaks,
   type GrammarRecoveryMode,
   type MinimalAssistantMessage,
   type RecoveredToolCall,
-} from "./grammar-recovery/index.js";
+} from './grammar-recovery/index.js';
 
 // ---------------------------------------------------------------------------
 // Built-in tool factories
@@ -65,10 +59,10 @@ const TOOL_CONFIGS: Record<string, typeof editConfig> = {
 // ---------------------------------------------------------------------------
 
 const SETTINGS_PATH = join(
-  process.env.HOME || process.env.USERPROFILE || "",
-  ".pi",
-  "agent",
-  "settings.json",
+  process.env.HOME || process.env.USERPROFILE || '',
+  '.pi',
+  'agent',
+  'settings.json',
 );
 
 function loadRepairSettings(): RepairSettings {
@@ -76,45 +70,47 @@ function loadRepairSettings(): RepairSettings {
     let settings: unknown = {};
     if (existsSync(SETTINGS_PATH)) {
       try {
-        settings = JSON.parse(readFileSync(SETTINGS_PATH, "utf-8"));
+        settings = JSON.parse(readFileSync(SETTINGS_PATH, 'utf-8'));
       } catch {
         settings = {};
       }
     }
 
     const henyo =
-      settings && typeof settings === "object" && !Array.isArray(settings)
+      settings && typeof settings === 'object' && !Array.isArray(settings)
         ? (settings as Record<string, unknown>).henyo
         : undefined;
 
     const repair =
-      henyo && typeof henyo === "object" && !Array.isArray(henyo)
+      henyo && typeof henyo === 'object' && !Array.isArray(henyo)
         ? (henyo as Record<string, unknown>).toolRepair
         : undefined;
 
-    const obj = repair && typeof repair === "object"
-      ? (repair as Record<string, unknown>)
-      : {};
+    const obj = repair && typeof repair === 'object' ? (repair as Record<string, unknown>) : {};
 
     return {
-      telemetry: typeof (obj.telemetry ?? DEFAULT_REPAIR_SETTINGS.telemetry) === "boolean"
-        ? (obj.telemetry as boolean)
-        : DEFAULT_REPAIR_SETTINGS.telemetry,
-      debug: typeof (obj.debug ?? DEFAULT_REPAIR_SETTINGS.debug) === "boolean"
-        ? (obj.debug as boolean)
-        : DEFAULT_REPAIR_SETTINGS.debug,
-      showIndicator: typeof (obj.showIndicator ?? DEFAULT_REPAIR_SETTINGS.showIndicator) === "boolean"
-        ? (obj.showIndicator as boolean)
-        : DEFAULT_REPAIR_SETTINGS.showIndicator,
-      showNotes: typeof (obj.showNotes ?? DEFAULT_REPAIR_SETTINGS.showNotes) === "boolean"
-        ? (obj.showNotes as boolean)
-        : DEFAULT_REPAIR_SETTINGS.showNotes,
+      telemetry:
+        typeof (obj.telemetry ?? DEFAULT_REPAIR_SETTINGS.telemetry) === 'boolean'
+          ? (obj.telemetry as boolean)
+          : DEFAULT_REPAIR_SETTINGS.telemetry,
+      debug:
+        typeof (obj.debug ?? DEFAULT_REPAIR_SETTINGS.debug) === 'boolean'
+          ? (obj.debug as boolean)
+          : DEFAULT_REPAIR_SETTINGS.debug,
+      showIndicator:
+        typeof (obj.showIndicator ?? DEFAULT_REPAIR_SETTINGS.showIndicator) === 'boolean'
+          ? (obj.showIndicator as boolean)
+          : DEFAULT_REPAIR_SETTINGS.showIndicator,
+      showNotes:
+        typeof (obj.showNotes ?? DEFAULT_REPAIR_SETTINGS.showNotes) === 'boolean'
+          ? (obj.showNotes as boolean)
+          : DEFAULT_REPAIR_SETTINGS.showNotes,
       grammarRecovery: isGrammarMode(obj.grammarRecovery)
         ? (obj.grammarRecovery as GrammarRecoveryMode)
         : DEFAULT_REPAIR_SETTINGS.grammarRecovery,
       grammarAllowedTools:
         Array.isArray(obj.grammarAllowedTools) &&
-        obj.grammarAllowedTools.every((t: unknown) => typeof t === "string")
+        obj.grammarAllowedTools.every((t: unknown) => typeof t === 'string')
           ? (obj.grammarAllowedTools as string[])
           : [...(DEFAULT_REPAIR_SETTINGS.grammarAllowedTools ?? [])],
     };
@@ -124,7 +120,7 @@ function loadRepairSettings(): RepairSettings {
 }
 
 function isGrammarMode(value: unknown): value is GrammarRecoveryMode {
-  return typeof value === "string" && ["off", "strip", "recover"].includes(value);
+  return typeof value === 'string' && ['off', 'strip', 'recover'].includes(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +128,7 @@ function isGrammarMode(value: unknown): value is GrammarRecoveryMode {
 // ---------------------------------------------------------------------------
 
 function telemetryPath(): string {
-  return join(getAgentDir(), "tool-repair", "telemetry.jsonl");
+  return join(getAgentDir(), 'tool-repair', 'telemetry.jsonl');
 }
 
 function logTelemetry(record: TelemetryRecord): void {
@@ -162,20 +158,20 @@ interface StripResult {
 const ANCHOR_BLEED_MODELS: readonly RegExp[] = [/kimi-k2/i, /minimax/i, /glm/i];
 const GRAMMAR_LEAK_MODELS: readonly RegExp[] = [/glm/i];
 const ANCHOR_STRIP_SKIP: Record<string, ReadonlySet<string>> = {
-  grep: new Set(["pattern"]),
+  grep: new Set(['pattern']),
 };
-const STRIP_ANCHOR_RULE = "stripAnchorBleed";
-const STRIP_GRAMMAR_RULE = "stripGrammarTokenLeak";
+const STRIP_ANCHOR_RULE = 'stripAnchorBleed';
+const STRIP_GRAMMAR_RULE = 'stripGrammarTokenLeak';
 
 const GRAMMAR_TOKEN_LEAKS = [
-  { tag: "<arg_key>", at: "start" as const },
-  { tag: "</arg_key>", at: "end" as const },
-  { tag: "<arg_value>", at: "start" as const },
-  { tag: "</arg_value>", at: "end" as const },
+  { tag: '<arg_key>', at: 'start' as const },
+  { tag: '</arg_key>', at: 'end' as const },
+  { tag: '<arg_value>', at: 'start' as const },
+  { tag: '</arg_value>', at: 'end' as const },
 ];
 
 function isContainer(value: unknown): value is Record<string, unknown> | unknown[] {
-  return value !== null && typeof value === "object";
+  return value !== null && typeof value === 'object';
 }
 
 function modelMatches(modelId: string | undefined, families: readonly RegExp[]): boolean {
@@ -185,15 +181,15 @@ function modelMatches(modelId: string | undefined, families: readonly RegExp[]):
 
 function stripAnchorsFromString(value: string): string {
   let s = value;
-  while (s.startsWith("^")) s = s.slice(1);
-  while (s.endsWith("$")) s = s.slice(0, -1);
+  while (s.startsWith('^')) s = s.slice(1);
+  while (s.endsWith('$')) s = s.slice(0, -1);
   return s;
 }
 
 function stripGrammarTokens(value: string): string {
   let s = value;
   for (const { tag, at } of GRAMMAR_TOKEN_LEAKS) {
-    if (at === "start") {
+    if (at === 'start') {
       while (s.startsWith(tag)) s = s.slice(tag.length);
     } else {
       while (s.endsWith(tag)) s = s.slice(0, -tag.length);
@@ -202,11 +198,10 @@ function stripGrammarTokens(value: string): string {
   return s;
 }
 
-function stripValues(options: {
-  toolName: string;
+function stripValues(options: { toolName: string; input: unknown; modelId?: string }): {
+  result: StripResult;
   input: unknown;
-  modelId?: string;
-}): { result: StripResult; input: unknown } {
+} {
   const result: StripResult = { changed: false, rules: [], notes: [] };
   if (!isContainer(options.input)) return { result, input: options.input };
 
@@ -218,7 +213,7 @@ function stripValues(options: {
     const skipFields = ANCHOR_STRIP_SKIP[options.toolName];
     for (const key of Object.keys(input)) {
       const value = input[key];
-      if (typeof value !== "string") continue;
+      if (typeof value !== 'string') continue;
       if (skipFields?.has(key)) continue;
       const stripped = stripAnchorsFromString(value);
       if (stripped !== value) {
@@ -236,7 +231,7 @@ function stripValues(options: {
   if (modelMatches(modelId, GRAMMAR_LEAK_MODELS)) {
     for (const key of Object.keys(input)) {
       const value = input[key];
-      if (typeof value !== "string") continue;
+      if (typeof value !== 'string') continue;
       const stripped = stripGrammarTokens(value);
       if (stripped !== value) {
         input[key] = stripped;
@@ -300,12 +295,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
   const pendingRepairs = new Map<string, PendingRepair[]>();
   const repairInfoByCallId = new Map<string, RepairInfo>();
 
-  const stashRepair = (
-    tool: string,
-    argsJson: string,
-    rules: string[],
-    notes: string[],
-  ): void => {
+  const stashRepair = (tool: string, argsJson: string, rules: string[], notes: string[]): void => {
     const queue = pendingRepairs.get(tool) ?? [];
     const now = Date.now();
     const fresh = queue.filter((entry) => now - entry.ts < NOTE_TTL_MS);
@@ -313,10 +303,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
     pendingRepairs.set(tool, fresh);
   };
 
-  const takeRepair = (
-    tool: string,
-    argsJson: string,
-  ): PendingRepair | undefined => {
+  const takeRepair = (tool: string, argsJson: string): PendingRepair | undefined => {
     const queue = pendingRepairs.get(tool);
     if (!queue) return undefined;
     const index = queue.findIndex((entry) => entry.argsJson === argsJson);
@@ -332,12 +319,12 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
     if (!settings.showIndicator) return [];
     const muted = (text: string) => {
       try {
-        return theme?.fg ? theme.fg("muted", text) : text;
+        return theme?.fg ? theme.fg('muted', text) : text;
       } catch {
         return text;
       }
     };
-    const lines = [muted(`🔨 ✓ input repaired (${info.rules.join(", ")})`)];
+    const lines = [muted(`🔨 ✓ input repaired (${info.rules.join(', ')})`)];
     if (settings.showNotes) {
       for (const note of info.notes) lines.push(muted(`   ↳ ${note}`));
     }
@@ -381,7 +368,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
           } else {
             // No config — pass through
             result = {
-              outcome: "valid",
+              outcome: 'valid',
               args: engineInput,
               rulesFired: [],
               notes: [],
@@ -391,13 +378,13 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
             };
           }
 
-          if (result.outcome === "valid") {
+          if (result.outcome === 'valid') {
             if (!strip.result.changed) return shimmed;
             logTelemetry({
               ts: new Date().toISOString(),
               tool: name,
               model: currentModelId,
-              outcome: "repaired",
+              outcome: 'repaired',
               rules: strip.result.rules,
             });
             stashRepair(name, JSON.stringify(engineInput), strip.result.rules, strip.result.notes);
@@ -406,8 +393,8 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
 
           if (settings.debug) {
             process.stderr.write(
-              `[pi-repair] tool=${name} outcome=${result.outcome} rules=${result.rulesFired.join(",")}${
-                result.issueSummary ? ` issues=${result.issueSummary}` : ""
+              `[pi-repair] tool=${name} outcome=${result.outcome} rules=${result.rulesFired.join(',')}${
+                result.issueSummary ? ` issues=${result.issueSummary}` : ''
               }\n`,
             );
           }
@@ -422,7 +409,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
             fingerprint: result.fingerprint,
           });
 
-          if (result.outcome === "repaired") {
+          if (result.outcome === 'repaired') {
             stashRepair(
               name,
               JSON.stringify(result.args),
@@ -446,7 +433,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
               notes: repair.notes,
             });
             try {
-              pi.appendEntry("tool-repair", {
+              pi.appendEntry('tool-repair', {
                 toolCallId,
                 tool: name,
                 rules: repair.rules,
@@ -457,25 +444,17 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
             }
           }
 
-          const result = await original.execute(
-            toolCallId,
-            params,
-            signal,
-            onUpdate,
-            ctx,
-          );
+          const result = await original.execute(toolCallId, params, signal, onUpdate, ctx);
 
           if (repair && repair.notes.length > 0) {
             const noteText = repair.notes
               .map((note) => `<repair_note>${note}</repair_note>`)
-              .join("\n");
-            const first = Array.isArray(result.content)
-              ? result.content[0]
-              : undefined;
-            if (first?.type === "text") {
+              .join('\n');
+            const first = Array.isArray(result.content) ? result.content[0] : undefined;
+            if (first?.type === 'text') {
               first.text = `${noteText}\n${first.text}`;
             } else if (Array.isArray(result.content)) {
-              result.content.unshift({ type: "text", text: noteText });
+              result.content.unshift({ type: 'text', text: noteText });
             }
           }
 
@@ -483,12 +462,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
         },
         ...(originalRenderResult
           ? {
-              renderResult(
-                result: any,
-                options: any,
-                theme: any,
-                context: any,
-              ) {
+              renderResult(result: any, options: any, theme: any, context: any) {
                 const info = repairInfoByCallId.get(context.toolCallId);
                 const last = context.lastComponent;
                 const wrapper =
@@ -497,8 +471,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
                     : info
                       ? new RepairIndicatorComponent()
                       : undefined;
-                if (!wrapper)
-                  return originalRenderResult(result, options, theme, context);
+                if (!wrapper) return originalRenderResult(result, options, theme, context);
                 wrapper.inner = originalRenderResult(result, options, theme, {
                   ...context,
                   lastComponent: wrapper.inner,
@@ -514,7 +487,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
 
   // ─── Event hooks ───────────────────────────────────────────────────────
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on('session_start', async (_event, ctx) => {
     currentModelId = ctx.model?.id;
     registerOverrides(ctx.cwd);
 
@@ -523,9 +496,9 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
       for (const entry of ctx.sessionManager.getEntries()) {
         const e = entry as { type?: string; customType?: string; data?: any };
         if (
-          e.type === "custom" &&
-          e.customType === "tool-repair" &&
-          typeof e.data?.toolCallId === "string"
+          e.type === 'custom' &&
+          e.customType === 'tool-repair' &&
+          typeof e.data?.toolCallId === 'string'
         ) {
           repairInfoByCallId.set(e.data.toolCallId, {
             rules: Array.isArray(e.data.rules) ? e.data.rules : [],
@@ -538,35 +511,27 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
     }
   });
 
-  pi.on("model_select", async (event, ctx) => {
-    currentModelId =
-      (event as { model?: { id?: string } }).model?.id ??
-      ctx.model?.id ??
-      undefined;
+  pi.on('model_select', async (event, ctx) => {
+    currentModelId = (event as { model?: { id?: string } }).model?.id ?? ctx.model?.id ?? undefined;
   });
 
   // Grammar-leak recovery on message_end
   const safeGetActiveTools = (): string[] => {
     try {
-      return (
-        (pi as { getActiveTools?: () => string[] }).getActiveTools?.() ?? []
-      );
+      return (pi as { getActiveTools?: () => string[] }).getActiveTools?.() ?? [];
     } catch {
       return [];
     }
   };
 
-  pi.on("message_end", async (event, _ctx) => {
-    if (settings.grammarRecovery === "off") return undefined;
-    const message = (event as unknown as { message?: MinimalAssistantMessage })
-      .message;
-    if (message?.role !== "assistant") return undefined;
+  pi.on('message_end', async (event, _ctx) => {
+    if (settings.grammarRecovery === 'off') return undefined;
+    const message = (event as unknown as { message?: MinimalAssistantMessage }).message;
+    if (message?.role !== 'assistant') return undefined;
     if (!modelLeaksGrammar(currentModelId)) return undefined;
 
     const allowed = settings.grammarAllowedTools ?? [];
-    const knownTools = new Set(
-      allowed.length > 0 ? allowed : safeGetActiveTools(),
-    );
+    const knownTools = new Set(allowed.length > 0 ? allowed : safeGetActiveTools());
 
     const result = recoverGrammarLeaks(message, {
       mode: settings.grammarRecovery,
@@ -589,7 +554,7 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
           ts: new Date().toISOString(),
           tool: call.name,
           model: currentModelId,
-          outcome: "recovered",
+          outcome: 'recovered',
           rules: [`grammarRecovery:${call.grammar}`],
           grammar: call.grammar,
         });
@@ -598,13 +563,10 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
       logTelemetry({
         ts: new Date().toISOString(),
         model: currentModelId,
-        outcome: "stripped",
-        rules: ["grammarStrip"],
-        channel: "message",
-        grammar:
-          result.strippedGrammars.length > 0
-            ? result.strippedGrammars.join(",")
-            : undefined,
+        outcome: 'stripped',
+        rules: ['grammarStrip'],
+        channel: 'message',
+        grammar: result.strippedGrammars.length > 0 ? result.strippedGrammars.join(',') : undefined,
       });
     }
 
@@ -614,45 +576,42 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
   // ─── Commands ──────────────────────────────────────────────────────────
 
   const nextGrammarMode = (mode: GrammarRecoveryMode): GrammarRecoveryMode =>
-    mode === "off" ? "strip" : mode === "strip" ? "recover" : "off";
+    mode === 'off' ? 'strip' : mode === 'strip' ? 'recover' : 'off';
 
-  pi.registerCommand("repair-settings", {
-    description:
-      "Toggle the tool-repair indicator (🔨), repair-note display, and grammar recovery",
+  pi.registerCommand('repair-settings', {
+    description: 'Toggle the tool-repair indicator (🔨), repair-note display, and grammar recovery',
     handler: async (_args, ctx) => {
       for (;;) {
-        const indicatorLabel = `Repair indicator (🔨 ✓): ${settings.showIndicator ? "on" : "off"} — toggle`;
-        const notesLabel = `Repair note text beneath indicator: ${settings.showNotes ? "on" : "off"} — toggle`;
+        const indicatorLabel = `Repair indicator (🔨 ✓): ${settings.showIndicator ? 'on' : 'off'} — toggle`;
+        const notesLabel = `Repair note text beneath indicator: ${settings.showNotes ? 'on' : 'off'} — toggle`;
         const grammarLabel = `Grammar-leak recovery: ${settings.grammarRecovery} — cycle (off → strip → recover)`;
-        const choice = await ctx.ui.select("Tool repair display settings", [
+        const choice = await ctx.ui.select('Tool repair display settings', [
           indicatorLabel,
           notesLabel,
           grammarLabel,
-          "Close",
+          'Close',
         ]);
-        if (choice === undefined || choice === "Close") break;
-        if (choice === indicatorLabel)
-          settings.showIndicator = !settings.showIndicator;
-        if (choice === notesLabel)
-          settings.showNotes = !settings.showNotes;
+        if (choice === undefined || choice === 'Close') break;
+        if (choice === indicatorLabel) settings.showIndicator = !settings.showIndicator;
+        if (choice === notesLabel) settings.showNotes = !settings.showNotes;
         if (choice === grammarLabel)
           settings.grammarRecovery = nextGrammarMode(settings.grammarRecovery);
       }
       ctx.ui.notify(
-        `Repair display: indicator ${settings.showIndicator ? "on" : "off"}, notes ${
-          settings.showNotes ? "on" : "off"
+        `Repair display: indicator ${settings.showIndicator ? 'on' : 'off'}, notes ${
+          settings.showNotes ? 'on' : 'off'
         }, grammar recovery ${settings.grammarRecovery} (applies from now on)`,
-        "info",
+        'info',
       );
     },
   });
 
-  pi.registerCommand("repair-stats", {
-    description: "Summarize tool-input repair telemetry",
+  pi.registerCommand('repair-stats', {
+    description: 'Summarize tool-input repair telemetry',
     handler: async (_args, ctx) => {
       const path = telemetryPath();
       if (!existsSync(path)) {
-        ctx.ui.notify("No repair telemetry recorded yet.", "info");
+        ctx.ui.notify('No repair telemetry recorded yet.', 'info');
         return;
       }
 
@@ -675,39 +634,34 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
       let stripOnlyEvents = 0;
       let toolEvents = 0;
 
-      const bump = (
-        counts: ToolCounts,
-        outcome: string,
-      ) => {
-        if (
-          outcome === "repaired" ||
-          outcome === "unrepairable" ||
-          outcome === "recovered"
-        )
+      const bump = (counts: ToolCounts, outcome: string) => {
+        if (outcome === 'repaired' || outcome === 'unrepairable' || outcome === 'recovered')
           counts[outcome as keyof ToolCounts] += 1;
       };
 
-      for (const line of readFileSync(path, "utf-8").split("\n")) {
+      for (const line of readFileSync(path, 'utf-8').split('\n')) {
         if (!line.trim()) continue;
         try {
-          const record = JSON.parse(line) as TelemetryRecord & { channel?: string; grammar?: string };
+          const record = JSON.parse(line) as TelemetryRecord & {
+            channel?: string;
+            grammar?: string;
+          };
 
-          for (const rule of record.rules)
-            byRule.set(rule, (byRule.get(rule) ?? 0) + 1);
+          for (const rule of record.rules) byRule.set(rule, (byRule.get(rule) ?? 0) + 1);
 
-          if (record.channel === "message") {
+          if (record.channel === 'message') {
             stripOnlyEvents += 1;
-            for (const family of (record.grammar ?? "unknown").split(","))
+            for (const family of (record.grammar ?? 'unknown').split(','))
               byGrammar.set(family, (byGrammar.get(family) ?? 0) + 1);
           } else {
             toolEvents += 1;
-            const key = record.tool ?? "unknown";
+            const key = record.tool ?? 'unknown';
             const tool = byTool.get(key) ?? emptyCounts();
             bump(tool, record.outcome);
             byTool.set(key, tool);
-            const model = byModel.get(record.model ?? "unknown") ?? emptyCounts();
+            const model = byModel.get(record.model ?? 'unknown') ?? emptyCounts();
             bump(model, record.outcome);
-            byModel.set(record.model ?? "unknown", model);
+            byModel.set(record.model ?? 'unknown', model);
           }
         } catch {
           // Skip malformed lines
@@ -718,40 +672,36 @@ export default function toolRepairExtension(pi: ExtensionAPI): void {
         `${c.repaired} repaired, ${c.recovered} recovered, ${c.unrepairable} unrepairable`;
       const lines = [
         `Tool repair telemetry (${toolEvents + stripOnlyEvents} events: ${toolEvents} tool, ${stripOnlyEvents} grammar strip-only)`,
-        "",
-        "By tool:",
+        '',
+        'By tool:',
       ];
 
       for (const [tool, counts] of [...byTool].sort(
-        (a, b) =>
-          b[1].repaired + b[1].recovered - (a[1].repaired + a[1].recovered),
+        (a, b) => b[1].repaired + b[1].recovered - (a[1].repaired + a[1].recovered),
       )) {
         lines.push(`  ${tool}: ${fmt(counts)}`);
       }
 
-      lines.push("", "By model:");
+      lines.push('', 'By model:');
       for (const [model, counts] of [...byModel].sort(
-        (a, b) =>
-          b[1].repaired + b[1].recovered - (a[1].repaired + a[1].recovered),
+        (a, b) => b[1].repaired + b[1].recovered - (a[1].repaired + a[1].recovered),
       )) {
         lines.push(`  ${model}: ${fmt(counts)}`);
       }
 
       if (byGrammar.size > 0) {
-        lines.push("", "Grammar strip-only events (message channel):");
-        for (const [family, count] of [...byGrammar].sort(
-          (a, b) => b[1] - a[1],
-        )) {
+        lines.push('', 'Grammar strip-only events (message channel):');
+        for (const [family, count] of [...byGrammar].sort((a, b) => b[1] - a[1])) {
           lines.push(`  ${family}: ${count}`);
         }
       }
 
-      lines.push("", "Rules fired:");
+      lines.push('', 'Rules fired:');
       for (const [rule, count] of [...byRule].sort((a, b) => b[1] - a[1])) {
         lines.push(`  ${rule}: ${count}`);
       }
 
-      ctx.ui.notify(lines.join("\n"), "info");
+      ctx.ui.notify(lines.join('\n'), 'info');
     },
   });
 }

@@ -1,6 +1,6 @@
 /** Mistral grammar-family parser. */
 
-import type { Candidate } from "../types.js";
+import type { Candidate } from '../types.js';
 import {
   callFromJsonObject,
   extractFirstBalancedJson,
@@ -8,18 +8,14 @@ import {
   normalizeArgumentsObject,
   parseJsonArrayObjects,
   parseJsonObject,
-} from "../utils.js";
+} from '../utils.js';
 
 function parseMistral(text: string): Candidate[] {
   const candidates: Candidate[] = [];
-  const marker = "[TOOL_CALLS]";
+  const marker = '[TOOL_CALLS]';
   let index = 0;
 
-  for (
-    index = text.indexOf(marker, index);
-    index !== -1;
-    index = text.indexOf(marker, index)
-  ) {
+  for (index = text.indexOf(marker, index); index !== -1; index = text.indexOf(marker, index)) {
     if (isInsideCodeFence(text, index)) {
       index += marker.length;
       continue;
@@ -30,15 +26,15 @@ function parseMistral(text: string): Candidate[] {
     const whitespace = text.slice(afterMarker).length - rest.length;
     const jsonStart = afterMarker + whitespace;
 
-    if (rest.startsWith("[")) {
+    if (rest.startsWith('[')) {
       const extracted = extractFirstBalancedJson(text.slice(jsonStart));
-      if (extracted?.json.startsWith("[")) {
+      if (extracted?.json.startsWith('[')) {
         for (const item of parseJsonArrayObjects(extracted.json)) {
           const call = callFromJsonObject(item);
           if (call) {
             candidates.push({
               ...call,
-              grammar: "mistral",
+              grammar: 'mistral',
               range: { start: index, end: jsonStart + extracted.end },
             });
           }
@@ -56,9 +52,8 @@ function parseMistral(text: string): Candidate[] {
       if (extracted) {
         candidates.push({
           name,
-          arguments:
-            normalizeArgumentsObject(parseJsonObject(extracted.json)) ?? {},
-          grammar: "mistral",
+          arguments: normalizeArgumentsObject(parseJsonObject(extracted.json)) ?? {},
+          grammar: 'mistral',
           range: { start: index, end: argsStart + extracted.end },
         });
         index = argsStart + extracted.end;

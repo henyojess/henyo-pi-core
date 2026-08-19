@@ -6,7 +6,7 @@
  * syntax fallback (single-quote to double-quote conversion).
  */
 
-import type { ToolMiddleware } from "../types.js";
+import type { ToolMiddleware } from '../types.js';
 
 interface IssueSite {
   parent: Record<string, unknown> | unknown[];
@@ -15,7 +15,7 @@ interface IssueSite {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function tryParseJson(text: string): unknown {
@@ -32,7 +32,7 @@ function tryParseJson(text: string): unknown {
  */
 function pythonToJson(text: string): string | undefined {
   // Must start with { or [ and end with } or ]
-  if (!text.match(/^[{\[]/)) return undefined;
+  if (!text.match(/^[{[]/)) return undefined;
   if (!text.match(/[}\]]$/)) return undefined;
 
   let result = text;
@@ -59,7 +59,7 @@ function pythonToJson(text: string): string | undefined {
  * @param expectedTypes — List of JSON types this middleware handles (e.g. ['array', 'object']).
  */
 export function createParseStringifiedMiddleware(
-  expectedTypes: string[] = ["array", "object"],
+  expectedTypes: string[] = ['array', 'object'],
 ): ToolMiddleware {
   return (input, ctx) => {
     if (!ctx.issues || ctx.issues.length === 0) {
@@ -70,9 +70,7 @@ export function createParseStringifiedMiddleware(
     const notes: string[] = [];
 
     for (const issue of ctx.issues) {
-      const segments = issue.instancePath
-        .split("/")
-        .filter((s) => s.length > 0);
+      const segments = issue.instancePath.split('/').filter((s) => s.length > 0);
       if (segments.length === 0) continue; // root-level
 
       // Resolve the parent container
@@ -88,23 +86,20 @@ export function createParseStringifiedMiddleware(
       if (!isPlainObject(parent) && !Array.isArray(parent)) continue;
 
       const key = segments[segments.length - 1];
-      if (typeof key !== "string" && typeof key !== "number") continue;
+      if (typeof key !== 'string' && typeof key !== 'number') continue;
 
       const value = (parent as Record<string | number, unknown>)[key];
-      if (typeof value !== "string") continue;
+      if (typeof value !== 'string') continue;
 
       // Check if the expected type matches
-      const expected =
-        typeof issue.params?.type === "string"
-          ? issue.params.type
-          : undefined;
+      const expected = typeof issue.params?.type === 'string' ? issue.params.type : undefined;
       if (expected && !expectedTypes.includes(expected)) continue;
 
       const trimmed = value.trim();
 
       // Try JSON parse first
       let parsed: unknown;
-      if (expected === "array" && trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      if (expected === 'array' && trimmed.startsWith('[') && trimmed.endsWith(']')) {
         parsed = tryParseJson(trimmed);
         if (Array.isArray(parsed)) {
           (parent as Record<string | number, unknown>)[key] = parsed;
@@ -127,11 +122,7 @@ export function createParseStringifiedMiddleware(
             continue;
           }
         }
-      } else if (
-        expected === "object" &&
-        trimmed.startsWith("{") &&
-        trimmed.endsWith("}")
-      ) {
+      } else if (expected === 'object' && trimmed.startsWith('{') && trimmed.endsWith('}')) {
         parsed = tryParseJson(trimmed);
         if (isPlainObject(parsed)) {
           (parent as Record<string | number, unknown>)[key] = parsed;
@@ -158,6 +149,6 @@ export function createParseStringifiedMiddleware(
     }
 
     if (!changed) return { changed: false };
-    return { changed: true, note: notes.join("; ") };
+    return { changed: true, note: notes.join('; ') };
   };
 }

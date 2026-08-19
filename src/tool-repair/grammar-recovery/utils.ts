@@ -5,13 +5,8 @@
  * grammar-recovery module — not exported from the public index.
  */
 
-import type {
-  Candidate,
-  GrammarName,
-  MinimalAssistantContent,
-  Range,
-} from "./types.js";
-import { RecoveredToolCall } from "./types.js";
+import type { Candidate, GrammarName, MinimalAssistantContent, Range } from './types.js';
+import { RecoveredToolCall } from './types.js';
 
 // ─── Candidate selection ──────────────────────────────────────────────────────
 
@@ -52,7 +47,7 @@ function isAllowedTool(
 
 function removeRanges(text: string, ranges: Range[]): string {
   const sorted = [...ranges].sort((a, b) => a.start - b.start);
-  let result = "";
+  let result = '';
   let cursor = 0;
   for (const range of sorted) {
     result += text.slice(cursor, range.start);
@@ -60,54 +55,39 @@ function removeRanges(text: string, ranges: Range[]): string {
   }
   result += text.slice(cursor);
   return result
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 // ─── Content part helpers ─────────────────────────────────────────────────────
 
 function getPartText(part: MinimalAssistantContent): string | undefined {
-  if (isObject(part) && part.type === "text" && typeof part.text === "string")
-    return part.text;
-  if (
-    isObject(part) &&
-    part.type === "thinking" &&
-    typeof part.thinking === "string"
-  )
+  if (isObject(part) && part.type === 'text' && typeof part.text === 'string') return part.text;
+  if (isObject(part) && part.type === 'thinking' && typeof part.thinking === 'string')
     return part.thinking;
   return undefined;
 }
 
-function setPartText(
-  part: MinimalAssistantContent,
-  text: string,
-): MinimalAssistantContent {
-  if (isObject(part) && part.type === "text") return { ...part, text };
-  if (isObject(part) && part.type === "thinking")
-    return { ...part, thinking: text };
+function setPartText(part: MinimalAssistantContent, text: string): MinimalAssistantContent {
+  if (isObject(part) && part.type === 'text') return { ...part, text };
+  if (isObject(part) && part.type === 'thinking') return { ...part, thinking: text };
   return part;
 }
 
 function isToolCallContent(
   part: MinimalAssistantContent,
-): part is MinimalAssistantContent & { type: "toolCall"; name: string } {
-  return (
-    isObject(part) && part.type === "toolCall" && typeof part.name === "string"
-  );
+): part is MinimalAssistantContent & { type: 'toolCall'; name: string } {
+  return isObject(part) && part.type === 'toolCall' && typeof part.name === 'string';
 }
 
 function makeRecoveredToolCallId(grammar: GrammarName, index: number): string {
-  return `tool_repair_${grammar.replace(/[^a-z0-9]/gi, "_")}_${Date.now().toString(36)}_${index}`;
+  return `tool_repair_${grammar.replace(/[^a-z0-9]/gi, '_')}_${Date.now().toString(36)}_${index}`;
 }
 
 // ─── Pattern finding ──────────────────────────────────────────────────────────
 
-function findPattern(
-  text: string,
-  pattern: RegExp,
-  from: number,
-): Range | undefined {
+function findPattern(text: string, pattern: RegExp, from: number): Range | undefined {
   pattern.lastIndex = 0;
   const chunk = text.slice(from);
   const match = pattern.exec(chunk);
@@ -122,7 +102,7 @@ function extractFirstBalancedJson(
   const start = text.search(/[[{]/);
   if (start === -1) return undefined;
   const opener = text[start];
-  const closer = opener === "{" ? "}" : "]";
+  const closer = opener === '{' ? '}' : ']';
   const end = findMatching(text, start, opener, closer);
   if (end === undefined) return undefined;
   return { json: text.slice(start, end + 1), start, end: end + 1 };
@@ -143,7 +123,7 @@ function findMatching(
     if (quote) {
       if (escaped) {
         escaped = false;
-      } else if (ch === "\\") {
+      } else if (ch === '\\') {
         escaped = true;
       } else if (ch === quote) {
         quote = undefined;
@@ -176,7 +156,7 @@ function splitTopLevel(text: string, delimiter: string): string[] {
     const ch = text[i];
     if (quote) {
       if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
+      else if (ch === '\\') escaped = true;
       else if (ch === quote) quote = undefined;
       continue;
     }
@@ -184,8 +164,8 @@ function splitTopLevel(text: string, delimiter: string): string[] {
       quote = ch;
       continue;
     }
-    if ("([{".includes(ch)) depth++;
-    if (")]}".includes(ch)) depth--;
+    if ('([{'.includes(ch)) depth++;
+    if (')]}'.includes(ch)) depth--;
     if (ch === delimiter && depth === 0) {
       parts.push(text.slice(start, i));
       start = i + 1;
@@ -205,7 +185,7 @@ function findTopLevelChar(text: string, target: string): number {
     const ch = text[i];
     if (quote) {
       if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
+      else if (ch === '\\') escaped = true;
       else if (ch === quote) quote = undefined;
       continue;
     }
@@ -213,8 +193,8 @@ function findTopLevelChar(text: string, target: string): number {
       quote = ch;
       continue;
     }
-    if ("([{".includes(ch)) depth++;
-    if (")]}".includes(ch)) depth--;
+    if ('([{'.includes(ch)) depth++;
+    if (')]}'.includes(ch)) depth--;
     if (ch === target && depth === 0) return i;
   }
 
@@ -222,7 +202,7 @@ function findTopLevelChar(text: string, target: string): number {
 }
 
 function findLineEnd(text: string, start: number): number {
-  const newline = text.indexOf("\n", start);
+  const newline = text.indexOf('\n', start);
   return newline === -1 ? text.length : newline;
 }
 
@@ -252,7 +232,7 @@ function parseJsonValueOrString(value: string): unknown {
 }
 
 function maybeParseJsonValue(value: string): unknown {
-  if (value === "") return "";
+  if (value === '') return '';
   if (/^(?:true|false|null|-?\d|[[{]|")/.test(value)) {
     return parseJsonValueOrString(value);
   }
@@ -261,13 +241,9 @@ function maybeParseJsonValue(value: string): unknown {
 
 // ─── Call extraction from JSON values ─────────────────────────────────────────
 
-function callsFromJsonValue(
-  value: unknown,
-): Array<Omit<Candidate, "range" | "grammar">> {
+function callsFromJsonValue(value: unknown): Array<Omit<Candidate, 'range' | 'grammar'>> {
   if (Array.isArray(value)) {
-    return value.flatMap((item) =>
-      isObject(item) ? callsFromJsonValue(item) : [],
-    );
+    return value.flatMap((item) => (isObject(item) ? callsFromJsonValue(item) : []));
   }
   if (!isObject(value)) return [];
   const call = callFromJsonObject(value);
@@ -276,29 +252,26 @@ function callsFromJsonValue(
 
 function callFromJsonObject(
   value: Record<string, unknown>,
-): Omit<Candidate, "range" | "grammar"> | undefined {
+): Omit<Candidate, 'range' | 'grammar'> | undefined {
   const name =
     value.name ??
     value.function_name ??
     (isObject(value.function) ? value.function.name : undefined);
-  if (typeof name !== "string" || !name.trim()) return undefined;
+  if (typeof name !== 'string' || !name.trim()) return undefined;
 
   let args: unknown = value.arguments ?? value.args ?? value.parameters;
-  if (args === undefined && isObject(value.function))
-    args = value.function.arguments;
+  if (args === undefined && isObject(value.function)) args = value.function.arguments;
   const normalized = normalizeArgumentsObject(args) ?? {};
   return { name: name.trim(), arguments: normalized };
 }
 
-function normalizeArgumentsObject(
-  value: unknown,
-): Record<string, unknown> | undefined {
-  if (typeof value === "string") {
+function normalizeArgumentsObject(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value === 'string') {
     return normalizeArgumentsObject(parseJsonValue(value));
   }
   if (isObject(value)) {
     const nested = value.arguments;
-    if (typeof nested === "string" || isObject(nested)) {
+    if (typeof nested === 'string' || isObject(nested)) {
       const unwrapped = normalizeArgumentsObject(nested);
       if (unwrapped) return unwrapped;
     }
@@ -317,27 +290,25 @@ function isInsideCodeFence(text: string, index: number): boolean {
 
 function unwrapMarkdownFence(text: string): string {
   const match = /^```\w*\s*([\s\S]*?)\s*```$/.exec(text);
-  return match ? (match[1] ?? "") : text;
+  return match ? (match[1] ?? '') : text;
 }
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 // ─── Pythonic call parsing (shared by olmo, llama, granite) ──────────────────
 
-function parsePythonicCalls(
-  text: string,
-): Array<Omit<Candidate, "range" | "grammar">> {
-  const calls: Array<Omit<Candidate, "range" | "grammar">> = [];
+function parsePythonicCalls(text: string): Array<Omit<Candidate, 'range' | 'grammar'>> {
+  const calls: Array<Omit<Candidate, 'range' | 'grammar'>> = [];
   const re = /(?:^|\n)\s*([A-Za-z_][\w.-]*)\s*\(/g;
   for (const match of text.matchAll(re)) {
     if (match.index === undefined) continue;
     const name = match[1];
-    const openParen = match.index + match[0].lastIndexOf("(");
-    const closeParen = findMatching(text, openParen, "(", ")");
+    const openParen = match.index + match[0].lastIndexOf('(');
+    const closeParen = findMatching(text, openParen, '(', ')');
     if (closeParen === undefined) continue;
     const argsText = text.slice(openParen + 1, closeParen);
     calls.push({ name, arguments: parseKeywordArguments(argsText) });
@@ -347,8 +318,8 @@ function parsePythonicCalls(
 
 function parseKeywordArguments(text: string): Record<string, unknown> {
   const args: Record<string, unknown> = {};
-  for (const part of splitTopLevel(text, ",")) {
-    const eq = findTopLevelChar(part, "=");
+  for (const part of splitTopLevel(text, ',')) {
+    const eq = findTopLevelChar(part, '=');
     if (eq === -1) continue;
     const key = part.slice(0, eq).trim();
     if (!/^[A-Za-z_][\w.-]*$/.test(key)) continue;
@@ -359,21 +330,21 @@ function parseKeywordArguments(text: string): Record<string, unknown> {
 
 function parsePythonishValue(raw: string): unknown {
   const trimmed = raw.trim();
-  if (trimmed === "True") return true;
-  if (trimmed === "False") return false;
-  if (trimmed === "None") return null;
+  if (trimmed === 'True') return true;
+  if (trimmed === 'False') return false;
+  if (trimmed === 'None') return null;
   if (/^[-+]?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
   if (
     (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
     (trimmed.startsWith('"') && trimmed.endsWith('"'))
   ) {
-    return trimmed.slice(1, -1).replace(/\\(['"\\])/g, "$1");
+    return trimmed.slice(1, -1).replace(/\\(['"\\])/g, '$1');
   }
   return parseJsonValueOrString(
     trimmed
-      .replace(/\bTrue\b/g, "true")
-      .replace(/\bFalse\b/g, "false")
-      .replace(/\bNone\b/g, "null"),
+      .replace(/\bTrue\b/g, 'true')
+      .replace(/\bFalse\b/g, 'false')
+      .replace(/\bNone\b/g, 'null'),
   );
 }
 

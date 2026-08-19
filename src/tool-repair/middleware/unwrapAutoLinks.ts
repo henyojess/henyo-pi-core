@@ -6,7 +6,7 @@
  * becomes `notes.md`. Real markdown links pass through untouched.
  */
 
-import type { ToolMiddleware } from "../types.js";
+import type { ToolMiddleware } from '../types.js';
 
 const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g;
 const PROTOCOL = /^https?:\/\//;
@@ -17,7 +17,7 @@ const PROTOCOL = /^https?:\/\//;
  */
 function tryUnwrap(value: string): string {
   return value.replace(MARKDOWN_LINK, (_match, text: string, url: string) =>
-    url.replace(PROTOCOL, "") === text ? text : _match,
+    url.replace(PROTOCOL, '') === text ? text : _match,
   );
 }
 
@@ -26,16 +26,14 @@ function tryUnwrap(value: string): string {
  *
  * @param fields — List of field names to check for auto-link unwrapping.
  */
-export function createUnwrapAutoLinksMiddleware(
-  fields: readonly string[],
-): ToolMiddleware {
+export function createUnwrapAutoLinksMiddleware(fields: readonly string[]): ToolMiddleware {
   return (input, ctx) => {
     let changed = false;
     let notes: string[] = [];
 
     for (const field of fields) {
       const value = input[field];
-      if (typeof value !== "string") continue;
+      if (typeof value !== 'string') continue;
       const unwrapped = tryUnwrap(value);
       if (unwrapped === value) continue;
       input[field] = unwrapped;
@@ -46,6 +44,6 @@ export function createUnwrapAutoLinksMiddleware(
     }
 
     if (!changed) return { changed: false };
-    return { changed: true, note: notes.join("; ") };
+    return { changed: true, note: notes.join('; ') };
   };
 }

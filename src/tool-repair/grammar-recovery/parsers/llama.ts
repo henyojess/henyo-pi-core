@@ -1,6 +1,6 @@
 /** Llama grammar-family parser. */
 
-import type { Candidate, GrammarName } from "../types.js";
+import type { Candidate, GrammarName } from '../types.js';
 import {
   callsFromJsonValue,
   extractFirstBalancedJson,
@@ -8,18 +8,14 @@ import {
   isInsideCodeFence,
   parseJsonValue,
   parsePythonicCalls,
-} from "../utils.js";
+} from '../utils.js';
 
 function parseLlamaPythonTag(text: string): Candidate[] {
   const candidates: Candidate[] = [];
-  const marker = "<|python_tag|>";
+  const marker = '<|python_tag|>';
   let index = 0;
 
-  for (
-    index = text.indexOf(marker, index);
-    index !== -1;
-    index = text.indexOf(marker, index)
-  ) {
+  for (index = text.indexOf(marker, index); index !== -1; index = text.indexOf(marker, index)) {
     if (isInsideCodeFence(text, index)) {
       index += marker.length;
       continue;
@@ -35,7 +31,7 @@ function parseLlamaPythonTag(text: string): Candidate[] {
       for (const call of callsFromJsonValue(parsed)) {
         candidates.push({
           ...call,
-          grammar: "llama",
+          grammar: 'llama',
           range: { start: index, end: payloadStart + extracted.end },
         });
       }
@@ -47,7 +43,7 @@ function parseLlamaPythonTag(text: string): Candidate[] {
     for (const call of parsePythonicCalls(text.slice(payloadStart, lineEnd))) {
       candidates.push({
         ...call,
-        grammar: "llama",
+        grammar: 'llama',
         range: { start: index, end: lineEnd },
       });
     }
@@ -57,16 +53,12 @@ function parseLlamaPythonTag(text: string): Candidate[] {
   return candidates;
 }
 
-function parseBareJsonToolCalls(
-  text: string,
-  grammar: GrammarName,
-): Candidate[] {
+function parseBareJsonToolCalls(text: string, grammar: GrammarName): Candidate[] {
   const candidates: Candidate[] = [];
   const objectRe = /\{\s*"(?:name|function_name|function)"/g;
 
   for (const match of text.matchAll(objectRe)) {
-    if (match.index === undefined || isInsideCodeFence(text, match.index))
-      continue;
+    if (match.index === undefined || isInsideCodeFence(text, match.index)) continue;
     const extracted = extractFirstBalancedJson(text.slice(match.index));
     if (!extracted) continue;
     for (const call of callsFromJsonValue(parseJsonValue(extracted.json))) {
@@ -80,8 +72,7 @@ function parseBareJsonToolCalls(
 
   const arrayRe = /\[\s*\{\s*"(?:name|function_name|function)"/g;
   for (const match of text.matchAll(arrayRe)) {
-    if (match.index === undefined || isInsideCodeFence(text, match.index))
-      continue;
+    if (match.index === undefined || isInsideCodeFence(text, match.index)) continue;
     const extracted = extractFirstBalancedJson(text.slice(match.index));
     if (!extracted) continue;
     for (const call of callsFromJsonValue(parseJsonValue(extracted.json))) {

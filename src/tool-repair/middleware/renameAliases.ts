@@ -5,7 +5,7 @@
  * Renames the alias to the canonical field name.
  */
 
-import type { ToolMiddleware } from "../types.js";
+import type { ToolMiddleware } from '../types.js';
 
 /**
  * Create a middleware that renames known aliases to canonical field names.
@@ -24,13 +24,13 @@ export function createRenameAliasesMiddleware(
         if (!(alias in input)) continue;
         const value = input[alias];
         // Skip null, undefined, or empty string values at the alias
-        if (value == null || value === "") continue;
+        if (value == null || value === '') continue;
         // Skip if the canonical field already has a non-trivial value
         if (
           canonical in input &&
           input[canonical] !== undefined &&
           input[canonical] !== null &&
-          input[canonical] !== ""
+          input[canonical] !== ''
         ) {
           continue;
         }
@@ -45,6 +45,6 @@ export function createRenameAliasesMiddleware(
     }
 
     if (!changed) return { changed: false };
-    return { changed: true, note: notes.join("; ") };
+    return { changed: true, note: notes.join('; ') };
   };
 }

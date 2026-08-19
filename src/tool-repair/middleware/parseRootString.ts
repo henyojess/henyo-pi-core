@@ -5,10 +5,10 @@
  * result is a plain object, replaces the input with it.
  */
 
-import type { ToolMiddleware } from "../types.js";
+import type { ToolMiddleware } from '../types.js';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function tryParseJson(text: string): unknown {
@@ -24,9 +24,7 @@ function tryParseJson(text: string): unknown {
  *
  * @param field — The canonical field name to use if wrapping a bare string.
  */
-export function createParseRootStringMiddleware(
-  field?: string,
-): ToolMiddleware {
+export function createParseRootStringMiddleware(field?: string): ToolMiddleware {
   return (input, ctx) => {
     // input is always a Record at this point (engine guards this)
     const current = input as Record<string, unknown>;
@@ -39,10 +37,10 @@ export function createParseRootStringMiddleware(
     }
 
     const [key, value] = entries[0];
-    if (typeof value !== "string") return { changed: false };
+    if (typeof value !== 'string') return { changed: false };
 
     const trimmed = value.trim();
-    if (!(trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+    if (!(trimmed.startsWith('{') && trimmed.endsWith('}'))) {
       return { changed: false };
     }
 

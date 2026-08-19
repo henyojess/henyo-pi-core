@@ -217,7 +217,10 @@ class FooterComponent implements Component {
   /** Sanitize extension status text (mirrors pi's default footer). */
   private static sanitizeStatusText(text: string): string {
     // Replace newlines, tabs, carriage returns with space, then collapse multiple spaces
-    return text.replace(/[\r\n\t]/g, ' ').replace(/ +/g, ' ').trim();
+    return text
+      .replace(/[\r\n\t]/g, ' ')
+      .replace(/ +/g, ' ')
+      .trim();
   }
 
   /**

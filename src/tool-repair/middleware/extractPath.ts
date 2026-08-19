@@ -6,7 +6,7 @@
  * edit objects.
  */
 
-import type { ToolMiddleware } from "../types.js";
+import type { ToolMiddleware } from '../types.js';
 
 /**
  * Middleware for the edit tool: extracts `path` from `edits[0]` to top level.
@@ -23,32 +23,32 @@ export const extractPathMiddleware: ToolMiddleware = (input) => {
   }
 
   const firstEdit = edits[0];
-  if (!firstEdit || typeof firstEdit !== "object") {
+  if (!firstEdit || typeof firstEdit !== 'object') {
     return { changed: false };
   }
 
   // Only fire if path is missing at top level
-  if ("path" in input) {
+  if ('path' in input) {
     return { changed: false };
   }
 
-  const pathValue = (firstEdit as Record<string, unknown>)["path"];
-  if (typeof pathValue !== "string") {
+  const pathValue = (firstEdit as Record<string, unknown>)['path'];
+  if (typeof pathValue !== 'string') {
     return { changed: false };
   }
 
   // Extract path to top level
-  input["path"] = pathValue;
+  input['path'] = pathValue;
 
   // Remove path from all edit objects
   for (const edit of edits) {
-    if (edit && typeof edit === "object" && "path" in edit) {
-      delete (edit as Record<string, unknown>)["path"];
+    if (edit && typeof edit === 'object' && 'path' in edit) {
+      delete (edit as Record<string, unknown>)['path'];
     }
   }
 
   return {
     changed: true,
-    note: `Extracted path from edits[0] to top-level \`path\` for tool "${input.toolName || "edit"}". Put \`path\` at the top level next time.`,
+    note: `Extracted path from edits[0] to top-level \`path\` for tool "${input.toolName || 'edit'}". Put \`path\` at the top level next time.`,
   };
 };

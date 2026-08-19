@@ -7,20 +7,20 @@
  */
 
 export const GRAMMAR_NAMES = [
-  "dsml",
-  "invoke",
-  "qwen",
-  "kimi",
-  "mistral",
-  "llama",
-  "glm",
-  "granite",
-  "minimax-text",
-  "olmo",
+  'dsml',
+  'invoke',
+  'qwen',
+  'kimi',
+  'mistral',
+  'llama',
+  'glm',
+  'granite',
+  'minimax-text',
+  'olmo',
 ] as const;
 
 export type GrammarName = (typeof GRAMMAR_NAMES)[number];
-export type GrammarRecoveryMode = "off" | "strip" | "recover";
+export type GrammarRecoveryMode = 'off' | 'strip' | 'recover';
 
 export interface RecoveredToolCall {
   name: string;
@@ -39,19 +39,19 @@ interface Range {
 }
 
 interface MinimalTextContent {
-  type: "text";
+  type: 'text';
   text: string;
   [key: string]: unknown;
 }
 
 interface MinimalThinkingContent {
-  type: "thinking";
+  type: 'thinking';
   thinking: string;
   [key: string]: unknown;
 }
 
 interface MinimalToolCallContent {
-  type: "toolCall";
+  type: 'toolCall';
   id: string;
   name: string;
   arguments: Record<string, unknown>;
@@ -59,10 +59,7 @@ interface MinimalToolCallContent {
 }
 
 type MinimalAssistantContent =
-  | MinimalTextContent
-  | MinimalThinkingContent
-  | MinimalToolCallContent
-  | Record<string, unknown>;
+  MinimalTextContent | MinimalThinkingContent | MinimalToolCallContent | Record<string, unknown>;
 
 export interface MinimalAssistantMessage {
   role: string;

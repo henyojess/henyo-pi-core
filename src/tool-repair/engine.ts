@@ -29,15 +29,15 @@
  * - Fingerprint is FNV-1a hash of (tool, failure shape) for telemetry.
  */
 
-import type { TSchema } from "typebox";
-import { Value } from "typebox/value";
+import type { TSchema } from 'typebox';
+import { Value } from 'typebox/value';
 import type {
   MiddlewareContext,
   MiddlewareResult,
   RawIssue,
   RepairResult,
   ToolRepairConfig,
-} from "./types.js";
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,12 +49,12 @@ const PROTOCOL = /^https?:\/\//;
 /** Unwrap `[text](protocol://text)` when text === url-without-protocol. */
 function unwrapMarkdownAutoLinks(value: string): string {
   return value.replace(MARKDOWN_LINK, (_match, text: string, url: string) =>
-    url.replace(PROTOCOL, "") === text ? text : _match,
+    url.replace(PROTOCOL, '') === text ? text : _match,
   );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function schemaAccepts(schema: TSchema, value: unknown): boolean {
@@ -71,10 +71,8 @@ function collectErrors(schema: TSchema, value: unknown): RawIssue[] {
   const out: RawIssue[] = [];
   for (const error of Value.Errors(schema, value)) {
     out.push({
-      keyword: String((error as { keyword?: string }).keyword ?? ""),
-      instancePath: String(
-        (error as { instancePath?: string }).instancePath ?? "",
-      ),
+      keyword: String((error as { keyword?: string }).keyword ?? ''),
+      instancePath: String((error as { instancePath?: string }).instancePath ?? ''),
       params: (error as { params?: Record<string, unknown> }).params,
       message: (error as { message?: string }).message,
     });
@@ -92,17 +90,17 @@ function fnv1a(text: string): string {
   for (let i = 0; i < text.length; i++) {
     hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
   }
-  return (hash >>> 0).toString(16).padStart(8, "0");
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
 function describeIssue(issue: RawIssue): string {
-  const path = issue.instancePath === "" ? "(root)" : issue.instancePath;
+  const path = issue.instancePath === '' ? '(root)' : issue.instancePath;
   const detail =
-    typeof issue.params?.type === "string"
+    typeof issue.params?.type === 'string'
       ? issue.params.type
       : Array.isArray(issue.params?.requiredProperties)
-        ? issue.params.requiredProperties.join(",")
-        : "";
+        ? issue.params.requiredProperties.join(',')
+        : '';
   return `${path}|${issue.keyword}|${detail}`;
 }
 
@@ -110,16 +108,12 @@ function describeIssue(issue: RawIssue): string {
 // Retry message
 // ---------------------------------------------------------------------------
 
-function buildRetryMessage(
-  toolName: string,
-  issues: RawIssue[],
-  input: unknown,
-): string {
+function buildRetryMessage(toolName: string, issues: RawIssue[], input: unknown): string {
   const lines = issues
     .slice(0, 8)
     .map(
       (issue) =>
-        `  • ${issue.instancePath === "" ? "(root)" : issue.instancePath}: ${issue.message ?? issue.keyword}`,
+        `  • ${issue.instancePath === '' ? '(root)' : issue.instancePath}: ${issue.message ?? issue.keyword}`,
     );
   let received: string;
   try {
@@ -128,7 +122,7 @@ function buildRetryMessage(
     received = String(input);
   }
   if (received.length > 300) received = `${received.slice(0, 300)}…`;
-  return `Invalid input for tool "${toolName}". Fix these issues and retry:\n${lines.join("\n")}\nReceived: ${received}`;
+  return `Invalid input for tool "${toolName}". Fix these issues and retry:\n${lines.join('\n')}\nReceived: ${received}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,11 +155,14 @@ export function repairToolInput(
   if (isPlainObject(current)) {
     for (const field of config.pathFields ?? []) {
       const value = current[field];
-      if (typeof value !== "string") continue;
+      if (typeof value !== 'string') continue;
       const unwrapped = unwrapMarkdownAutoLinks(value);
       if (unwrapped === value) continue;
       current[field] = unwrapped;
-      fire("unwrapMarkdownAutoLink", `Unwrapped markdown auto-link in \`${field}\` for tool "${toolName}" (\`${value}\` -> \`${unwrapped}\`). Send plain paths, not markdown links.`);
+      fire(
+        'unwrapMarkdownAutoLink',
+        `Unwrapped markdown auto-link in \`${field}\` for tool "${toolName}" (\`${value}\` -> \`${unwrapped}\`). Send plain paths, not markdown links.`,
+      );
     }
   }
 
@@ -174,7 +171,7 @@ export function repairToolInput(
   if (schemaAccepts(config.schema, current)) {
     if (rulesFired.length === 0) {
       return {
-        outcome: "valid",
+        outcome: 'valid',
         args: input,
         rulesFired,
         notes,
@@ -185,7 +182,7 @@ export function repairToolInput(
     }
     // Path fields were unwrapped but nothing else was wrong → repaired
     return {
-      outcome: "repaired",
+      outcome: 'repaired',
       args: current,
       rulesFired,
       notes,
@@ -197,13 +194,11 @@ export function repairToolInput(
 
   // Record original failure shape before repairs mutate it.
   const originalIssues = collectErrors(config.schema, current);
-  const issueSummary = originalIssues.map(describeIssue).join("; ");
-  const fingerprint = fnv1a(
-    `${toolName}::${originalIssues.map(describeIssue).sort().join(";")}`,
-  );
+  const issueSummary = originalIssues.map(describeIssue).join('; ');
+  const fingerprint = fnv1a(`${toolName}::${originalIssues.map(describeIssue).sort().join(';')}`);
 
   const unrepairable = (): RepairResult => ({
-    outcome: "unrepairable",
+    outcome: 'unrepairable',
     args: input,
     rulesFired: [],
     notes: [],
@@ -214,16 +209,14 @@ export function repairToolInput(
 
   // ── Stage 3: Root string parsing ───────────────────────────────────────
 
-  if (typeof current === "string") {
+  if (typeof current === 'string') {
     const trimmed = current.trim();
     const parsed =
-      trimmed.startsWith("{") && trimmed.endsWith("}")
-        ? tryParseJson(trimmed)
-        : undefined;
+      trimmed.startsWith('{') && trimmed.endsWith('}') ? tryParseJson(trimmed) : undefined;
     if (isPlainObject(parsed)) {
       current = parsed;
       fire(
-        "parseRootString",
+        'parseRootString',
         `Parsed JSON-stringified arguments for tool "${toolName}". Send arguments as a JSON object next time, not a string.`,
       );
     } else if (config.fieldAliases) {
@@ -233,7 +226,7 @@ export function repairToolInput(
       if (firstField) {
         current = { [firstField]: current };
         fire(
-          "wrapRootStringAsObject",
+          'wrapRootStringAsObject',
           `Wrapped bare string as \`{${firstField}: "..." }\` for tool "${toolName}". Call with an object, not a bare string, next time.`,
         );
       }
@@ -242,11 +235,14 @@ export function repairToolInput(
       // Re-apply auto-link unwrapping after root parsing
       for (const field of config.pathFields ?? []) {
         const value = current[field];
-        if (typeof value !== "string") continue;
+        if (typeof value !== 'string') continue;
         const unwrapped = unwrapMarkdownAutoLinks(value);
         if (unwrapped === value) continue;
         current[field] = unwrapped;
-        fire("unwrapMarkdownAutoLink", `Unwrapped markdown auto-link in \`${field}\` for tool "${toolName}" (\`${value}\` -> \`${unwrapped}\`). Send plain paths, not markdown links.`);
+        fire(
+          'unwrapMarkdownAutoLink',
+          `Unwrapped markdown auto-link in \`${field}\` for tool "${toolName}" (\`${value}\` -> \`${unwrapped}\`). Send plain paths, not markdown links.`,
+        );
       }
     }
   }
@@ -268,7 +264,7 @@ export function repairToolInput(
       if (result.changed) {
         changedThisPass = true;
         // Extract rule name from note (first sentence / key phrase)
-        const ruleName = result.note.split(" for tool")[0].trim();
+        const ruleName = result.note.split(' for tool')[0].trim();
         fire(ruleName, result.note);
       }
     }
@@ -282,7 +278,7 @@ export function repairToolInput(
     if (rulesFired.length === 0) {
       // Convert alone fixes it — defer to pi's native coercion.
       return {
-        outcome: "valid",
+        outcome: 'valid',
         args: input,
         rulesFired,
         notes,
@@ -292,7 +288,7 @@ export function repairToolInput(
       };
     }
     return {
-      outcome: "repaired",
+      outcome: 'repaired',
       args: probe,
       rulesFired,
       notes,

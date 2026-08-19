@@ -4,7 +4,7 @@
  * No implementation — only contracts that other modules depend on.
  */
 
-import type { TSchema } from "typebox";
+import type { TSchema } from 'typebox';
 
 // ---------------------------------------------------------------------------
 // Middleware types
@@ -32,9 +32,7 @@ export interface MiddlewareContext {
 /**
  * Result returned by a middleware. `changed: true` means the input was mutated.
  */
-export type MiddlewareResult =
-  | { changed: true; note: string }
-  | { changed: false };
+export type MiddlewareResult = { changed: true; note: string } | { changed: false };
 
 /**
  * A middleware function — receives input (mutated in place) and context,
@@ -67,7 +65,7 @@ export interface ToolRepairConfig {
  * Outcome of running the repair engine on a tool input.
  */
 export interface RepairResult {
-  outcome: "valid" | "repaired" | "unrepairable";
+  outcome: 'valid' | 'repaired' | 'unrepairable';
   /** What prepareArguments should return. */
   args: unknown;
   /** Rule / middleware names that fired. */
@@ -96,12 +94,12 @@ export interface TelemetryRecord {
   ts: string;
   tool?: string;
   model: string | undefined;
-  outcome: "repaired" | "unrepairable" | "recovered" | "stripped";
+  outcome: 'repaired' | 'unrepairable' | 'recovered' | 'stripped';
   rules: string[];
   issues?: string;
   fingerprint?: string;
   /** "tool" (default) or "message" channel. */
-  channel?: "tool" | "message";
+  channel?: 'tool' | 'message';
   /** Grammar family for recovered/stripped events. */
   grammar?: string;
 }
@@ -116,7 +114,7 @@ export interface TelemetryRecord {
  *  - "strip": remove leaked grammar from text (model-gated), never promote.
  *  - "recover": additionally promote leaked calls to real toolCalls.
  */
-export type GrammarRecoveryMode = "off" | "strip" | "recover";
+export type GrammarRecoveryMode = 'off' | 'strip' | 'recover';
 
 /**
  * Repair layer settings, read from ~/.pi/agent/settings.json under `henyo.toolRepair`.
@@ -139,6 +137,6 @@ export const DEFAULT_REPAIR_SETTINGS: RepairSettings = {
   debug: false,
   showIndicator: true,
   showNotes: true,
-  grammarRecovery: "off",
+  grammarRecovery: 'off',
   grammarAllowedTools: [],
 };

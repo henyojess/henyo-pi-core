@@ -14,7 +14,7 @@
     "test": "vitest run",
     "lint": "tsc --noEmit && eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "format": "prettier --check 'src/**/*.ts'",
+    "format": "prettier --check src/**/*.ts",
     "format:fix": "prettier --write 'src/**/*.ts'",
     "build": "tsc --noEmit"
   },
