@@ -2,6 +2,7 @@
 
 import toolRepairExtension from './tool-repair/index.js';
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { TUI } from '@earendil-works/pi-tui';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
@@ -150,6 +151,7 @@ export default function (pi: _ExtensionAPI) {
   }
 
   let footerComponent: any;
+  let footerTui: TUI | undefined;
 
   // ─── Lazy init: copy SAMPLE_GLOBAL_AGENTS.md on first session ────
   let agentsMdCopied = false;
@@ -176,6 +178,7 @@ export default function (pi: _ExtensionAPI) {
     // Set the custom footer component
     if (henyoSettings.footer !== false) {
       ctx.ui.setFooter((_tui, _theme, footerData) => {
+        footerTui = _tui;
         const component = FooterFactory(_tui, _theme, footerData, ctx, () => pi.getThinkingLevel());
         footerComponent = component;
         return component;
@@ -187,9 +190,20 @@ export default function (pi: _ExtensionAPI) {
 
   // Invalidate footer when model changes
   pi.on('model_select', () => {
-    if (footerComponent) {
-      footerComponent.invalidate();
-    }
+    footerComponent?.invalidate();
+    footerTui?.requestRender();
+  });
+
+  // Re-render footer when the thinking level changes (suffix is part of line 1)
+  pi.on('thinking_level_select', () => {
+    footerComponent?.invalidate();
+    footerTui?.requestRender();
+  });
+
+  // Re-render footer when session info changes (e.g. session name prefix)
+  pi.on('session_info_changed', () => {
+    footerComponent?.invalidate();
+    footerTui?.requestRender();
   });
 
   // ─── Custom tools ──────────────────────────────────────────────────
