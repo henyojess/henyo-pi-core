@@ -1,14 +1,19 @@
 // Inline modular repair layer
 
 import toolRepairExtension from './tool-repair/index.js';
-import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+  ExtensionAPI as _ExtensionAPI,
+  ExtensionContext,
+} from '@earendil-works/pi-coding-agent';
 import type { TUI } from '@earendil-works/pi-tui';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
+import henyoFooterCommand from './commands/henyo-footer.js';
 import { FooterFactory } from './footer.js';
+import { SETTINGS_PATH, readSettingsFile } from './settings-io.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -27,19 +32,20 @@ interface HenyoSettings {
   commands: Record<string, boolean>;
 }
 
-const SETTINGS_PATH = join(
-  process.env.HOME || process.env.USERPROFILE || '',
-  '.pi',
-  'agent',
-  'settings.json',
-);
 const FEATURE_KEYS: (keyof Omit<HenyoSettings, 'skills' | 'commands'>)[] = [
   'toolRepair',
   'footer',
   'agentsMd',
 ];
 const SKILLS = { 'plan-generation': 'skills/plan-generation', notes: 'skills/notes' };
-const COMMANDS = { cwd: cwdCommand, newp: newpCommand };
+const COMMANDS: Record<
+  string,
+  (pi: _ExtensionAPI, applyFooter: (enabled: boolean) => void) => void
+> = {
+  cwd: cwdCommand,
+  newp: newpCommand,
+  henyo_footer: henyoFooterCommand,
+};
 
 /**
  * Load henyo settings from ~/.pi/agent/settings.json.
@@ -52,15 +58,8 @@ function loadHenyoSettings(): HenyoSettings {
     let henyo: any = {};
     let changed = false;
 
-    // Read existing settings
-    if (fs.existsSync(SETTINGS_PATH)) {
-      try {
-        settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
-      } catch {
-        // Invalid JSON — start fresh
-        settings = {};
-      }
-    }
+    // Read existing settings (missing file / invalid JSON tolerated → {})
+    settings = readSettingsFile();
 
     // Extract henyo block
     if (settings.henyo && typeof settings.henyo === 'object' && !Array.isArray(settings.henyo)) {
@@ -119,7 +118,7 @@ function loadHenyoSettings(): HenyoSettings {
       footer: true,
       agentsMd: true,
       skills: { 'plan-generation': true, notes: true },
-      commands: { cwd: true, newp: true },
+      commands: { cwd: true, newp: true, henyo_footer: true },
     };
   }
 }
@@ -152,6 +151,26 @@ export default function (pi: _ExtensionAPI) {
 
   let footerComponent: any;
   let footerTui: TUI | undefined;
+  let sessionCtx: ExtensionContext | undefined;
+
+  /**
+   * Apply the custom footer (or clear it) on the current session.
+   * Used by session_start and by the /henyo_footer toggle command.
+   */
+  function applyFooter(enabled: boolean): void {
+    const ctx = sessionCtx;
+    if (!ctx) return; // no active session yet — nothing to attach to
+    if (enabled) {
+      ctx.ui.setFooter((_tui, _theme, footerData) => {
+        footerTui = _tui;
+        const component = FooterFactory(_tui, _theme, footerData, ctx, () => pi.getThinkingLevel());
+        footerComponent = component;
+        return component;
+      });
+    } else {
+      ctx.ui.setFooter(undefined);
+    }
+  }
 
   // ─── Lazy init: copy SAMPLE_GLOBAL_AGENTS.md on first session ────
   let agentsMdCopied = false;
@@ -172,20 +191,12 @@ export default function (pi: _ExtensionAPI) {
   }
 
   pi.on('session_start', async (_event, ctx) => {
+    sessionCtx = ctx;
     if (henyoSettings.agentsMd !== false) {
       await ensureAgentsMd();
     }
     // Set the custom footer component
-    if (henyoSettings.footer !== false) {
-      ctx.ui.setFooter((_tui, _theme, footerData) => {
-        footerTui = _tui;
-        const component = FooterFactory(_tui, _theme, footerData, ctx, () => pi.getThinkingLevel());
-        footerComponent = component;
-        return component;
-      });
-    } else {
-      ctx.ui.setFooter(undefined);
-    }
+    applyFooter(henyoSettings.footer !== false);
   });
 
   // Invalidate footer when model changes
@@ -212,7 +223,7 @@ export default function (pi: _ExtensionAPI) {
   // ─── Custom commands ───────────────────────────────────────────────
   for (const [cmdName, register] of Object.entries(COMMANDS)) {
     if (henyoSettings.commands[cmdName] !== false) {
-      register(pi);
+      register(pi, applyFooter);
     }
   }
 
