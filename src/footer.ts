@@ -214,13 +214,39 @@ class FooterComponent implements Component {
     return leftContent + '•' + cwdStyled(bestCwdIdx) + theme.fg('dim', finalBranch);
   }
 
-  /** Render the footer as a single line. */
+  /** Sanitize extension status text (mirrors pi's default footer). */
+  private static sanitizeStatusText(text: string): string {
+    // Replace newlines, tabs, carriage returns with space, then collapse multiple spaces
+    return text.replace(/[\r\n\t]/g, ' ').replace(/ +/g, ' ').trim();
+  }
+
+  /**
+   * Build the conditional extension-status line.
+   * Returns null when no extension registered statuses (footer stays one line).
+   */
+  private buildStatusLine(width: number): string | null {
+    const theme = this._theme;
+    if (!theme) return null;
+    const statuses = this.footerData.getExtensionStatuses();
+    if (statuses.size === 0) return null;
+    const sorted = Array.from(statuses.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, text]) => FooterComponent.sanitizeStatusText(text));
+    return truncateToWidth(theme.fg('dim', sorted.join(' ')), width, theme.fg('dim', '...'));
+  }
+
+  /** Render the footer: line 1 always, line 2 only when extensions registered statuses. */
   render(width: number): string[] {
     this._dirty = true;
     if (this._theme) {
       this._cachedLine = this.buildLine(width);
     }
-    return [this._cachedLine];
+    const lines = [this._cachedLine];
+    const statusLine = this.buildStatusLine(width);
+    if (statusLine) {
+      lines.push(statusLine);
+    }
+    return lines;
   }
 }
 
