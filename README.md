@@ -32,11 +32,13 @@ henyo-pi-core/
 │   └── notes/            # Ephemeral working notes for tracking context and decisions
 ├── src/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
-│   ├── footer.ts         # Compact one-line footer: pwd · branch · context% · model
+│   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
+│   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
 │   ├── pi-repair-layer.d.ts  # Type declarations for pi-repair-layer
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
-│       └── newp.ts       # /newp: start a new session with an initial prompt
+│       ├── newp.ts       # /newp: start a new session with an initial prompt
+│       └── henyo-footer.ts # /henyo_footer: live-toggle the custom footer
 └── tests/
     └── commands/         # Unit tests for command handlers
         ├── cwd.test.ts
@@ -45,17 +47,18 @@ henyo-pi-core/
 
 ## Custom Footer
 
-A compact one-line footer renders:
+A compact footer renders one packed line:
 ```
-pwd · branch · context% · model
+myproj•qwen3.8-27b(xhi)•42%/84k•/~/pi/proj(main)
 ```
 
-- Segments are separated by `·` (middle dot + space)
-- Hidden segments (no branch, no model) are omitted
-- Model is right-aligned with space padding
-- Context percentage is color-coded: green (<70%), yellow (70–90%), red (>90%)
-- All non-context text is dimmed
-- Truncation: if total width exceeds terminal width, pwd is truncated from the left while the model stays right-aligned
+- Session name (bright) is prepended as `name•` only when the session has a name; it is never truncated
+- Model segment is `model` plus a 3-char thinking-level suffix `(xhi)` / `(low)` / … only for reasoning models at a level other than `off`
+- Context usage is `NN%/usedk`, or `?/windowk` when unknown; color-coded: yellow 50–80%, red ≥81%
+- Path is shown from the right as space allows — last segment bright, prefix dim — with the git branch glued in parens: `path(branch)`
+- All segments are joined by `•` (no spaces); non-bright content is dimmed
+- Truncation: when space is tight, the path and branch are truncated from the right while the left block (name • model • context) stays intact
+- Extension statuses appear on a second line (dim, keys sorted) only when an extension registers them — the footer is one line by default
 
 ## Registered Commands
 
@@ -69,6 +72,13 @@ Switch to another project directory and start a new session in the target dir.
 
 Start a new session with an initial prompt. The prompt is sent as the first
 user message in the new session.
+
+### `/henyo_footer`
+
+Toggle the compact footer on/off. Persists to `henyo.footer` in
+`~/.pi/agent/settings.json` and applies immediately in the current session.
+Shows the new state via a TUI notification (`Henyo footer enabled` /
+`Henyo footer disabled`). Arguments are ignored (toggle only).
 
 ## Bundled Skills
 
@@ -109,7 +119,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `toolRepair` | `boolean` | `true` | Validate and repair malformed tool calls from LLMs |
-| `footer` | `boolean` | `true` | Render compact one-line footer (pwd · branch · context% · model) |
+| `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first install |
 | `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |
 | `commands.<name>` | `boolean` | `true` | Enable/disable individual custom commands |
@@ -129,6 +139,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 |-----|---------|-------------|
 | `cwd` | `true` | `/cwd` — switch project directory |
 | `newp` | `true` | `/newp` — start a new session with an initial prompt |
+| `henyo_footer` | `true` | `/henyo_footer` — live-toggle the custom footer |
 
 ### Example Configuration
 
