@@ -1,1 +1,5 @@
-* text=auto
+# Canonical LF everywhere (safe for TS/JS tooling on all OSes)
+* text=auto eol=lf
+
+# Exception if Windows batch scripts ever land in this repo:
+# *.{cmd,bat} text eol=crlf
