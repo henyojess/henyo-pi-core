@@ -203,7 +203,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 |-----|------|---------|-------------|
 | `toolRepair` | `boolean` | `true` | Edit path repair + stringified-edits fix + all-tools validation coaching + unknown-tool hint + prompt guideline |
 | `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
-| `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first install |
+| `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first session (if it does not already exist) |
 | `ttftTokps` | `boolean` | `true` | Working line with TTFT + tok/s (live estimate, exact when usage is reported, final readout) |
 | `trace` | `boolean` | `false` | JSONL trace of every ttftTokps display decision (incl. the exact displayed string), size-rotated |
 | `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |
