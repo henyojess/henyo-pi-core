@@ -9,16 +9,15 @@ import type {
 } from '@earendil-works/pi-coding-agent';
 
 /**
- * A compact one-line footer component that renders:
- *   model · context% · pwd · branch
+ * A compact footer component that renders:
+ *   name•model(level)•context%•pwd(branch)
  *
- * Segments are separated by `· ` (middle dot + space).
- * Hidden segments (no branch) are omitted entirely.
- * Model is left-aligned (always visible on the left).
- * Context percentage is color-coded: green (<70%), yellow (70-90%), red (>90%).
- * All non-model text is dimmed.
+ * Segments are separated by `•` (big dot, no spaces).
+ * Hidden segments (no branch, no name, unknown context) are omitted entirely.
+ * Session name is left-aligned and bright; model and context are dim.
+ * Context percentage is color-coded: yellow (50-80%), red (>=81%).
  * Truncation: when space is tight, pwd and branch are truncated from the right,
- *   model and context stay visible on the left.
+ *   name/model/context stay visible on the left.
  */
 class FooterComponent implements Component {
   private _focused = false;
@@ -29,6 +28,7 @@ class FooterComponent implements Component {
   constructor(
     private readonly footerData: ReadonlyFooterDataProvider,
     private readonly ctx: ExtensionContext,
+    private readonly getThinkingLevel: () => string,
   ) {
     // Subscribe to branch changes so we re-render when the branch changes
     this.footerData.onBranchChange(() => {
@@ -63,7 +63,9 @@ class FooterComponent implements Component {
 
   /** Get the current working directory path segments (for growing). */
   private getCwdParts(): string[] {
-    const full = this.ctx.sessionManager.getCwd().replace(process.env.HOME || process.env.USERPROFILE || '', '~');
+    const full = this.ctx.sessionManager
+      .getCwd()
+      .replace(process.env.HOME || process.env.USERPROFILE || '', '~');
     return full.split('/').filter(Boolean);
   }
 
@@ -98,7 +100,7 @@ class FooterComponent implements Component {
 
   /**
    * Build the rendered footer line.
-   * Layout: model · context% · pwd · branch (no padding between segments).
+   * Layout: name•model(level)•context%•pwd(branch) — `•` separators, no padding between segments.
    * Model is left-aligned (always visible). Cwd and branch flow immediately after model/context.
    * @param width - Available terminal width
    */
@@ -109,11 +111,22 @@ class FooterComponent implements Component {
     const cwdParts = this.getCwdParts();
     const branch = this.getBranch();
     const contextUsage = this.getContextUsage();
-    const model = this.getModel();
+    const modelBase = this.getModel();
+    const level = this.getThinkingLevel();
+    // Thinking-level suffix: only for reasoning models, hidden at 'off'
+    const model =
+      this.ctx.model?.reasoning && level !== 'off'
+        ? modelBase + '(' + level.slice(0, 3) + ')'
+        : modelBase;
+    const name = this.ctx.sessionManager.getSessionName()?.trim() ?? '';
 
-    // ── Build left content (model · context%) ─────────────────────────
+    // ── Build left content (name•model•context%) ─────────────────────
     let leftContent = theme.fg('dim', model);
     let leftWidth = visibleWidth(model);
+    if (name) {
+      leftContent = theme.fg('text', name) + '•' + leftContent;
+      leftWidth += visibleWidth(name) + 1;
+    }
     if (contextUsage) {
       let ctxStr: string;
       let ctxColor: 'text' | 'warning' | 'error' = 'text';
@@ -133,7 +146,7 @@ class FooterComponent implements Component {
             : contextUsage.contextWindow;
         ctxStr = `?/${ctxWindow}`;
       }
-      leftContent = leftContent + '·' + theme.fg(ctxColor, ctxStr);
+      leftContent = leftContent + '•' + theme.fg(ctxColor, ctxStr);
       leftWidth += 1 + visibleWidth(ctxStr);
     }
 
@@ -163,7 +176,7 @@ class FooterComponent implements Component {
           break;
         }
       }
-      return leftContent + '·' + cwdStyled(bestCwdIdx);
+      return leftContent + '•' + cwdStyled(bestCwdIdx);
     }
 
     // Branch present — cwd · branch, no padding
@@ -174,7 +187,8 @@ class FooterComponent implements Component {
       const cwdWidth = visibleWidth(cwdStyled(i));
       const branchWidth = visibleWidth(theme.fg('dim', '(' + branch + ')'));
 
-      if (cwdWidth + 1 + 2 + branchWidth <= width - leftWidth) {
+      // Separator (1 char); branch parens glued (no extra chars)
+      if (cwdWidth + 1 + branchWidth <= width - leftWidth) {
         bestCwdIdx = i;
       } else {
         break;
@@ -197,7 +211,7 @@ class FooterComponent implements Component {
       }
     }
 
-    return leftContent + '·' + cwdStyled(bestCwdIdx) + theme.fg('dim', finalBranch);
+    return leftContent + '•' + cwdStyled(bestCwdIdx) + theme.fg('dim', finalBranch);
   }
 
   /** Render the footer as a single line. */
@@ -218,6 +232,7 @@ class FooterComponent implements Component {
  * @param theme - Theme instance for styling
  * @param footerData - Read-only footer data provider (git branch, extension statuses)
  * @param ctx - Extension context (model, session, etc.)
+ * @param getThinkingLevel - Live getter for the current thinking level (pi.getThinkingLevel)
  * @returns A Component instance that renders the compact footer
  */
 export const FooterFactory = (
@@ -225,8 +240,9 @@ export const FooterFactory = (
   theme: Theme,
   footerData: ReadonlyFooterDataProvider,
   ctx: ExtensionContext,
+  getThinkingLevel: () => string,
 ): Component & { dispose?(): void } => {
-  const component = new FooterComponent(footerData, ctx);
+  const component = new FooterComponent(footerData, ctx, getThinkingLevel);
 
   // Initialize with the theme
   component.init(theme);

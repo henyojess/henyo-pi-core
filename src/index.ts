@@ -176,7 +176,7 @@ export default function (pi: _ExtensionAPI) {
     // Set the custom footer component
     if (henyoSettings.footer !== false) {
       ctx.ui.setFooter((_tui, _theme, footerData) => {
-        const component = FooterFactory(_tui, _theme, footerData, ctx);
+        const component = FooterFactory(_tui, _theme, footerData, ctx, () => pi.getThinkingLevel());
         footerComponent = component;
         return component;
       });
