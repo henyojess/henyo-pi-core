@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // Mock @earendil-works/pi-coding-agent since it's resolved at runtime by pi
-vi.mock("@earendil-works/pi-coding-agent", () => ({}));
+// (cwd.ts calls getAgentDir() for the session dir; rest is types only)
+vi.mock("@earendil-works/pi-coding-agent", () => ({
+  getAgentDir: () => join(process.env.HOME ?? "", ".pi", "agent"),
+}));
 
 import cwdCommand from "../../src/commands/cwd";
 

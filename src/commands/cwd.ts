@@ -1,7 +1,7 @@
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { join, resolve } from 'node:path';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
-import { homedir } from 'node:os';
 
 /** Generate a simple session ID (matches pi's internal format). */
 function generateSessionId(): string {
@@ -13,7 +13,7 @@ function generateSessionId(): string {
  * Mirrors pi's internal getDefaultSessionDirPath logic.
  */
 function getSessionDirForCwd(cwd: string): string {
-  const agentDir = join(homedir(), '.pi', 'agent');
+  const agentDir = getAgentDir();
   const safePath = `--${resolve(cwd)
     .replace(/^[/\\]/, '')
     .replace(/[/\\:]/g, '-')}--`;
