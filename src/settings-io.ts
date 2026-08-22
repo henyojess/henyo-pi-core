@@ -1,16 +1,12 @@
 import { join } from 'node:path';
 import fs from 'node:fs';
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
 
 /**
- * Absolute path to ~/.pi/agent/settings.json.
+ * Absolute path to settings.json in the pi agent config dir (honors PI_CODING_AGENT_DIR).
  * Module-level so tests can stub HOME before a dynamic import.
  */
-export const SETTINGS_PATH = join(
-  process.env.HOME || process.env.USERPROFILE || '',
-  '.pi',
-  'agent',
-  'settings.json',
-);
+export const SETTINGS_PATH = join(getAgentDir(), 'settings.json');
 
 /**
  * Read the raw settings.json as a plain object.

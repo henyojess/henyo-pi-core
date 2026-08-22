@@ -1,6 +1,7 @@
 // Inline modular repair layer
 
 import toolRepairExtension from './tool-repair/index.js';
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
   ExtensionAPI as _ExtensionAPI,
   ExtensionContext,
@@ -175,11 +176,11 @@ export default function (pi: _ExtensionAPI) {
     if (agentsMdCopied) return;
     agentsMdCopied = true;
     const src = extPath('SAMPLE_GLOBAL_AGENTS.md');
-    const home = process.env.HOME || process.env.USERPROFILE || '';
-    const dst = join(home, '.pi', 'agent', 'AGENTS.md');
+    const agentDir = getAgentDir();
+    const dst = join(agentDir, 'AGENTS.md');
     try {
       if (!fs.existsSync(dst) && fs.existsSync(src)) {
-        fs.mkdirSync(join(home, '.pi', 'agent'), { recursive: true });
+        fs.mkdirSync(agentDir, { recursive: true });
         fs.copyFileSync(src, dst);
       }
     } catch {

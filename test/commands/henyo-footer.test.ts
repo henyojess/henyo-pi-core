@@ -3,9 +3,11 @@ import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// Mock @earendil-works/pi-coding-agent (types only in the command module,
-// pattern matches the rest of the suite)
-vi.mock('@earendil-works/pi-coding-agent', () => ({}));
+// Mock @earendil-works/pi-coding-agent (settings-io now calls getAgentDir() at
+// module load to build SETTINGS_PATH; the command module itself uses types only).
+vi.mock('@earendil-works/pi-coding-agent', () => ({
+  getAgentDir: () => join(process.env.HOME ?? '', '.pi', 'agent'),
+}));
 
 // settings-io computes SETTINGS_PATH at module load, so stub HOME BEFORE the
 // dynamic import of the command module.
