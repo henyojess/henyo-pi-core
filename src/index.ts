@@ -1,6 +1,4 @@
-// Inline modular repair layer
-
-import toolRepairExtension from './tool-repair/index.js';
+import { editPathRepairExtension, resolveEditPathFix } from './edit-path-repair.js';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
   ExtensionAPI as _ExtensionAPI,
@@ -26,6 +24,9 @@ function extPath(...segments: string[]) {
 // ─── Henyo Settings Block ──────────────────────────────────────────────
 
 interface HenyoSettings {
+  /** Standalone edit path fix + coaching + prompt guideline. */
+  editPathFix?: boolean;
+  /** Legacy key — honored when `editPathFix` is unset. */
   toolRepair: boolean;
   footer: boolean;
   agentsMd: boolean;
@@ -134,9 +135,10 @@ export default function (pi: _ExtensionAPI) {
   // ─── Henyo settings ──────────────────────────────────────────────────
   const henyoSettings = loadHenyoSettings();
 
-  // ─── Tool repair (must run first — overrides built-in tools) ────────
-  if (henyoSettings.toolRepair !== false) {
-    toolRepairExtension(pi);
+  // ─── Edit path fix (event hooks only — coexists with tool overrides) ─
+  const editPathFixEnabled = resolveEditPathFix(henyoSettings);
+  if (editPathFixEnabled) {
+    editPathRepairExtension(pi, { enabled: true });
   }
 
   // ─── Event subscriptions ───────────────────────────────────────────
