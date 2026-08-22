@@ -4,10 +4,7 @@ Pi coding agent extensions for long-horizon agentic SWE using local models.
 
 ## Installation
 
-When installed via `npm install`, the package runs a `postinstall` script that:
-
-1. **Initializes git submodules** — pulls in `@r3b1s/pi-repair-layer` (see [Bundled Extensions](#bundled-extensions)).
-2. **Seeds `~/.pi/agent/AGENTS.md`** — copies `SAMPLE_GLOBAL_AGENTS.md` to your pi config directory on first install only (if the file doesn't already exist). This provides default guidelines for new users.
+On first load, the extension seeds `~/.pi/agent/AGENTS.md` — it copies `SAMPLE_GLOBAL_AGENTS.md` to your pi config directory if the file doesn't already exist, providing default guidelines for new users.
 
 ## Structure
 
@@ -15,18 +12,14 @@ When installed via `npm install`, the package runs a `postinstall` script that:
 henyo-pi-core/
 ├── package.json          # Extension manifest with pi entry point
 ├── .gitignore
-├── .gitmodules           # Git submodule config (pi-repair-layer)
 ├── README.md
-├── SAMPLE_GLOBAL_AGENTS.md  # Default AGENTS.md template (copied on install)
+├── SAMPLE_GLOBAL_AGENTS.md  # Default AGENTS.md template (seeded on first load)
 ├── eslint.config.mjs     # ESLint flat config (style rules + Prettier integration)
 ├── .prettierrc.json      # Prettier configuration
 ├── .prettierignore       # Files to exclude from formatting
 ├── tsconfig.json         # TypeScript compiler options
 ├── vitest.config.ts      # Vitest test runner config
 ├── index.ts              # Re-export for pi extension loading
-├── scripts/
-│   ├── postinstall.cjs   # Postinstall: init submodules + seed AGENTS.md
-│   └── update-submodules.sh  # Helper to update git submodules
 ├── skills/               # Bundled pi skills
 │   ├── plan-generation/  # Structured plan generation for multi-step tasks
 │   └── notes/            # Ephemeral working notes for tracking context and decisions
@@ -34,15 +27,18 @@ henyo-pi-core/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
-│   ├── pi-repair-layer.d.ts  # Type declarations for pi-repair-layer
+│   ├── tool-repair/      # Vendored tool-call repair layer (engine, middleware, grammar recovery)
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
 │       └── henyo-footer.ts # /henyo_footer: live-toggle the custom footer
-└── tests/
-    └── commands/         # Unit tests for command handlers
-        ├── cwd.test.ts
-        └── newp.test.ts
+└── test/
+    ├── footer.test.ts    # Unit tests for footer layout and status line
+    ├── commands/         # Unit tests for command handlers
+    │   ├── cwd.test.ts
+    │   ├── henyo-footer.test.ts
+    │   └── newp.test.ts
+    └── tool-repair/      # Tests for the repair engine, middleware, and grammar recovery
 ```
 
 ## Custom Footer
@@ -98,17 +94,12 @@ A structured approach for creating ephemeral working notes during development se
 
 ### Tool Call Repair
 
-This extension includes [@r3b1s/pi-repair-layer](https://pi.dev/packages/@r3b1s/pi-repair-layer) as a git submodule. It validates and repairs malformed tool calls from LLMs before they reach the agent — fixing null fields, stringified arrays, wrong field names, markdown auto-links, anchor bleed, and more.
+This extension vendors the tool-call repair layer (originally [@r3b1s/pi-repair-layer](https://pi.dev/packages/@r3b1s/pi-repair-layer)) under `src/tool-repair/`. It validates and repairs malformed tool calls from LLMs before they reach the agent — fixing null fields, stringified arrays, wrong field names, markdown auto-links, anchor bleed, and more.
 
 No configuration needed. Repair is active by default.
 
 **View repair stats:** `/repair-stats`
 **Configure:** `/repair-settings`
-
-The submodule is pinned to a specific upstream commit. Update with:
-```bash
-git -C .ext/pi-repair-layer pull origin main
-```
 
 ## Settings
 
@@ -155,7 +146,8 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
     },
     "commands": {
       "cwd": true,
-      "newp": false
+      "newp": false,
+      "henyo_footer": true
     }
   }
 }
@@ -187,7 +179,8 @@ To disable all henyo features:
     },
     "commands": {
       "cwd": false,
-      "newp": false
+      "newp": false,
+      "henyo_footer": false
     }
   }
 }
@@ -211,7 +204,6 @@ npm run lint:fix           # Auto-fix ESLint issues
 npm run format             # Check Prettier formatting
 npm run format:fix         # Auto-format with Prettier
 npm run build              # TypeScript type-check build
-npm run update-submodules  # Update git submodules
 npm test -- --coverage     # Run tests with coverage report (80% thresholds)
 ```
 
