@@ -122,12 +122,8 @@ describe('resolveEditPathFix', () => {
   });
 
   it('new key wins when both are set', () => {
-    expect(resolveEditPathFix({ editPathFix: true, toolRepair: false })).toBe(
-      true,
-    );
-    expect(resolveEditPathFix({ editPathFix: false, toolRepair: true })).toBe(
-      false,
-    );
+    expect(resolveEditPathFix({ editPathFix: true, toolRepair: false })).toBe(true);
+    expect(resolveEditPathFix({ editPathFix: false, toolRepair: true })).toBe(false);
   });
 
   it('legacy toolRepair honored only when editPathFix is unset', () => {
@@ -158,7 +154,7 @@ describe('editPathRepairExtension hooks', () => {
     expect(handlers['tool_result']).toBeDefined();
     expect(handlers['before_agent_start']).toBeDefined();
     expect(Object.keys(handlers)).toHaveLength(3);
-    expect((api as any).registerTool).toBeUndefined();
+    expect(Object.keys(api).filter((k) => k.startsWith('register'))).toHaveLength(0);
   });
 
   describe('message_end (repair)', () => {
@@ -272,8 +268,7 @@ describe('editPathRepairExtension hooks', () => {
   });
 
   describe('tool_result (coaching)', () => {
-    const validationError =
-      'Validation failed for tool "edit":\n- path: Required';
+    const validationError = 'Validation failed for tool "edit":\n- path: Required';
 
     it('appends coaching line after the original error and logs failed', () => {
       const { api, handlers } = makeMockPi();
@@ -297,9 +292,7 @@ describe('editPathRepairExtension hooks', () => {
       expect(block.type).toBe('text');
       expect(block.text).toContain(validationError);
       expect(block.text).toContain('Henyo note:');
-      expect(block.text).toContain(
-        'put `path` at the top level next to `edits`',
-      );
+      expect(block.text).toContain('put `path` at the top level next to `edits`');
       expect(block.text.startsWith(validationError)).toBe(true);
 
       const log = readLog(logPath);
