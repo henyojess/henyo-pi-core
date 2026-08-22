@@ -27,18 +27,18 @@ henyo-pi-core/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
-│   ├── tool-repair/      # Vendored tool-call repair layer (engine, middleware, grammar recovery)
+│   ├── edit-path-repair.ts # Standalone edit path fix (event hooks: repair, coaching, prompt guideline)
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
 │       └── henyo-footer.ts # /henyo_footer: live-toggle the custom footer
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
+    ├── edit-path-repair.test.ts # Tests for the standalone edit path fix
     ├── commands/         # Unit tests for command handlers
     │   ├── cwd.test.ts
     │   ├── henyo-footer.test.ts
     │   └── newp.test.ts
-    └── tool-repair/      # Tests for the repair engine, middleware, and grammar recovery
 ```
 
 ## Custom Footer
@@ -92,14 +92,36 @@ A structured approach for creating ephemeral working notes during development se
 
 ## Bundled Extensions
 
-### Tool Call Repair
+### Edit Path Fix
 
-This extension vendors the tool-call repair layer (originally [@r3b1s/pi-repair-layer](https://pi.dev/packages/@r3b1s/pi-repair-layer)) under `src/tool-repair/`. It validates and repairs malformed tool calls from LLMs before they reach the agent — fixing null fields, stringified arrays, wrong field names, markdown auto-links, anchor bleed, and more.
+Some models (observed: Qwen 3.6) emit the `edit` tool's `path` argument
+nested inside `edits[0]` instead of at the top level, so the call fails
+validation. henyo-pi-core fixes this with three event hooks — no tool
+overrides, so it coexists with other repair layers:
 
-No configuration needed. Repair is active by default.
+- **Repair** — a `message_end` hook rewrites the assistant message's `edit`
+  calls before execution: `edits[0].path` is hoisted to the top-level `path`
+  and removed from the edit objects.
+  History side effect: repaired calls appear in the session history in
+  corrected form, not in their original shape.
+- **Validation coaching** — when an `edit` call still fails argument
+  validation, a one-line hint is appended to the error the model sees:
+  "`path` goes at the top level, next to `edits`".
+- **Prompt guideline** — one line is appended to the system prompt so models
+  emit the correct shape up front (idempotent — skipped when already present).
 
-**View repair stats:** `/repair-stats`
-**Configure:** `/repair-settings`
+Active by default; no configuration needed.
+
+**Log file:** fixes and validation failures are appended as JSONL to
+`~/.pi/agent/edit-path-repair.jsonl` (healthy no-ops are not logged).
+Record shape: `{ ts, tool, model, outcome, rules?, issues?, fingerprint }`
+— `outcome` is `fixed` (hoist applied) or `failed` (validation actually
+failed; `issues` carries a shape diagnostic). Argument values are never
+logged.
+
+```bash
+jq -r .outcome ~/.pi/agent/edit-path-repair.jsonl | sort | uniq -c
+```
 
 ## Settings
 
@@ -109,7 +131,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `toolRepair` | `boolean` | `true` | Validate and repair malformed tool calls from LLMs |
+| `editPathFix` | `boolean` | `true` | Edit path fix + coaching + prompt guideline (legacy key `toolRepair` honored when `editPathFix` is unset) |
 | `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first install |
 | `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |
@@ -137,7 +159,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 ```json
 {
   "henyo": {
-    "toolRepair": true,
+    "editPathFix": true,
     "footer": true,
     "agentsMd": true,
     "skills": {
@@ -170,7 +192,7 @@ To disable all henyo features:
 ```json
 {
   "henyo": {
-    "toolRepair": false,
+    "editPathFix": false,
     "footer": false,
     "agentsMd": false,
     "skills": {
