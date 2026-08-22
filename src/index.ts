@@ -149,7 +149,6 @@ export default function (pi: _ExtensionAPI) {
     });
   }
 
-  let footerComponent: any;
   let footerTui: TUI | undefined;
   let sessionCtx: ExtensionContext | undefined;
 
@@ -163,9 +162,7 @@ export default function (pi: _ExtensionAPI) {
     if (enabled) {
       ctx.ui.setFooter((_tui, _theme, footerData) => {
         footerTui = _tui;
-        const component = FooterFactory(_tui, _theme, footerData, ctx, () => pi.getThinkingLevel());
-        footerComponent = component;
-        return component;
+        return FooterFactory(_tui, _theme, footerData, ctx, () => pi.getThinkingLevel());
       });
     } else {
       ctx.ui.setFooter(undefined);
@@ -199,21 +196,18 @@ export default function (pi: _ExtensionAPI) {
     applyFooter(henyoSettings.footer !== false);
   });
 
-  // Invalidate footer when model changes
+  // Re-render footer when model changes
   pi.on('model_select', () => {
-    footerComponent?.invalidate();
     footerTui?.requestRender();
   });
 
   // Re-render footer when the thinking level changes (suffix is part of line 1)
   pi.on('thinking_level_select', () => {
-    footerComponent?.invalidate();
     footerTui?.requestRender();
   });
 
   // Re-render footer when session info changes (e.g. session name prefix)
   pi.on('session_info_changed', () => {
-    footerComponent?.invalidate();
     footerTui?.requestRender();
   });
 
