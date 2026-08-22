@@ -21,20 +21,14 @@ import type {
  */
 class FooterComponent implements Component {
   private _focused = false;
-  private _dirty = true;
-  private _cachedLine = '';
   private _theme: Theme | null = null;
+  private _unsubscribeBranch: (() => void) | null = null;
 
   constructor(
     private readonly footerData: ReadonlyFooterDataProvider,
     private readonly ctx: ExtensionContext,
     private readonly getThinkingLevel: () => string,
-  ) {
-    // Subscribe to branch changes so we re-render when the branch changes
-    this.footerData.onBranchChange(() => {
-      this.invalidate();
-    });
-  }
+  ) {}
 
   /** Initialize the component with the theme (called by factory). */
   init(theme: Theme): void {
@@ -49,11 +43,19 @@ class FooterComponent implements Component {
   }
 
   invalidate(): void {
-    this._dirty = true;
+    // No cached state; render() rebuilds unconditionally. No-op (required by Component).
+  }
+
+  /** Wire the branch-change unsubscribe (set by FooterFactory); dispose() will call it. */
+  setBranchUnsubscribe(unsub: () => void): void {
+    this._unsubscribeBranch = unsub;
   }
 
   dispose(): void {
-    // Nothing to clean up — branch subscription is managed by the provider
+    if (this._unsubscribeBranch) {
+      this._unsubscribeBranch();
+      this._unsubscribeBranch = null;
+    }
   }
 
   /** Get the current context usage, or undefined if unknown (e.g. right after compaction). */
@@ -240,11 +242,10 @@ class FooterComponent implements Component {
 
   /** Render the footer: line 1 always, line 2 only when extensions registered statuses. */
   render(width: number): string[] {
-    this._dirty = true;
+    const lines: string[] = [];
     if (this._theme) {
-      this._cachedLine = this.buildLine(width);
+      lines.push(this.buildLine(width));
     }
-    const lines = [this._cachedLine];
     const statusLine = this.buildStatusLine(width);
     if (statusLine) {
       lines.push(statusLine);
@@ -276,10 +277,13 @@ export const FooterFactory = (
   // Initialize with the theme
   component.init(theme);
 
-  // Subscribe to branch changes so we re-render when the branch changes
-  footerData.onBranchChange(() => {
-    tui.requestRender();
-  });
+  // Subscribe once so we re-render when the branch changes;
+  // wire the unsubscribe into the component's dispose() (docs pattern: dispose: unsub)
+  component.setBranchUnsubscribe(
+    footerData.onBranchChange(() => {
+      tui.requestRender();
+    }),
+  );
 
   return component;
 };
