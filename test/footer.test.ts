@@ -146,3 +146,118 @@ describe('footer v2 truncation', () => {
     expect(line.includes('proj(main)')).toBe(false);
   });
 });
+
+describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
+  /** Render with a fully custom ctx/footerData (bypasses makeCtx defaults). */
+  function renderCustom(
+    ctxOverrides: Record<string, unknown>,
+    footerDataOverrides: Record<string, unknown> = {},
+    width = 100,
+    theme?: any,
+  ) {
+    process.env.HOME = '/home/u';
+    const t = theme ?? { fg: (_c: string, s: string) => s };
+    const footerData = {
+      getGitBranch: () => 'main',
+      onBranchChange: () => () => {},
+      getExtensionStatuses: () => new Map(),
+      getAvailableProviderCount: () => 1,
+      ...footerDataOverrides,
+    };
+    const ctx: any = {
+      model: { name: 'qwen3.8-27b', reasoning: true },
+      sessionManager: {
+        getCwd: () => '/home/u/pi/proj',
+        getSessionName: () => undefined,
+      },
+      getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
+      ...ctxOverrides,
+    };
+    const tui = { requestRender: vi.fn() };
+    const comp: any = FooterFactory(tui, t, footerData, ctx, () => 'xhigh');
+    return comp.render(width);
+  }
+
+  it('renders the no-branch layout (no parens) when getGitBranch is null', () => {
+    const lines = renderCustom({}, { getGitBranch: () => null });
+    const line = strip(lines[0]);
+    expect(line).not.toContain('proj(');
+    expect(line.endsWith('proj')).toBe(true);
+  });
+
+  it('omits the context segment when usage is unknown (undefined)', () => {
+    const lines = renderCustom({ getContextUsage: () => undefined });
+    const line = strip(lines[0]);
+    expect(line).not.toContain('/84k');
+    expect(line).toMatch(/qwen3\.8-27b\(xhi\)•/);
+  });
+
+  it('renders ?/windowk when tokens and percent are null', () => {
+    const line = strip(
+      render({
+        level: 'xhigh',
+        usage: { tokens: null, percent: null, contextWindow: 200000 },
+      })[0],
+    );
+    expect(line).toContain('?/200k');
+  });
+
+  it('renders the raw window size when it is under 1000', () => {
+    const line = strip(
+      render({
+        level: 'xhigh',
+        usage: { tokens: null, percent: null, contextWindow: 840 },
+      })[0],
+    );
+    expect(line).toContain('?/840');
+  });
+
+  it('color-codes context 50–80% as warning and ≥81% as error', () => {
+    const colored = (pct: number) =>
+      render(
+        { level: 'xhigh', usage: { tokens: 84000, percent: pct, contextWindow: 200000 } },
+        100,
+        { fg: (c: string, s: string) => `[${c}]${s}` },
+      )[0];
+    expect(colored(60)).toContain('[warning]60%');
+    expect(colored(90)).toContain('[error]90%');
+    expect(colored(42)).toContain('[text]42%');
+  });
+
+  it('renders no-model when ctx.model is undefined', () => {
+    const line = strip(renderCustom({ model: undefined })[0]);
+    expect(line.startsWith('no-model')).toBe(true);
+  });
+
+  it('renders a single-segment cwd when the cwd is exactly HOME', () => {
+    const line = strip(
+      renderCustom({
+        sessionManager: { getCwd: () => '/home/u', getSessionName: () => undefined },
+      })[0],
+    );
+    expect(line).toBe('qwen3.8-27b(xhi)•42%/84k•~(main)');
+  });
+
+  it('dispose() calls the branch unsubscribe once and is safe to call twice', () => {
+    let disposed = 0;
+    const t = { fg: (_c: string, s: string) => s };
+    const footerData = {
+      getGitBranch: () => 'main',
+      onBranchChange: () => () => {
+        disposed++;
+      },
+      getExtensionStatuses: () => new Map(),
+      getAvailableProviderCount: () => 1,
+    };
+    const ctx: any = {
+      model: { name: 'm', reasoning: true },
+      sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
+      getContextUsage: () => undefined,
+    };
+    const comp: any = FooterFactory({ requestRender: vi.fn() }, t, footerData, ctx, () => 'low');
+    comp.dispose();
+    expect(disposed).toBe(1);
+    comp.dispose(); // null branch — no throw
+    expect(disposed).toBe(1);
+  });
+});
