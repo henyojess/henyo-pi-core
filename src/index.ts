@@ -212,16 +212,10 @@ export default function (pi: _ExtensionAPI) {
     footerTui?.requestRender();
   });
 
-  // ─── Custom tools ──────────────────────────────────────────────────
-  // pi.registerTool({ ... });
-
   // ─── Custom commands ───────────────────────────────────────────────
   for (const [cmdName, register] of Object.entries(COMMANDS)) {
     if (henyoSettings.commands[cmdName] !== false) {
       register(pi, applyFooter);
     }
   }
-
-  // ─── Provider registration (if needed) ─────────────────────────────
-  // pi.registerProvider(...);
 }
