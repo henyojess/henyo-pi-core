@@ -26,13 +26,7 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
-import type {
-  BeforeAgentStartEvent,
-  ExtensionAPI,
-  ExtensionContext,
-  MessageEndEvent,
-  ToolResultEvent,
-} from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 const COACHING_LINE =
   'Henyo note: for the edit tool, put `path` at the top level next to `edits` (not inside an edit object), and keep `edits` an array of { oldText, newText } objects.';
@@ -100,10 +94,7 @@ export function hoistEditPath(input: Record<string, unknown>): boolean {
  * Settings resolution: new `editPathFix` wins; legacy `toolRepair` honored
  * only when `editPathFix` is unset; default on.
  */
-export function resolveEditPathFix(s: {
-  editPathFix?: boolean;
-  toolRepair?: boolean;
-}): boolean {
+export function resolveEditPathFix(s: { editPathFix?: boolean; toolRepair?: boolean }): boolean {
   return s.editPathFix ?? s.toolRepair ?? true;
 }
 
@@ -170,8 +161,7 @@ export function editPathRepairExtension(
 ): void {
   const appendLog = (record: LogRecord): void => {
     try {
-      const file =
-        opts.logPath ?? join(getAgentDir(), 'edit-path-repair.jsonl');
+      const file = opts.logPath ?? join(getAgentDir(), 'edit-path-repair.jsonl');
       mkdirSync(dirname(file), { recursive: true });
       appendFileSync(file, JSON.stringify(record) + '\n');
     } catch {
@@ -180,7 +170,7 @@ export function editPathRepairExtension(
   };
 
   // Hook 1 (O1): repair — hoist nested `path` before execution.
-  pi.on('message_end', (event: MessageEndEvent, ctx: ExtensionContext) => {
+  pi.on('message_end', (event, ctx) => {
     if (!opts.enabled) return undefined;
     const message = event.message;
     if (message.role !== 'assistant') return undefined;
@@ -219,7 +209,7 @@ export function editPathRepairExtension(
   });
 
   // Hook 2 (O3): coaching — hint on validation failure.
-  pi.on('tool_result', (event: ToolResultEvent, ctx: ExtensionContext) => {
+  pi.on('tool_result', (event, ctx) => {
     if (!opts.enabled) return undefined;
     if (event.toolName !== 'edit' || !event.isError) return undefined;
     const originalText = event.content
@@ -244,12 +234,9 @@ export function editPathRepairExtension(
   });
 
   // Hook 3 (O5): prevention — one guideline line in the system prompt.
-  pi.on(
-    'before_agent_start',
-    (event: BeforeAgentStartEvent) => {
-      if (!opts.enabled) return undefined;
-      if (event.systemPrompt.includes(PROMPT_LINE)) return undefined;
-      return { systemPrompt: `${event.systemPrompt}\n\n${PROMPT_LINE}` };
-    },
-  );
+  pi.on('before_agent_start', (event) => {
+    if (!opts.enabled) return undefined;
+    if (event.systemPrompt.includes(PROMPT_LINE)) return undefined;
+    return { systemPrompt: `${event.systemPrompt}\n\n${PROMPT_LINE}` };
+  });
 }
