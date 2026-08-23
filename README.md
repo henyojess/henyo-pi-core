@@ -125,7 +125,7 @@ jq -r .outcome ~/.pi/agent/edit-path-repair.jsonl | sort | uniq -c
 
 ## Settings
 
-All henyo-pi-core features can be individually enabled or disabled via a `henyo` block in `~/.pi/agent/settings.json`. The block is created automatically on first load with all features enabled.
+All henyo-pi-core features can be individually enabled or disabled via a `henyo` block in `~/.pi/agent/settings.json`. The block is created automatically on first install and extended when the extension adds new features — only *missing* keys are added (with their defaults); keys you have set are never modified. Absent or unknown keys behave as enabled, so a partial block is always safe.
 
 ### Feature Toggles
 
