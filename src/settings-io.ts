@@ -27,3 +27,16 @@ export function readSettingsFile(): Record<string, any> {
     return {};
   }
 }
+
+/**
+ * Writes the whole settings.json. Silent-fail — a settings write must never
+ * break a session. Callers are responsible for preserving keys this write
+ * doesn't know about.
+ */
+export function writeSettingsFile(data: Record<string, any>): void {
+  try {
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  } catch {
+    // Silently fail — don't break sessions if write fails
+  }
+}

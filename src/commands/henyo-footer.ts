@@ -1,6 +1,5 @@
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { SETTINGS_PATH, readSettingsFile } from '../settings-io.js';
-import fs from 'node:fs';
+import { readSettingsFile, writeSettingsFile } from '../settings-io.js';
 
 /**
  * /henyo_footer — live-toggle the henyo custom footer.
@@ -28,13 +27,10 @@ export default function henyoFooterCommand(
       const next = !current;
 
       // Write back, preserving all other top-level keys and the henyo block.
-      // Silent-fail: a settings write must never break the command.
+      // Silent-fail is guaranteed by writeSettingsFile: a settings write must
+      // never break the command.
       settings.henyo = { ...henyoBlock, footer: next };
-      try {
-        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
-      } catch {
-        // Silently fail — same policy as loadHenyoSettings
-      }
+      writeSettingsFile(settings);
 
       applyFooter(next);
       ctx.ui.notify(`Henyo footer ${next ? 'enabled' : 'disabled'}`, 'info');
