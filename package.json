@@ -31,7 +31,6 @@
     "index.ts",
     "src/",
     "skills/",
-    "scripts/",
     "SAMPLE_GLOBAL_AGENTS.md"
   ],
   "scripts": {

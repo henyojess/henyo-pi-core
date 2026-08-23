@@ -12,6 +12,8 @@ On first load, the extension seeds `~/.pi/agent/AGENTS.md` — it copies `SAMPLE
 henyo-pi-core/
 ├── package.json          # Extension manifest with pi entry point
 ├── .gitignore
+├── LICENSE               # MIT License
+├── pnpm-workspace.yaml   # pnpm workspace root (allowBuilds)
 ├── README.md
 ├── SAMPLE_GLOBAL_AGENTS.md  # Default AGENTS.md template (seeded on first load)
 ├── eslint.config.mjs     # ESLint flat config (style rules + Prettier integration)
@@ -35,6 +37,8 @@ henyo-pi-core/
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
     ├── edit-path-repair.test.ts # Tests for the standalone edit path fix
+    ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
+    ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
     ├── commands/         # Unit tests for command handlers
     │   ├── cwd.test.ts
     │   ├── henyo-footer.test.ts
