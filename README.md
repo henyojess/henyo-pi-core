@@ -215,7 +215,7 @@ To disable all henyo features:
 ### Prerequisites
 
 - Node.js 22+
-- pnpm — activated via corepack: `corepack enable pnpm` (if `corepack enable` fails on a read-only `/usr/local/bin`, invoke as `corepack pnpm <cmd>`)
+- pnpm — activated via corepack: `corepack enable pnpm` (if the default install dir is read-only, target a writable PATH dir: `corepack enable pnpm --install-directory ~/.local/bin`)
 - Globally installed [Pi coding agent](https://pi.dev) (`npm install -g @earendil-works/pi-coding-agent`)
 
 ### Available Scripts
