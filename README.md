@@ -221,6 +221,7 @@ To disable all henyo features:
 ### Available Scripts
 
 ```bash
+pnpm dev                    # Run pi with this extension loaded (pi -e ./index.ts)
 pnpm test                   # Run Vitest unit tests
 pnpm run lint               # Type-check (tsc) + ESLint style checks
 pnpm run lint:fix           # Auto-fix ESLint issues
