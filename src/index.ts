@@ -25,7 +25,7 @@ function extPath(...segments: string[]) {
 
 interface HenyoSettings {
   /** Standalone edit path fix + coaching + prompt guideline. */
-  editPathFix?: boolean;
+  editPathFix: boolean;
   /** Legacy key — honored when `editPathFix` is unset. */
   toolRepair: boolean;
   footer: boolean;
@@ -35,6 +35,7 @@ interface HenyoSettings {
 }
 
 const DEFAULTS: HenyoSettings = {
+  editPathFix: true,
   toolRepair: true,
   footer: true,
   agentsMd: true,
@@ -51,7 +52,8 @@ function isPlainObject(value: unknown): value is Record<string, any> {
  * merged key-by-key so a partial user block never hides default siblings).
  * Returns a fresh copy of the merged settings (module-level DEFAULTS is
  * never exposed or mutated) and whether the input was missing any of the
- * 8 known keys — values are never a write trigger.
+ * 11 known keys (`editPathFix`, `toolRepair`, `footer`, `agentsMd`,
+ * skills×2, commands×3) — values are never a write trigger.
  */
 function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
   const henyo: HenyoSettings = { ...DEFAULTS };
@@ -61,7 +63,7 @@ function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
     return { henyo, changed: true };
   }
   const h = user as Partial<HenyoSettings>;
-  henyo.editPathFix = h.editPathFix;
+  henyo.editPathFix = h.editPathFix ?? h.toolRepair ?? DEFAULTS.toolRepair;
   henyo.toolRepair = h.toolRepair ?? DEFAULTS.toolRepair;
   henyo.footer = h.footer ?? DEFAULTS.footer;
   henyo.agentsMd = h.agentsMd ?? DEFAULTS.agentsMd;
@@ -70,6 +72,7 @@ function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
   henyo.skills = { ...DEFAULTS.skills, ...userSkills };
   henyo.commands = { ...DEFAULTS.commands, ...userCommands };
   const knownKeys: (keyof HenyoSettings)[] = [
+    'editPathFix',
     'toolRepair',
     'footer',
     'agentsMd',
