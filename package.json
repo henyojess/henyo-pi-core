@@ -3,7 +3,27 @@
   "version": "0.2.0",
   "description": "Pi coding agent extension - henyo core functionality",
   "keywords": ["pi-package"],
+  "license": "MIT",
+  "main": "index.ts",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/henyojess/henyo-pi-core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/henyojess/henyo-pi-core/issues"
+  },
+  "homepage": "https://github.com/henyojess/henyo-pi-core#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
   "packageManager": "pnpm@11.22.0",
   "files": [
     "index.ts",
@@ -13,6 +33,7 @@
     "SAMPLE_GLOBAL_AGENTS.md"
   ],
   "scripts": {
+    "dev": "pi -e ./index.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit && eslint src/",
