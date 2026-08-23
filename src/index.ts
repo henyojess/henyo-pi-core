@@ -12,7 +12,7 @@ import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
 import henyoFooterCommand from './commands/henyo-footer.js';
 import { FooterFactory } from './footer.js';
-import { SETTINGS_PATH, readSettingsFile } from './settings-io.js';
+import { readSettingsFile, writeSettingsFile } from './settings-io.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -34,12 +34,55 @@ interface HenyoSettings {
   commands: Record<string, boolean>;
 }
 
-const FEATURE_KEYS: (keyof Omit<HenyoSettings, 'skills' | 'commands'>)[] = [
-  'toolRepair',
-  'footer',
-  'agentsMd',
-];
+const DEFAULTS: HenyoSettings = {
+  toolRepair: true,
+  footer: true,
+  agentsMd: true,
+  skills: { 'plan-generation': true, notes: true },
+  commands: { cwd: true, newp: true, henyo_footer: true },
+};
 const SKILLS = { 'plan-generation': 'skills/plan-generation', notes: 'skills/notes' };
+function isPlainObject(value: unknown): value is Record<string, any> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Merge the on-disk `henyo` block over DEFAULTS (nested `skills`/`commands`
+ * merged key-by-key so a partial user block never hides default siblings).
+ * Returns a fresh copy of the merged settings (module-level DEFAULTS is
+ * never exposed or mutated) and whether the input was missing any of the
+ * 8 known keys — values are never a write trigger.
+ */
+function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
+  const henyo: HenyoSettings = { ...DEFAULTS };
+  if (!isPlainObject(user)) {
+    henyo.skills = { ...DEFAULTS.skills };
+    henyo.commands = { ...DEFAULTS.commands };
+    return { henyo, changed: true };
+  }
+  const h = user as Partial<HenyoSettings>;
+  henyo.editPathFix = h.editPathFix;
+  henyo.toolRepair = h.toolRepair ?? DEFAULTS.toolRepair;
+  henyo.footer = h.footer ?? DEFAULTS.footer;
+  henyo.agentsMd = h.agentsMd ?? DEFAULTS.agentsMd;
+  const userSkills = isPlainObject(h.skills) ? h.skills : {};
+  const userCommands = isPlainObject(h.commands) ? h.commands : {};
+  henyo.skills = { ...DEFAULTS.skills, ...userSkills };
+  henyo.commands = { ...DEFAULTS.commands, ...userCommands };
+  const knownKeys: (keyof HenyoSettings)[] = [
+    'toolRepair',
+    'footer',
+    'agentsMd',
+    'skills',
+    'commands',
+  ];
+  const changed =
+    knownKeys.some((key) => !(key in h)) ||
+    Object.keys(DEFAULTS.skills).some((key) => !(key in userSkills)) ||
+    Object.keys(DEFAULTS.commands).some((key) => !(key in userCommands));
+  return { henyo, changed };
+}
+
 const COMMANDS: Record<
   string,
   (pi: _ExtensionAPI, applyFooter: (enabled: boolean) => void) => void
@@ -50,78 +93,23 @@ const COMMANDS: Record<
 };
 
 /**
- * Load henyo settings from ~/.pi/agent/settings.json.
- * Returns merged settings with all defaults filled in.
- * If the henyo block is missing or incomplete, writes defaults back.
+ * Load henyo settings from ~/.pi/agent/settings.json. Never throws.
+ * Returns the merged settings in memory (all defaults filled in, user
+ * values preferred). When the on-disk `henyo` block is missing keys —
+ * first install, or an upgrade that added features — a single write adds
+ * the missing keys with their defaults; existing keys and values are never
+ * modified (steady state = zero writes).
  */
-function loadHenyoSettings(): HenyoSettings {
+export function loadHenyoSettings(): HenyoSettings {
   try {
-    let settings: any = {};
-    let henyo: any = {};
-    let changed = false;
-
-    // Read existing settings (missing file / invalid JSON tolerated → {})
-    settings = readSettingsFile();
-
-    // Extract henyo block
-    if (settings.henyo && typeof settings.henyo === 'object' && !Array.isArray(settings.henyo)) {
-      henyo = settings.henyo;
-    } else {
-      changed = true;
-    }
-
-    // Fill default feature keys
-    for (const key of FEATURE_KEYS) {
-      if (!(key in henyo)) {
-        henyo[key] = true;
-        changed = true;
-      }
-    }
-
-    // Fill default skills
-    if (!henyo.skills || typeof henyo.skills !== 'object' || Array.isArray(henyo.skills)) {
-      henyo.skills = {};
-      changed = true;
-    }
-    for (const skillName of Object.keys(SKILLS)) {
-      if (!(skillName in henyo.skills)) {
-        henyo.skills[skillName] = true;
-        changed = true;
-      }
-    }
-
-    // Fill default commands
-    if (!henyo.commands || typeof henyo.commands !== 'object' || Array.isArray(henyo.commands)) {
-      henyo.commands = {};
-      changed = true;
-    }
-    for (const cmdName of Object.keys(COMMANDS)) {
-      if (!(cmdName in henyo.commands)) {
-        henyo.commands[cmdName] = true;
-        changed = true;
-      }
-    }
-
-    // Write back if changed
+    const settings = readSettingsFile();
+    const { henyo, changed } = mergeHenyo(settings.henyo);
     if (changed) {
-      settings.henyo = henyo;
-      try {
-        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
-      } catch {
-        // Silently fail — don't break sessions if write fails
-      }
+      writeSettingsFile({ ...settings, henyo });
     }
-
     return henyo;
   } catch {
-    // Never throw — return all-defaults
-    return {
-      toolRepair: true,
-      footer: true,
-      agentsMd: true,
-      skills: { 'plan-generation': true, notes: true },
-      commands: { cwd: true, newp: true, henyo_footer: true },
-    };
+    return mergeHenyo(undefined).henyo;
   }
 }
 
