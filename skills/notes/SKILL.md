@@ -15,7 +15,7 @@ Every note file follows this structure:
 # Title
 
 **Status:** Open / In Progress / Completed / Superseded
-**Date:** 2025-07-20
+**Date:** YYYY-MM-DD (from `date +%F` — see Rules)
 
 ## Goal
 What problem or question is this note trying to address?
@@ -33,6 +33,7 @@ Key observations, findings, or decisions. Use lists and tables.
 
 ## Rules
 
+- **Dates are checked, never guessed:** the current date is NOT in your context — model-recalled dates are fabricated. Run `date +%F` and use its output for the `**Date:**` field (and any other date you write in the note).
 - **Lowercase-slug filenames:** e.g., `fix-auth-timeout.md`, not `Fix Auth Timeout.md`
 - **Notes are ephemeral:** Delete once an implementation plan exists in `~/.pi/agent/plans/`
 - **Location:** `~/.pi/agent/notes/` (global agent dir; `~` = user home — expand to absolute, never rebase onto cwd)

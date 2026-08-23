@@ -190,6 +190,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 10. **Verify before claiming.** Every step ends with a verification command.
 11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory.
+13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
 
 ---
 
