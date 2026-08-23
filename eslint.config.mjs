@@ -3,11 +3,11 @@ import prettier from "eslint-plugin-prettier/recommended";
 import babelParser from "@babel/eslint-parser";
 
 // ESLint handles style rules and integrates with Prettier.
-// TypeScript type-checking is handled by `tsc`.
-// NOTE: Full TS linting requires @typescript-eslint which is incompatible
-// with TypeScript 7.x. Using @babel/eslint-parser as a fallback for style
-// checks. Unused import warnings on `import type` are expected and harmless
-// — TSC catches these correctly.
+// TypeScript type-checking AND unused-code detection are handled by `tsc`
+// (`noUnusedLocals: true`): tsc understands type positions, so type-only
+// imports used only in annotations are correctly counted as used. The babel
+// parser below strips TS syntax, so eslint's `no-unused-vars` would flag
+// every type-only import as a false positive — it is disabled for `.ts`.
 // `no-undef` is disabled for `.ts` because the babel parser strips TS syntax
 // and can't resolve type-only names, imports, or globals (false positives);
 // `tsc --noEmit` (run in the same `lint` script) is authoritative for
@@ -29,9 +29,10 @@ export default [
       },
     },
     rules: {
-      // Allow unused imports — TSC handles type import validation.
-      // eslint-disable-next-line object-shorthand
-      "no-unused-vars": ["warn", { varsIgnorePattern: "^_", argsIgnorePattern: "^_" }],
+      // `no-unused-vars` (on by default via js.configs.recommended) is disabled
+      // for .ts — see header note: the babel parser can't see type-position
+      // usage, so tsc (noUnusedLocals) is the authoritative unused-code checker.
+      "no-unused-vars": "off",
       "no-console": "warn",
       "no-undef": "off",
     },

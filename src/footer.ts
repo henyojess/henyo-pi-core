@@ -71,25 +71,6 @@ class FooterComponent implements Component {
     return full.split('/').filter(Boolean);
   }
 
-  /**
-   * Build cwd string, growing from right within available space.
-   * Returns styled cwd that fits within maxWidth.
-   */
-  private buildCwd(cwdParts: string[], maxWidth: number, theme: Theme): string {
-    // Grow cwd from the right, adding segments until we hit maxWidth
-    let result = '';
-    for (let i = cwdParts.length - 1; i >= 0; i--) {
-      const candidate = cwdParts.slice(i).join('/');
-      const styled = theme.fg('dim', candidate);
-      if (visibleWidth(styled) <= maxWidth) {
-        result = styled;
-      } else {
-        break;
-      }
-    }
-    return result;
-  }
-
   /** Get the current git branch. */
   private getBranch(): string | null {
     return this.footerData.getGitBranch()?.trim() || null;
@@ -153,11 +134,6 @@ class FooterComponent implements Component {
     }
 
     // ── Build right content (pwd · branch) ────────────────────────────
-    const cwdFor = (idx: number): string => {
-      const parts = cwdParts.slice(idx).join('/');
-      return idx === 0 ? '/' + parts : parts;
-    };
-
     const cwdStyled = (cwdIdx: number): string => {
       const segments = cwdParts.slice(cwdIdx);
       if (segments.length <= 1) return theme.fg('text', segments[0] || '/');
@@ -170,7 +146,6 @@ class FooterComponent implements Component {
       // No branch — just cwd, right-aligned
       let bestCwdIdx = cwdParts.length - 1;
       for (let i = cwdParts.length - 1; i >= 0; i--) {
-        const cwdCandidate = cwdFor(i);
         const cwdWidth = visibleWidth(cwdStyled(i));
         if (cwdWidth + 1 <= width - leftWidth) {
           bestCwdIdx = i;

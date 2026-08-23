@@ -11,6 +11,7 @@
     "outDir": "dist",
     "rootDir": ".",
     "types": ["node"],
+    "noUnusedLocals": true,
     "paths": {
       "#pi-repair-layer": ["./src/pi-repair-layer.d.ts"]
     }
