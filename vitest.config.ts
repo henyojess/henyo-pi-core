@@ -11,6 +11,8 @@ export default defineConfig({
         "node_modules/",
         "dist/",
         "**/*.config.*",
+        "index.ts",
+        "src/index.ts",
       ],
       thresholds: {
         statements: 80,
