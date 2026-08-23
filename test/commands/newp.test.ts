@@ -41,6 +41,21 @@ describe("newp command", () => {
     expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /newp <your prompt>", "error");
   });
 
+  it("suppresses the usage notification in non-TUI mode (hasUI: false) without throwing", async () => {
+    newpCommand(createMockPi() as any);
+    expect(capturedCommand).not.toBeNull();
+
+    const ctx = {
+      hasUI: false,
+      ui: { notify: vi.fn() },
+      newSession: vi.fn(() => Promise.resolve({ cancelled: false })),
+    };
+
+    await expect(capturedCommand!.opts.handler("", ctx as any)).resolves.toBeUndefined();
+    expect(ctx.ui.notify).not.toHaveBeenCalled();
+    expect(ctx.newSession).not.toHaveBeenCalled(); // usage error short-circuits before newSession
+  });
+
   it("shows usage message when called with whitespace only", async () => {
     newpCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();

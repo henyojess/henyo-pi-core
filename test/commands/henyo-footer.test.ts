@@ -105,6 +105,17 @@ describe('/henyo_footer command', () => {
     expect(s.henyo.footer).toBe(false);
   });
 
+  it('non-TUI mode (hasUI: false): settings still flipped, applyFooter still called, no notify', async () => {
+    const applyFooter = vi.fn();
+    const ui = { notify: vi.fn() };
+    henyoFooterCommand({ registerCommand } as any, applyFooter);
+    const captured: { name: string; opts: { handler: Function } } = (registerCommand as any).captured;
+    await captured.opts.handler('', { hasUI: false, ui });
+    expect(readSettings().henyo.footer).toBe(false); // SETTINGS_SEED footer:true → false on disk
+    expect(applyFooter).toHaveBeenCalledWith(false);
+    expect(ui.notify).not.toHaveBeenCalled();
+  });
+
   it('missing settings file: first toggle writes henyo.footer false without throwing', async () => {
     rmSync(settingsFile);
     const applyFooter = vi.fn();

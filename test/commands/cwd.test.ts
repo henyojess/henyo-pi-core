@@ -48,6 +48,21 @@ describe("cwd command", () => {
     expect(ctx.ui.notify).toHaveBeenCalledWith("CWD: /some/path", "info");
   });
 
+  it("suppresses the CWD notification in non-TUI mode (hasUI: false) without throwing", async () => {
+    cwdCommand(createMockPi() as any);
+    expect(capturedCommand).not.toBeNull();
+
+    const ctx = {
+      cwd: "/some/path",
+      hasUI: false,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
+    };
+
+    await expect(capturedCommand!.opts.handler("", ctx as any)).resolves.toBeUndefined();
+    expect(ctx.ui.notify).not.toHaveBeenCalled();
+  });
+
   it("shows error for non-existent path", async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
