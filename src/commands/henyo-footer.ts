@@ -33,7 +33,7 @@ export default function henyoFooterCommand(
       writeSettingsFile(settings);
 
       applyFooter(next);
-      ctx.ui.notify(`Henyo footer ${next ? 'enabled' : 'disabled'}`, 'info');
+      if (ctx.hasUI) ctx.ui.notify(`Henyo footer ${next ? 'enabled' : 'disabled'}`, 'info');
     },
   });
 }

@@ -5,7 +5,7 @@ export default function (pi: _ExtensionAPI) {
     description: 'Start a new session with an initial prompt',
     handler: async (args, ctx) => {
       if (!args || args.trim().length === 0) {
-        ctx.ui.notify('Usage: /newp <your prompt>', 'error');
+        if (ctx.hasUI) ctx.ui.notify('Usage: /newp <your prompt>', 'error');
         return;
       }
 
@@ -18,7 +18,7 @@ export default function (pi: _ExtensionAPI) {
       });
 
       if (result.cancelled) {
-        ctx.ui.notify('New session was cancelled', 'warning');
+        if (ctx.hasUI) ctx.ui.notify('New session was cancelled', 'warning');
       }
     },
   });

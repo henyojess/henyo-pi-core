@@ -153,6 +153,7 @@ export default function (pi: _ExtensionAPI) {
   function applyFooter(enabled: boolean): void {
     const ctx = sessionCtx;
     if (!ctx) return; // no active session yet — nothing to attach to
+    if (!ctx.hasUI) return; // non-TUI mode — no footer UI to attach to
     if (enabled) {
       ctx.ui.setFooter((_tui, _theme, footerData) => {
         footerTui = _tui;

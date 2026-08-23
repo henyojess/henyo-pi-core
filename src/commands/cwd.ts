@@ -72,7 +72,7 @@ export default function (pi: _ExtensionAPI) {
     handler: async (args, ctx) => {
       // No args — show current CWD
       if (!args || !args.trim()) {
-        ctx.ui.notify(`CWD: ${ctx.cwd}`, 'info');
+        if (ctx.hasUI) ctx.ui.notify(`CWD: ${ctx.cwd}`, 'info');
         return;
       }
 
@@ -83,12 +83,12 @@ export default function (pi: _ExtensionAPI) {
       try {
         statResult = statSync(target);
       } catch {
-        ctx.ui.notify(`Path not found: ${args.trim()}`, 'error');
+        if (ctx.hasUI) ctx.ui.notify(`Path not found: ${args.trim()}`, 'error');
         return;
       }
 
       if (!statResult.isDirectory()) {
-        ctx.ui.notify(`Not a directory: ${target}`, 'error');
+        if (ctx.hasUI) ctx.ui.notify(`Not a directory: ${target}`, 'error');
         return;
       }
 
@@ -111,7 +111,7 @@ export default function (pi: _ExtensionAPI) {
               // File may already be gone; ignore
             }
           }
-          newCtx.ui.notify(`Now in: ${target}`, 'info');
+          if (newCtx.hasUI) newCtx.ui.notify(`Now in: ${target}`, 'info');
         },
       });
 
@@ -122,7 +122,7 @@ export default function (pi: _ExtensionAPI) {
         } catch {
           // File may already be gone; ignore
         }
-        ctx.ui.notify('Session switch cancelled', 'info');
+        if (ctx.hasUI) ctx.ui.notify('Session switch cancelled', 'info');
       }
     },
   });

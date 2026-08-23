@@ -39,7 +39,7 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: "/some/path",
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
     };
 
@@ -54,7 +54,7 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: process.cwd(),
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
     };
 
@@ -76,12 +76,12 @@ describe("cwd command", () => {
     let capturedWithSession: Function | undefined;
     const ctx = {
       cwd: testCwd,
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((path: string, opts?: { withSession?: Function }) => {
         capturedWithSession = opts?.withSession;
         // Invoke withSession if provided (mimicking real pi behavior)
         if (opts?.withSession) {
-          opts.withSession({ ui: ctx.ui, cwd: targetDir });
+          opts.withSession({ hasUI: true, ui: ctx.ui, cwd: targetDir });
         }
         return Promise.resolve({ cancelled: false });
       }),
@@ -116,12 +116,12 @@ describe("cwd command", () => {
     let capturedSessionFile: string | undefined;
     const ctx = {
       cwd: testCwd,
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((path: string, opts?: { withSession?: Function }) => {
         capturedSessionFile = path;
         // Invoke withSession if provided (mimicking real pi behavior)
         if (opts?.withSession) {
-          opts.withSession({ ui: ctx.ui, cwd: targetDir });
+          opts.withSession({ hasUI: true, ui: ctx.ui, cwd: targetDir });
         }
         return Promise.resolve({ cancelled: false });
       }),
@@ -156,7 +156,7 @@ describe("cwd command", () => {
     try {
       const ctx = {
         cwd: tmpdir(),
-        ui: { notify: vi.fn() },
+        hasUI: true, ui: { notify: vi.fn() },
         switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
       };
 
@@ -180,11 +180,11 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: testCwd,
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, opts?: { withSession?: Function }) => {
         // Invoke withSession if provided (mimicking real pi behavior)
         if (opts?.withSession) {
-          opts.withSession({ ui: ctx.ui, cwd: targetDir });
+          opts.withSession({ hasUI: true, ui: ctx.ui, cwd: targetDir });
         }
         return Promise.resolve({ cancelled: false });
       }),
@@ -212,7 +212,7 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: testCwd,
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => {
         return Promise.resolve({ cancelled: true });
       }),
@@ -238,7 +238,7 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: "/root/workspace",
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
     };
 

@@ -58,7 +58,7 @@ function invoke(applyFooter: (enabled: boolean) => void, ui: { notify: ReturnTyp
   henyoFooterCommand({ registerCommand } as any, applyFooter);
   const captured: { name: string; opts: { handler: Function } } = (registerCommand as any).captured;
   expect(captured.name).toBe('henyo_footer');
-  return captured.opts.handler('', { ui });
+  return captured.opts.handler('', { hasUI: true, ui });
 }
 
 describe('/henyo_footer command', () => {

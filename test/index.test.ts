@@ -51,6 +51,7 @@ function makeCtx() {
   let footerCb: any = undefined;
   return {
     ctx: {
+      hasUI: true,
       ui: {
         setFooter(cb: any) {
           footerCb = cb;

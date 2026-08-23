@@ -32,7 +32,7 @@ describe("newp command", () => {
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       newSession: vi.fn(() => Promise.resolve({ cancelled: false })),
     };
 
@@ -46,7 +46,7 @@ describe("newp command", () => {
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       newSession: vi.fn(() => Promise.resolve({ cancelled: false })),
     };
 
@@ -62,7 +62,7 @@ describe("newp command", () => {
     let messageSent: string | null = null;
 
     const ctx = {
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       newSession: vi.fn((opts?: { withSession?: Function }) => {
         if (opts?.withSession) {
           opts.withSession({
@@ -87,7 +87,7 @@ describe("newp command", () => {
     let messageSent: string | null = null;
 
     const ctx = {
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       newSession: vi.fn((opts?: { withSession?: Function }) => {
         if (opts?.withSession) {
           opts.withSession({
@@ -109,7 +109,7 @@ describe("newp command", () => {
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
-      ui: { notify: vi.fn() },
+      hasUI: true, ui: { notify: vi.fn() },
       newSession: vi.fn((_opts?: { withSession?: Function }) => {
         return Promise.resolve({ cancelled: true });
       }),
