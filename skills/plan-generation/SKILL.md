@@ -164,6 +164,12 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - [ ] Git diff shows clean work
 ```
 
+**When a note in `~/.pi/agent/notes/` spawned the plan**, Final Verification must include:
+
+```
+- [ ] Delete source note `~/.pi/agent/notes/<source>.md` (ephemeral — the plan is the record; never "update the note" instead)
+```
+
 ### 10. Meta (optional)
 
 ```
@@ -191,6 +197,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory.
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
+14. **Source notes die with the plan.** If a note in `~/.pi/agent/notes/` spawned the plan, Final Verification includes a delete-the-note item — never "update the note". The plan is the record; the note is removed at plan completion, not at generation.
 
 ---
 
@@ -208,6 +215,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 | No scope boundaries | Agent does extra work, scope creep |
 | Acceptance criteria requiring human judgment | Agent can't self-verify |
 | Missing doc updates for coding changes | Docs go stale, users can't follow the code |
+| "Update the note (status → Planned)" instead of deleting it | Notes are ephemeral — the plan supersedes them; a status field keeps a dead artifact alive |
 
 ---
 
@@ -229,7 +237,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path)
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, Final Verification must include the delete-source-note item (rule 14).
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user
@@ -265,5 +273,6 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 21 | Assumptions & Open Questions section present | Ambiguities hidden in prose/steps instead of the table |
 | 22 | Unattended rule in embedded instructions | Template still says "if told to proceed without asking" |
 | 23 | Out-of-plan dependency rule in embedded instructions | Template lacks the "deps beyond the plan's list are `[blocker]`s" line |
+| 24 | Plan generated from a note includes the delete-source-note Final Verification item | A note spawned the plan but the plan omits the delete item (or says "update the note" instead) |
 
-If any row fails, edit the plan and re-check. Do not present until all 23 pass.
+If any row fails, edit the plan and re-check. Do not present until all 24 pass.
