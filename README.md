@@ -215,18 +215,19 @@ To disable all henyo features:
 ### Prerequisites
 
 - Node.js 22+
+- pnpm — activated via corepack: `corepack enable pnpm` (if `corepack enable` fails on a read-only `/usr/local/bin`, invoke as `corepack pnpm <cmd>`)
 - Globally installed [Pi coding agent](https://pi.dev) (`npm install -g @earendil-works/pi-coding-agent`)
 
 ### Available Scripts
 
 ```bash
-npm test                   # Run Vitest unit tests
-npm run lint               # Type-check (tsc) + ESLint style checks
-npm run lint:fix           # Auto-fix ESLint issues
-npm run format             # Check Prettier formatting
-npm run format:fix         # Auto-format with Prettier
-npm run build              # TypeScript type-check build
-npm test -- --coverage     # Run tests with coverage report (80% thresholds)
+pnpm test                   # Run Vitest unit tests
+pnpm run lint               # Type-check (tsc) + ESLint style checks
+pnpm run lint:fix           # Auto-fix ESLint issues
+pnpm run format             # Check Prettier formatting
+pnpm run format:fix         # Auto-format with Prettier
+pnpm run build              # TypeScript type-check build
+pnpm run test:coverage      # Run tests with coverage report (80% thresholds)
 ```
 
 ### Architecture

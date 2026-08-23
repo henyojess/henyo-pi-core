@@ -4,6 +4,7 @@
   "description": "Pi coding agent extension - henyo core functionality",
   "keywords": ["pi-package"],
   "type": "module",
+  "packageManager": "pnpm@11.22.0",
   "files": [
     "index.ts",
     "src/",
@@ -13,6 +14,7 @@
   ],
   "scripts": {
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit && eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --check src/**/*.ts",
