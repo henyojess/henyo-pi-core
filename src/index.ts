@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
+import henyoCommand from './commands/henyo.js';
 import { FooterFactory } from './footer.js';
 import { readSettingsFile, writeSettingsFile } from './settings-io.js';
 import { mergeHenyo } from './henyo-settings.js';
@@ -144,6 +145,11 @@ export default function (pi: _ExtensionAPI) {
   });
 
   // ─── Custom commands ───────────────────────────────────────────────
+  // /henyo is always registered — user-facing control; must not be gated
+  // behind settings (a gated entry point could be disabled, leaving no TUI
+  // path to re-enable it).
+  henyoCommand(pi, applyFooter);
+
   for (const [cmdName, register] of Object.entries(COMMANDS)) {
     if (henyoSettings.commands[cmdName] !== false) {
       register(pi, applyFooter);

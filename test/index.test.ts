@@ -131,6 +131,29 @@ describe('extension entry point (src/index.ts)', () => {
     expect(getFooterCb()).toBeUndefined();
   });
 
+  it('case E: all commands.* false → /henyo still registered (unconditional), gated commands omitted', async () => {
+    writeFileSync(
+      settingsFile,
+      JSON.stringify({
+        henyo: {
+          editPathFix: true,
+          toolRepair: true,
+          footer: true,
+          agentsMd: true,
+          skills: { 'plan-generation': true, notes: true },
+          commands: { cwd: false, newp: false },
+        },
+      }),
+      'utf-8',
+    );
+    const stub = createStubPi();
+    await mod.default(stub);
+
+    expect(stub.commands.has('henyo')).toBe(true);
+    expect(stub.commands.has('cwd')).toBe(false);
+    expect(stub.commands.has('newp')).toBe(false);
+  });
+
   it('case D: settings.json with non-object JSON → readSettingsFile returns {}', () => {
     writeFileSync(settingsFile, '[1,2]', 'utf-8');
     expect(readSettingsFile()).toEqual({});
