@@ -13,6 +13,8 @@ import newpCommand from './commands/newp.js';
 import henyoFooterCommand from './commands/henyo-footer.js';
 import { FooterFactory } from './footer.js';
 import { readSettingsFile, writeSettingsFile } from './settings-io.js';
+import { mergeHenyo } from './henyo-settings.js';
+import type { HenyoSettings } from './henyo-settings.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -21,70 +23,7 @@ function extPath(...segments: string[]) {
   return join(__dirname, '..', ...segments);
 }
 
-// ─── Henyo Settings Block ──────────────────────────────────────────────
-
-interface HenyoSettings {
-  /** Standalone edit path fix + coaching + prompt guideline. */
-  editPathFix: boolean;
-  /** Legacy key — honored when `editPathFix` is unset. */
-  toolRepair: boolean;
-  footer: boolean;
-  agentsMd: boolean;
-  skills: Record<string, boolean>;
-  commands: Record<string, boolean>;
-}
-
-const DEFAULTS: HenyoSettings = {
-  editPathFix: true,
-  toolRepair: true,
-  footer: true,
-  agentsMd: true,
-  skills: { 'plan-generation': true, notes: true },
-  commands: { cwd: true, newp: true, henyo_footer: true },
-};
 const SKILLS = { 'plan-generation': 'skills/plan-generation', notes: 'skills/notes' };
-function isPlainObject(value: unknown): value is Record<string, any> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-/**
- * Merge the on-disk `henyo` block over DEFAULTS (nested `skills`/`commands`
- * merged key-by-key so a partial user block never hides default siblings).
- * Returns a fresh copy of the merged settings (module-level DEFAULTS is
- * never exposed or mutated) and whether the input was missing any of the
- * 11 known keys (`editPathFix`, `toolRepair`, `footer`, `agentsMd`,
- * skills×2, commands×3) — values are never a write trigger.
- */
-function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
-  const henyo: HenyoSettings = { ...DEFAULTS };
-  if (!isPlainObject(user)) {
-    henyo.skills = { ...DEFAULTS.skills };
-    henyo.commands = { ...DEFAULTS.commands };
-    return { henyo, changed: true };
-  }
-  const h = user as Partial<HenyoSettings>;
-  henyo.editPathFix = h.editPathFix ?? h.toolRepair ?? DEFAULTS.toolRepair;
-  henyo.toolRepair = h.toolRepair ?? DEFAULTS.toolRepair;
-  henyo.footer = h.footer ?? DEFAULTS.footer;
-  henyo.agentsMd = h.agentsMd ?? DEFAULTS.agentsMd;
-  const userSkills = isPlainObject(h.skills) ? h.skills : {};
-  const userCommands = isPlainObject(h.commands) ? h.commands : {};
-  henyo.skills = { ...DEFAULTS.skills, ...userSkills };
-  henyo.commands = { ...DEFAULTS.commands, ...userCommands };
-  const knownKeys: (keyof HenyoSettings)[] = [
-    'editPathFix',
-    'toolRepair',
-    'footer',
-    'agentsMd',
-    'skills',
-    'commands',
-  ];
-  const changed =
-    knownKeys.some((key) => !(key in h)) ||
-    Object.keys(DEFAULTS.skills).some((key) => !(key in userSkills)) ||
-    Object.keys(DEFAULTS.commands).some((key) => !(key in userCommands));
-  return { henyo, changed };
-}
 
 const COMMANDS: Record<
   string,
