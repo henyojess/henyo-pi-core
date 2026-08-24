@@ -27,13 +27,14 @@ henyo-pi-core/
 │   └── notes/            # Ephemeral working notes for tracking context and decisions
 ├── src/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
+│   ├── henyo-settings.ts # henyo settings block: types, defaults, merge, effective-state reader
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
 │   ├── edit-path-repair.ts # Standalone edit path fix (event hooks: repair, coaching, prompt guideline)
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
-│       └── henyo-footer.ts # /henyo_footer: live-toggle the custom footer
+│       └── henyo.ts      # /henyo: list or toggle all henyo features
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
     ├── edit-path-repair.test.ts # Tests for the standalone edit path fix
@@ -41,7 +42,7 @@ henyo-pi-core/
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
     ├── commands/         # Unit tests for command handlers
     │   ├── cwd.test.ts
-    │   ├── henyo-footer.test.ts
+    │   ├── henyo.test.ts
     │   └── newp.test.ts
 ```
 
@@ -73,12 +74,27 @@ Switch to another project directory and start a new session in the target dir.
 Start a new session with an initial prompt. The prompt is sent as the first
 user message in the new session.
 
-### `/henyo_footer`
+### `/henyo [key [value]]`
 
-Toggle the compact footer on/off. Persists to `henyo.footer` in
-`~/.pi/agent/settings.json` and applies immediately in the current session.
-Shows the new state via a TUI notification (`Henyo footer enabled` /
-`Henyo footer disabled`). Arguments are ignored (toggle only).
+List or toggle all henyo features from the TUI — the replacement for
+hand-editing `settings.json`:
+- With no args: opens a picker of all 7 keys labeled `key: on` / `key: off`
+  (state from the effective merged settings); pick one to toggle it.
+- `/henyo <key>` flips the key's current effective state.
+- `/henyo <key> <value>` sets the key explicitly; values are
+  `on off true false enable disable` (case-insensitive).
+- Keys are given in canonical form (`editPathFix`, `footer`, `agentsMd`,
+  `skills.notes`, `commands.cwd`) or, for the dotted keys, in their flat
+  shorthand (`notes`, `plan-generation`, `cwd`, `newp`). Tab-completion is
+  offered for both keys and values.
+- `footer` applies live in the current session; all other keys are written
+  and applied after an automatic extension reload (same semantics as
+  `/reload` — the success toast says `— reloading`).
+- `/henyo` is always available — it is intentionally not one of the
+  `commands.*` settings keys, so it can never be gated behind a setting
+  that would need it to re-enable itself.
+- Non-TUI mode (`hasUI: false`): toggles via explicit args still work
+  (write + reload); the bare picker form is a no-op.
 
 ## Bundled Skills
 
@@ -156,7 +172,12 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 |-----|---------|-------------|
 | `cwd` | `true` | `/cwd` — switch project directory |
 | `newp` | `true` | `/newp` — start a new session with an initial prompt |
-| `henyo_footer` | `true` | `/henyo_footer` — live-toggle the custom footer |
+
+Toggling individual features from the TUI is covered by `/henyo` (see
+Registered Commands) — it is intentionally absent from the `commands.*`
+keys. Stale entries left under `commands` in an existing `settings.json`
+for a retired command (the old footer toggle) are inert: unknown keys are
+preserved on settings writes and ignored by the extension.
 
 ### Example Configuration
 
@@ -172,8 +193,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
     },
     "commands": {
       "cwd": true,
-      "newp": false,
-      "henyo_footer": true
+      "newp": false
     }
   }
 }
@@ -205,8 +225,7 @@ To disable all henyo features:
     },
     "commands": {
       "cwd": false,
-      "newp": false,
-      "henyo_footer": false
+      "newp": false
     }
   }
 }
