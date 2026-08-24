@@ -18,7 +18,7 @@ export const DEFAULTS: HenyoSettings = {
   footer: true,
   agentsMd: true,
   skills: { 'plan-generation': true, notes: true },
-  commands: { cwd: true, newp: true, henyo_footer: true },
+  commands: { cwd: true, newp: true },
 };
 
 function isPlainObject(value: unknown): value is Record<string, any> {
@@ -30,8 +30,8 @@ function isPlainObject(value: unknown): value is Record<string, any> {
  * merged key-by-key so a partial user block never hides default siblings).
  * Returns a fresh copy of the merged settings (module-level DEFAULTS is
  * never exposed or mutated) and whether the input was missing any of the
- * 11 known keys (`editPathFix`, `toolRepair`, `footer`, `agentsMd`,
- * skills×2, commands×3) — values are never a write trigger.
+ * 10 known keys (`editPathFix`, `toolRepair`, `footer`, `agentsMd`,
+ * skills×2, commands×2) — values are never a write trigger.
  */
 export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
   const henyo: HenyoSettings = { ...DEFAULTS };

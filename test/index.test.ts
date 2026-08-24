@@ -84,10 +84,10 @@ describe('extension entry point (src/index.ts)', () => {
     expect(written.henyo.footer).toBe(true);
     expect(written.henyo.toolRepair).toBe(true);
     expect(written.henyo.skills).toEqual({ 'plan-generation': true, notes: true });
-    expect(written.henyo.commands).toEqual({ cwd: true, newp: true, henyo_footer: true });
+    expect(written.henyo.commands).toEqual({ cwd: true, newp: true });
 
-    // All three commands registered (defaults = enabled).
-    for (const name of ['cwd', 'newp', 'henyo_footer']) {
+    // All commands registered (defaults = enabled).
+    for (const name of ['cwd', 'newp']) {
       expect(stub.commands.has(name)).toBe(true);
     }
 

@@ -27,7 +27,7 @@ const FULL_DEFAULTS = {
   footer: true,
   agentsMd: true,
   skills: { 'plan-generation': true, notes: true },
-  commands: { cwd: true, newp: true, henyo_footer: true },
+  commands: { cwd: true, newp: true },
 };
 const COMPLETE_BLOCK = {
   editPathFix: true,
@@ -35,7 +35,7 @@ const COMPLETE_BLOCK = {
   footer: true,
   agentsMd: true,
   skills: { 'plan-generation': true, notes: true },
-  commands: { cwd: true, newp: true, henyo_footer: true },
+  commands: { cwd: true, newp: true },
 };
 
 function writeSettings(obj: unknown) {
@@ -70,7 +70,7 @@ describe('loadHenyoSettings', () => {
     expect(s).toEqual(FULL_DEFAULTS);
     expect(readSettings().henyo).toEqual(FULL_DEFAULTS);
     // Exact block shape: 5 container keys; nested objects carry the 2 skill
-    // and 3 command keys (11 known keys total incl. editPathFix).
+    // and 2 command keys (10 known keys total incl. editPathFix).
     expect(Object.keys(readSettings().henyo).sort()).toEqual([
       'agentsMd',
       'commands',
@@ -80,7 +80,7 @@ describe('loadHenyoSettings', () => {
       'toolRepair',
     ]);
     expect(Object.keys(readSettings().henyo.skills).sort()).toEqual(['notes', 'plan-generation']);
-    expect(Object.keys(readSettings().henyo.commands).sort()).toEqual(['cwd', 'henyo_footer', 'newp']);
+    expect(Object.keys(readSettings().henyo.commands).sort()).toEqual(['cwd', 'newp']);
   });
 
   it('complete henyo block → file bytes unchanged after load (steady state, zero writes)', () => {

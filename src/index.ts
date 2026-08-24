@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import cwdCommand from './commands/cwd.js';
 import newpCommand from './commands/newp.js';
-import henyoFooterCommand from './commands/henyo-footer.js';
 import { FooterFactory } from './footer.js';
 import { readSettingsFile, writeSettingsFile } from './settings-io.js';
 import { mergeHenyo } from './henyo-settings.js';
@@ -31,7 +30,6 @@ const COMMANDS: Record<
 > = {
   cwd: cwdCommand,
   newp: newpCommand,
-  henyo_footer: henyoFooterCommand,
 };
 
 /**
@@ -87,7 +85,7 @@ export default function (pi: _ExtensionAPI) {
 
   /**
    * Apply the custom footer (or clear it) on the current session.
-   * Used by session_start and by the /henyo_footer toggle command.
+   * Used by session_start and by the /henyo footer toggle.
    */
   function applyFooter(enabled: boolean): void {
     const ctx = sessionCtx;
