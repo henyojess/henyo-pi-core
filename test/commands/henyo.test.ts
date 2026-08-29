@@ -39,6 +39,8 @@ const CANONICAL_KEYS = [
   'skills.notes',
   'commands.cwd',
   'commands.newp',
+  'ttftTokps',
+  'trace',
 ];
 
 function writeSettings(obj: unknown) {
@@ -102,7 +104,7 @@ describe('/henyo command', () => {
     expect(captured!.opts.getArgumentCompletions).toBeTypeOf('function');
   });
 
-  it('completions token 1: empty prefix → all 7 canonical keys', () => {
+  it('completions token 1: empty prefix → all 9 canonical keys', () => {
     const { opts } = register();
     const items = opts.getArgumentCompletions('');
     expect(items.map((i: any) => i.value)).toEqual(CANONICAL_KEYS);
@@ -137,7 +139,7 @@ describe('/henyo command', () => {
   });
 
   // ── bare /henyo (picker) ────────────────────────────────────────────
-  it('bare args (TUI): ui.select called with 7 labels matching seeded states', async () => {
+  it('bare args (TUI): ui.select called with 9 labels matching seeded states', async () => {
     writeSettings({ henyo: { ...SEED.henyo, footer: false } });
     const { opts } = register();
     const ctx = await invoke(opts, '');
@@ -152,6 +154,8 @@ describe('/henyo command', () => {
       'skills.notes: on',
       'commands.cwd: on',
       'commands.newp: on',
+      'ttftTokps: on',
+      'trace: off',
     ]);
   });
 

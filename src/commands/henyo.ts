@@ -12,7 +12,7 @@ import type { HenyoSettings } from '../henyo-settings.js';
  * /henyo — list or toggle all henyo features from the TUI.
  *
  * Usage:
- *   /henyo                 picker of all 7 keys ("key: on/off", pick to toggle)
+ *   /henyo                 picker of all 9 keys ("key: on/off", pick to toggle)
  *   /henyo <key>           flip the current effective state of <key>
  *   /henyo <key> <value>   set <key> to <value> (on|off|true|false|enable|disable)
  *
@@ -41,6 +41,8 @@ const KEYS: KeyInfo[] = [
   { canonical: 'skills.notes', shorthand: 'notes', section: 'skills' },
   { canonical: 'commands.cwd', shorthand: 'cwd', section: 'commands' },
   { canonical: 'commands.newp', shorthand: 'newp', section: 'commands' },
+  { canonical: 'ttftTokps' },
+  { canonical: 'trace' },
 ];
 
 const VALID_KEYS = KEYS.map((k) => k.canonical).join(', ');
@@ -71,7 +73,7 @@ function effectiveState(settings: HenyoSettings, key: KeyInfo): boolean {
   if (key.section) {
     return settings[key.section][key.canonical.split('.')[1]] !== false;
   }
-  return settings[key.canonical as 'footer' | 'agentsMd'];
+  return settings[key.canonical as 'footer' | 'agentsMd' | 'ttftTokps' | 'trace'];
 }
 
 /** Write one key's value, preserving the rest of the settings file. */
@@ -92,7 +94,7 @@ function writeKey(key: KeyInfo, value: boolean): void {
  * Argument completions (see plan decision #6 — pi passes `prefix` =
  * everything after the first space and replaces the whole argument text
  * with the accepted item's `value`):
- *  - token 1 (no space in prefix): the 7 keys, `startsWith` on canonical
+ *  - token 1 (no space in prefix): the 9 keys, `startsWith` on canonical
  *    OR shorthand (case-sensitive), `value` = canonical.
  *  - token 2 (space in prefix): the 6 values filtered by the last token,
  *    only when the first token matches a key; `value` = "<key> <val>"

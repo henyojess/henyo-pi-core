@@ -26,6 +26,8 @@ const FULL_DEFAULTS = {
   toolRepair: true,
   footer: true,
   agentsMd: true,
+  ttftTokps: true,
+  trace: false,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -34,6 +36,8 @@ const COMPLETE_BLOCK = {
   toolRepair: true,
   footer: true,
   agentsMd: true,
+  ttftTokps: true,
+  trace: false,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -69,8 +73,8 @@ describe('loadHenyoSettings', () => {
     const s = loadHenyoSettings();
     expect(s).toEqual(FULL_DEFAULTS);
     expect(readSettings().henyo).toEqual(FULL_DEFAULTS);
-    // Exact block shape: 5 container keys; nested objects carry the 2 skill
-    // and 2 command keys (10 known keys total incl. editPathFix).
+    // Exact block shape: 8 top-level keys; nested objects carry the 2 skill
+    // and 2 command keys (12 known keys total incl. editPathFix).
     expect(Object.keys(readSettings().henyo).sort()).toEqual([
       'agentsMd',
       'commands',
@@ -78,6 +82,8 @@ describe('loadHenyoSettings', () => {
       'footer',
       'skills',
       'toolRepair',
+      'trace',
+      'ttftTokps',
     ]);
     expect(Object.keys(readSettings().henyo.skills).sort()).toEqual(['notes', 'plan-generation']);
     expect(Object.keys(readSettings().henyo.commands).sort()).toEqual(['cwd', 'newp']);
@@ -165,6 +171,27 @@ describe('loadHenyoSettings', () => {
     const onDisk = readSettings();
     expect(onDisk.henyo.editPathFix).toBe(false); // migration write: resolved value persisted
     expect(onDisk.other.keep).toBe(true);
+  });
+
+  it('block lacking ttftTokps/trace → both filled with defaults in result AND persisted by the fill write', () => {
+    writeSettings({
+      other: { keep: true },
+      henyo: {
+        editPathFix: true,
+        toolRepair: true,
+        footer: true,
+        agentsMd: true,
+        skills: { 'plan-generation': true, notes: true },
+        commands: { cwd: true, newp: true },
+      },
+    });
+    const s = loadHenyoSettings();
+    expect(s.ttftTokps).toBe(true); // filled
+    expect(s.trace).toBe(false); // filled
+    const onDisk = readSettings();
+    expect(onDisk.henyo.ttftTokps).toBe(true); // filled in file
+    expect(onDisk.henyo.trace).toBe(false); // filled in file
+    expect(onDisk.other.keep).toBe(true); // other keys preserved
   });
 
   it('editPathFix: false passes through unchanged and survives the fill write', () => {
