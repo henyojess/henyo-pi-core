@@ -15,8 +15,9 @@ All pi state lives under `~/.pi/agent/` — `settings.json`, `models.json`,
 Phase defaults — when a plan file or skill is loaded, it outranks these.
 
 - **Clarify:** if the task is ambiguous, ask first.
-- **Before changing anything:** understand it — project README + manifest for new
-  projects, current file state before editing (never assume structure).
+- **Before changing anything or running project commands:** understand it —
+  project README + manifest (including its documented package manager and
+  commands), current file state before editing (never assume structure).
 - **While changing:** do targeted edits, never whole-file rewrites; split edits
   of the same file into chunks of ~34 lines or fewer; match existing patterns —
   introduce a new one only if the change requires it, keep it minimal, and flag
