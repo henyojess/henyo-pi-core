@@ -158,4 +158,22 @@ describe('extension entry point (src/index.ts)', () => {
     writeFileSync(settingsFile, '[1,2]', 'utf-8');
     expect(readSettingsFile()).toEqual({});
   });
+
+  it('case F: ttftTokps default (filled true) → ttft handlers registered; ttftTokps:false → absent', async () => {
+    // Default settings: fill gives ttftTokps: true → the ttft-exclusive
+    // events register (edit-path-repair uses before_agent_start/
+    // message_end/tool_result, so these two are ttft-exclusive).
+    rmSync(settingsFile, { force: true });
+    const onStub = createStubPi();
+    await mod.default(onStub);
+    expect(onStub.handlers.has('agent_start')).toBe(true);
+    expect(onStub.handlers.has('before_provider_request')).toBe(true);
+
+    // Explicitly disabled → neither registers.
+    writeFileSync(settingsFile, JSON.stringify({ henyo: { ttftTokps: false } }), 'utf-8');
+    const offStub = createStubPi();
+    await mod.default(offStub);
+    expect(offStub.handlers.has('agent_start')).toBe(false);
+    expect(offStub.handlers.has('before_provider_request')).toBe(false);
+  });
 });

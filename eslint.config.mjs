@@ -35,6 +35,20 @@ export default [
     },
   },
   {
+    // Node/browser globals used by the ttft-tokps stall/final-hold timers
+    // and the monotonic clock (no other src file uses them).
+    files: ['src/ttft-tokps.ts'],
+    languageOptions: {
+      globals: {
+        performance: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "coverage/", "*.config.*"],
   },
 ];

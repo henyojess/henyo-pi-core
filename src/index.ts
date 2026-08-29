@@ -1,4 +1,5 @@
 import { editPathRepairExtension, resolveEditPathFix } from './edit-path-repair.js';
+import { ttftTokpsExtension } from './ttft-tokps.js';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
   ExtensionAPI as _ExtensionAPI,
@@ -68,6 +69,11 @@ export default function (pi: _ExtensionAPI) {
   const editPathFixEnabled = resolveEditPathFix(henyoSettings);
   if (editPathFixEnabled) {
     editPathRepairExtension(pi, { enabled: true });
+  }
+
+  // ─── TTFT/TPS working line (config-gated display + opt-in trace) ────
+  if (henyoSettings.ttftTokps !== false) {
+    ttftTokpsExtension(pi, { traceEnabled: henyoSettings.trace === true });
   }
 
   // ─── Event subscriptions ───────────────────────────────────────────
