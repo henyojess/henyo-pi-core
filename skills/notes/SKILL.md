@@ -41,6 +41,11 @@ Key observations, findings, or decisions. Use lists and tables.
   - **Conflict rule:** if a plan instructs *updating* a note (e.g., status → Planned) instead of deleting it, log `[deviation]: plan says update note; notes skill mandates delete` next to that step and still delete the note at plan completion.
 - **Location:** `~/.pi/agent/notes/` (global agent dir; `~` = user home — expand to absolute, never rebase onto cwd)
 - **One note per file:** Each note addresses a single topic or problem
+- **Handoff path:** when you create a note, the reply must end with one line
+  per note created — the note's full absolute path (`~` expanded to the home path),
+  after the summary — so the user can copy the exact file to hand a new session.
+  - The line is bare — no labels, no prose, no backticks.
+  - Multiple files in one reply → notes first, then plans.
 
 ## When to Use This Skill
 
