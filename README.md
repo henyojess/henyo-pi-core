@@ -28,6 +28,7 @@ henyo-pi-core/
 ├── src/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
 │   ├── henyo-settings.ts # henyo settings block: types, defaults, merge, effective-state reader
+│   ├── ttft-tokps.ts     # Working line: TTFT + live/exact tok/s display (config-gated)
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
 │   ├── edit-path-repair.ts # Standalone edit path fix (event hooks: repair, coaching, prompt guideline)
@@ -40,6 +41,7 @@ henyo-pi-core/
     ├── edit-path-repair.test.ts # Tests for the standalone edit path fix
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
+    ├── ttft-tokps.test.ts          # Working line: v2 harness scenarios + trace on/off/rotation/contract
     ├── commands/         # Unit tests for command handlers
     │   ├── cwd.test.ts
     │   ├── henyo.test.ts
@@ -78,14 +80,15 @@ user message in the new session.
 
 List or toggle all henyo features from the TUI — the replacement for
 hand-editing `settings.json`:
-- With no args: opens a picker of all 7 keys labeled `key: on` / `key: off`
+- With no args: opens a picker of all 9 keys labeled `key: on` / `key: off`
   (state from the effective merged settings); pick one to toggle it.
 - `/henyo <key>` flips the key's current effective state.
 - `/henyo <key> <value>` sets the key explicitly; values are
   `on off true false enable disable` (case-insensitive).
 - Keys are given in canonical form (`editPathFix`, `footer`, `agentsMd`,
-  `skills.notes`, `commands.cwd`) or, for the dotted keys, in their flat
-  shorthand (`notes`, `plan-generation`, `cwd`, `newp`). Tab-completion is
+  `ttftTokps`, `trace`, `skills.notes`, `commands.cwd`) or, for the dotted
+  keys, in their flat shorthand (`notes`, `plan-generation`, `cwd`, `newp`)
+  (`ttftTokps`/`trace` are top-level — no shorthand). Tab-completion is
   offered for both keys and values.
 - `footer` applies live in the current session; all other keys are written
   and applied after an automatic extension reload (same semantics as
@@ -139,6 +142,45 @@ Record shape: `{ ts, tool, model, outcome, rules?, issues?, fingerprint }`
 failed; `issues` carries a shape diagnostic). Argument values are never
 logged.
 
+### Working Line (TTFT + tok/s)
+
+While generating, the `Working...` line shows time to first token (TTFT), a
+live tok/s rate, and the token span, e.g.
+`Working... TTFT 1.00s · ≈34.00 tok/s · 44 tok/1.19s`:
+
+- **Live rate** — estimated tokens (delta character count ÷ learned
+  per-model chars-per-token ratio) ÷ elapsed seconds. When the provider
+  reports `usage.output` mid-stream the rate becomes exact (same `≈` readout,
+  usage-based); at `message_end` the line ends with a final readout
+  (`· NN.NN tok/s (final)`), computed from usage when a token span is
+  available, otherwise from the last delta time
+- **Stall handling** — no delta of any kind for 1.5 s → the line holds its
+  last readout and appends `…`; generation resuming or the message ending
+  restores the normal readout
+- **Final hold** — the final readout is held for 5 s before the default
+  `Working...` line is restored; a new LLM call cancels the hold and takes
+  over the line
+- **Calibration** — per-model chars-per-token ratios (think/text/tool)
+  are learned online (EMA on in-range samples) and persisted to
+  `~/.pi/agent/extensions/.ttft-tokps-state.json`; a neutral bias
+  (clamped [0.5, 2.0]) further corrects the estimate against exact usage,
+  keyed per model in the same file
+
+Gated by `ttftTokps` (default `true`).
+
+**Trace file:** with `trace: true`, every display decision is appended as
+JSONL to `/tmp/ttft-debug.log` — each line carries
+the event payload **and** the exact working message that was displayed, so
+live-vs-final estimate error is auditable straight from the log. Writes are
+size-rotated (`.1`, `.2`, `.3` backups by default — 10 MiB cap, 3 backups)
+and silent on failure (a broken log never breaks the TUI). Off by default —
+enable it via `/henyo trace on` to investigate rate discrepancies.
+
+**Legacy note:** the original standalone `~/.pi/agent/extensions/ttft-tokps.ts`
+pre-dates this port. After the live `/reload` verification (plan step 7.3)
+it will be deleted; until then disable it there (or delete it) so the two
+don't render the working line twice.
+
 ```bash
 jq -r .outcome ~/.pi/agent/edit-path-repair.jsonl | sort | uniq -c
 ```
@@ -154,6 +196,8 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 | `editPathFix` | `boolean` | `true` | Edit path fix + coaching + prompt guideline (legacy key `toolRepair` honored when `editPathFix` is unset) |
 | `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first install |
+| `ttftTokps` | `boolean` | `true` | Working line with TTFT + tok/s (live estimate, exact when usage is reported, final readout) |
+| `trace` | `boolean` | `false` | JSONL trace of every ttftTokps display decision (incl. the exact displayed string), size-rotated |
 | `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |
 | `commands.<name>` | `boolean` | `true` | Enable/disable individual custom commands |
 
@@ -187,6 +231,8 @@ preserved on settings writes and ignored by the extension.
     "editPathFix": true,
     "footer": true,
     "agentsMd": true,
+    "ttftTokps": true,
+    "trace": false,
     "skills": {
       "plan-generation": true,
       "notes": false
@@ -219,6 +265,8 @@ To disable all henyo features:
     "editPathFix": false,
     "footer": false,
     "agentsMd": false,
+    "ttftTokps": false,
+    "trace": false,
     "skills": {
       "plan-generation": false,
       "notes": false
