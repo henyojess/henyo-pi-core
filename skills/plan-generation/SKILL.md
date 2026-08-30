@@ -198,6 +198,10 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory.
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
 14. **Source notes die with the plan.** If a note in `~/.pi/agent/notes/` spawned the plan, Final Verification includes a delete-the-note item — never "update the note". The plan is the record; the note is removed at plan completion, not at generation.
+15. **Handoff path.** After creating a plan file, the reply must end with one line per
+    plan created — the plan's full absolute path (`~` expanded), at the very end, after
+    the summary. The line is bare — no labels, no prose, no backticks. Multiple files in
+    one reply → notes first, then plans.
 
 ---
 
