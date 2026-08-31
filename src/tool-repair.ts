@@ -37,6 +37,11 @@ const PROMPT_LINE =
 const GENERIC_COACHING_LINE =
   "Henyo note: the arguments must match the tool's schema exactly — required fields go at the top level of the arguments. Re-emit the call with the complete argument object.";
 
+const UNKNOWN_TOOL_SIGNATURE = /^Tool\s+"?[A-Za-z0-9_.-]*"? not found$/;
+
+/** Fallback for `getActiveTools()` when it throws (telemetry must not break a run). */
+const FALLBACK_TOOL_LIST = 'bash, read, edit, write, grep, find, ls';
+
 interface LogRecord {
   ts: string;
   tool: string;
@@ -235,10 +240,11 @@ export function editPathRepairExtension(
     return { message: { ...message, content: newContent } };
   });
 
-  // Hook 2 (O3): coaching — hint on validation failures, all tools, both pi
-  // error signatures (`Validation failed for tool "X"` and the older
-  // `Invalid input for tool "X"`). edit gets the specific line; every other
-  // tool gets the generic schema hint.
+  // Hook 2 (O3): coaching — (a) unknown-tool errors get the available tool
+  // list (never remapped — plan assumption 6); (b) validation failures on
+  // any tool, both pi error signatures (`Validation failed for tool "X"`
+  // and the older `Invalid input for tool "X"`) get a schema hint. edit gets
+  // the specific line; every other tool gets the generic one.
   pi.on('tool_result', (event, ctx) => {
     if (!opts.enabled) return undefined;
     if (!event.isError) return undefined;
@@ -246,6 +252,34 @@ export function editPathRepairExtension(
       .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
       .map((c) => c.text)
       .join('\n');
+
+    if (UNKNOWN_TOOL_SIGNATURE.test(originalText.split('\n')[0] ?? '')) {
+      let toolList: string;
+      try {
+        toolList = pi.getActiveTools().join(', ');
+      } catch {
+        toolList = FALLBACK_TOOL_LIST;
+      }
+      const input = event.input as unknown;
+      appendLog({
+        ts: new Date().toISOString(),
+        tool: event.toolName,
+        model: ctx.model?.id,
+        outcome: 'failed',
+        issues: 'unknown-tool',
+        fingerprint: shapeFingerprint(event.toolName, input),
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `${originalText}\n\nHenyo note: no such tool. Available tools: ${toolList} — re-emit the call with one of those.`,
+          },
+        ],
+      };
+    }
+
     if (
       !/Validation failed for tool "[a-z_]+"/.test(originalText) &&
       !/Invalid input for tool "[a-z_]+"/.test(originalText)

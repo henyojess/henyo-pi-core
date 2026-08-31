@@ -22,7 +22,12 @@ function makeMockPi() {
   const on = vi.fn((event: string, handler: any) => {
     handlers[event] = handler;
   });
-  return { api: { on } as any, handlers };
+  const api = {
+    on,
+    // Default stub — tests override per-case (e.g. the unknown-tool fallback test).
+    getActiveTools: () => ['bash', 'read', 'edit', 'write'],
+  } as any;
+  return { api, handlers };
 }
 
 function readLog(path: string): any[] {
@@ -572,6 +577,93 @@ describe('editPathRepairExtension hooks', () => {
               type: 'text',
               text: 'Could not find the exact text in /f. Ensure oldText matches exactly.',
             },
+          ],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+      expect(result).toBeUndefined();
+      expect(readLog(logPath)).toHaveLength(0);
+    });
+  });
+
+  describe('tool_result (unknown tools)', () => {
+    it('unquoted "Tool calc not found" → hint lists getActiveTools() in order, failed log unknown-tool', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-u1',
+          toolName: 'calc',
+          input: { expression: '1+1' },
+          content: [{ type: 'text', text: 'Tool calc not found' }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text).toContain('Tool calc not found');
+      expect(block.text).toContain(
+        'Henyo note: no such tool. Available tools: bash, read, edit, write — re-emit the call with one of those.',
+      );
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toBe('unknown-tool');
+      expect(log[0].tool).toBe('calc');
+    });
+
+    it('quoted variant matches; getActiveTools throwing → fallback list, hint still returned', () => {
+      const { api, handlers } = makeMockPi();
+      api.getActiveTools = () => {
+        throw new Error('nope');
+      };
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-u2',
+          toolName: 'calc',
+          input: {},
+          content: [{ type: 'text', text: 'Tool "calc" not found' }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text).toContain('Tool "calc" not found');
+      expect(block.text).toContain(
+        'Available tools: bash, read, edit, write, grep, find, ls — re-emit the call with one of those.',
+      );
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].issues).toBe('unknown-tool');
+    });
+
+    it('known-tool error (read ENOENT text) → undefined, no log', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-k',
+          toolName: 'read',
+          input: { path: '/missing.txt' },
+          content: [
+            { type: 'text', text: "ENOENT: no such file or directory, open '/missing.txt'" },
           ],
           isError: true,
           details: undefined,
