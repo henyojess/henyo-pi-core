@@ -9,7 +9,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 }));
 
 import {
-  editPathRepairExtension,
+  toolRepairExtension,
   hoistEditPath,
   repairStringifiedEdits,
   resolveToolRepair,
@@ -184,7 +184,7 @@ describe('resolveToolRepair', () => {
 
 // ─── extension hooks ───────────────────────────────────────────────────
 
-describe('editPathRepairExtension hooks', () => {
+describe('toolRepairExtension hooks', () => {
   let tmp: string;
   let logPath: string;
 
@@ -199,7 +199,7 @@ describe('editPathRepairExtension hooks', () => {
 
   it('registers exactly the three event hooks and no tools', () => {
     const { api, handlers } = makeMockPi();
-    editPathRepairExtension(api, { enabled: true, logPath });
+    toolRepairExtension(api, { enabled: true, logPath });
     expect(handlers['message_end']).toBeDefined();
     expect(handlers['tool_result']).toBeDefined();
     expect(handlers['before_agent_start']).toBeDefined();
@@ -210,7 +210,7 @@ describe('editPathRepairExtension hooks', () => {
   describe('message_end (repair)', () => {
     it('hoists nested path, keeps role/id/non-edit entries, logs fixed', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['message_end'](
         { type: 'message_end', message: assistantMessage() },
@@ -239,7 +239,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('returns undefined and logs nothing when path is already top-level', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['message_end'](
         {
@@ -268,7 +268,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('returns undefined for non-assistant messages', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['message_end'](
         { type: 'message_end', message: { role: 'user', content: [] } },
@@ -280,7 +280,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('returns undefined when the tool call is not edit', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['message_end'](
         {
@@ -306,7 +306,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('is a no-op when the extension is disabled', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: false, logPath });
+      toolRepairExtension(api, { enabled: false, logPath });
 
       const result = handlers['message_end'](
         { type: 'message_end', message: assistantMessage() },
@@ -320,7 +320,7 @@ describe('editPathRepairExtension hooks', () => {
   describe('message_end (stringified edits)', () => {
     it('stringified edits (no nested path) → array assigned, fixed log with only the parse rule', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['message_end'](
         {
@@ -359,7 +359,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('stringified edits with nested path → both rules in one record, path at top level', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['message_end'](
         {
@@ -396,7 +396,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('appends coaching line after the original error and logs failed', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -429,7 +429,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('returns undefined for non-validation errors and logs nothing', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -449,7 +449,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('returns undefined when the result is not an error', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -468,7 +468,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('other tools (write) validation failure → original text + generic line, failed log with the tool name', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const writeError = 'Validation failed for tool "write":\n- content: Required';
       const result = handlers['tool_result'](
@@ -501,7 +501,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('read validation failure → original text + generic line preserved in order, failed log with tool read', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const readError = 'Validation failed for tool "read":\n- path: Required';
       const result = handlers['tool_result'](
@@ -534,7 +534,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('older "Invalid input" signature also gets the edit coaching line (regression)', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const oldError = 'Invalid input for tool "edit". Fix these issues and retry:\n- path: Required';
       const result = handlers['tool_result'](
@@ -564,7 +564,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('non-validation error text ("Could not find the exact text") → undefined, no log', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -591,7 +591,7 @@ describe('editPathRepairExtension hooks', () => {
   describe('tool_result (unknown tools)', () => {
     it('unquoted "Tool calc not found" → hint lists getActiveTools() in order, failed log unknown-tool', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -625,7 +625,7 @@ describe('editPathRepairExtension hooks', () => {
       api.getActiveTools = () => {
         throw new Error('nope');
       };
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -654,7 +654,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('known-tool error (read ENOENT text) → undefined, no log', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
@@ -678,7 +678,7 @@ describe('editPathRepairExtension hooks', () => {
   describe('before_agent_start (prevention)', () => {
     it('appends the guideline line to the system prompt', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['before_agent_start']({
         type: 'before_agent_start',
@@ -696,7 +696,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('is idempotent — second call with the same prompt returns undefined', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: true, logPath });
+      toolRepairExtension(api, { enabled: true, logPath });
 
       const first = handlers['before_agent_start']({
         type: 'before_agent_start',
@@ -719,7 +719,7 @@ describe('editPathRepairExtension hooks', () => {
 
     it('returns undefined when the extension is disabled', () => {
       const { api, handlers } = makeMockPi();
-      editPathRepairExtension(api, { enabled: false, logPath });
+      toolRepairExtension(api, { enabled: false, logPath });
 
       const result = handlers['before_agent_start']({
         type: 'before_agent_start',

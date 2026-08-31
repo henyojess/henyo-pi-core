@@ -198,7 +198,7 @@ function shapeDiagnostics(_tool: string, input: unknown): string {
  * extension can be registered unconditionally; `opts.logPath` overrides the
  * default `~/.pi/agent/tool-repair.jsonl` (used by tests).
  */
-export function editPathRepairExtension(
+export function toolRepairExtension(
   pi: ExtensionAPI,
   opts: { enabled: boolean; logPath?: string },
 ): void {

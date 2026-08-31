@@ -1,4 +1,4 @@
-import { editPathRepairExtension, resolveToolRepair } from './tool-repair.js';
+import { toolRepairExtension, resolveToolRepair } from './tool-repair.js';
 import { ttftTokpsExtension } from './ttft-tokps.js';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
@@ -68,7 +68,7 @@ export default function (pi: _ExtensionAPI) {
   // ─── Tool repair (event hooks only — coexists with tool overrides) ──
   const toolRepairEnabled = resolveToolRepair(henyoSettings);
   if (toolRepairEnabled) {
-    editPathRepairExtension(pi, { enabled: true });
+    toolRepairExtension(pi, { enabled: true });
   }
 
   // ─── TTFT/TPS working line (config-gated display + opt-in trace) ────
