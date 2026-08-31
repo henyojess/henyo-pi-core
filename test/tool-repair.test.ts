@@ -11,6 +11,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 import {
   editPathRepairExtension,
   hoistEditPath,
+  repairStringifiedEdits,
   resolveToolRepair,
 } from '../../src/tool-repair';
 
@@ -106,6 +107,57 @@ describe('hoistEditPath', () => {
   it('returns false for an empty edits array', () => {
     const input: Record<string, unknown> = { edits: [] };
     expect(hoistEditPath(input)).toBe(false);
+  });
+});
+
+// ─── repairStringifiedEdits (parse guard, plan assumption 3) ──────────
+
+describe('repairStringifiedEdits', () => {
+  it('parses a valid JSON array of 2 objects and assigns it (true)', () => {
+    const input: Record<string, unknown> = {
+      edits: '[{"oldText":"a","newText":"b"},{"oldText":"c","newText":"d"}]',
+    };
+    expect(repairStringifiedEdits(input)).toBe(true);
+    expect(input.edits).toEqual([
+      { oldText: 'a', newText: 'b' },
+      { oldText: 'c', newText: 'd' },
+    ]);
+  });
+
+  it('parses valid JSON with a nested path — hoisting is the hook\'s job, not this one', () => {
+    const input: Record<string, unknown> = {
+      edits: '[{"path":"/f.txt","oldText":"a","newText":"b"}]',
+    };
+    expect(repairStringifiedEdits(input)).toBe(true);
+    expect('path' in input).toBe(false);
+    expect((input.edits as any[])[0].path).toBe('/f.txt');
+  });
+
+  it('returns false for invalid JSON and leaves the input untouched', () => {
+    const input: Record<string, unknown> = { edits: '[{"oldText":"a"' };
+    expect(repairStringifiedEdits(input)).toBe(false);
+    expect(input.edits).toBe('[{"oldText":"a"');
+  });
+
+  it('returns false when the JSON array contains a non-object element', () => {
+    const input: Record<string, unknown> = { edits: '[{"oldText":"a"},"junk"]' };
+    expect(repairStringifiedEdits(input)).toBe(false);
+    expect(input.edits).toBe('[{"oldText":"a"},"junk"]');
+  });
+
+  it('returns false when the JSON parses to a non-array (object / scalar / null)', () => {
+    for (const raw of ['{"oldText":"a"}', '42', 'null']) {
+      const input: Record<string, unknown> = { edits: raw };
+      expect(repairStringifiedEdits(input)).toBe(false);
+      expect(input.edits).toBe(raw);
+    }
+  });
+
+  it('returns false when edits is an array already or absent', () => {
+    const alreadyArray: Record<string, unknown> = { edits: [{ oldText: 'a' }] };
+    expect(repairStringifiedEdits(alreadyArray)).toBe(false);
+    const absent: Record<string, unknown> = { path: '/f.txt' };
+    expect(repairStringifiedEdits(absent)).toBe(false);
   });
 });
 
@@ -257,6 +309,80 @@ describe('editPathRepairExtension hooks', () => {
       );
       expect(result).toBeUndefined();
       expect(readLog(logPath)).toHaveLength(0);
+    });
+  });
+
+  describe('message_end (stringified edits)', () => {
+    it('stringified edits (no nested path) → array assigned, fixed log with only the parse rule', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['message_end'](
+        {
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'text', text: 'working…' },
+              {
+                type: 'toolCall',
+                id: 'call-s1',
+                name: 'edit',
+                arguments: { edits: '[{"oldText":"a","newText":"b"}]' },
+              },
+            ],
+          },
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const message = result.message;
+      expect(message.content[0]).toEqual({ type: 'text', text: 'working…' });
+      const fixed = message.content[1];
+      expect(fixed.name).toBe('edit');
+      expect(fixed.arguments.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+      expect('path' in fixed.arguments).toBe(false);
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].tool).toBe('edit');
+      expect(log[0].outcome).toBe('fixed');
+      expect(log[0].rules).toEqual(['parse-stringified-edits']);
+      expect(log[0].model).toBe('qwen3.6-27b');
+    });
+
+    it('stringified edits with nested path → both rules in one record, path at top level', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['message_end'](
+        {
+          type: 'message_end',
+          message: {
+            role: 'assistant',
+            content: [
+              {
+                type: 'toolCall',
+                id: 'call-s2',
+                name: 'edit',
+                arguments: { edits: '[{"path":"/f.txt","oldText":"a","newText":"b"}]' },
+              },
+            ],
+          },
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const fixed = result.message.content[0];
+      expect(fixed.arguments.path).toBe('/f.txt');
+      expect(fixed.arguments.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('fixed');
+      expect(log[0].rules).toEqual(['parse-stringified-edits', 'extract-path']);
     });
   });
 

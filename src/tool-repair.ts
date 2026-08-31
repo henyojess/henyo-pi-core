@@ -90,6 +90,41 @@ export function hoistEditPath(input: Record<string, unknown>): boolean {
   return true;
 }
 
+/**
+ * Replace `edits` when the model emitted it as a JSON string
+ * (`"edits": "[{\"oldText\":…}]"` — whole array stringified instead of an
+ * object), so validation fails with "expected array". Observed: ~28
+ * historical + 4 recent (Aug 22) broken calls, the dominant unhandled shape.
+ *
+ * Pure-ish: mutates `input` when it fires. Returns `true` when `input.edits`
+ * was replaced with the parsed array. Strict guard (plan assumption 3): the
+ * parse must succeed AND yield an array AND every element must be a plain
+ * object (non-null, not an array). Anything else — invalid JSON, a JSON
+ * scalar, an array with junk elements — stays untouched so the validation
+ * error + coaching handles it (no false-positive `fixed` records).
+ */
+export function repairStringifiedEdits(input: Record<string, unknown>): boolean {
+  if (typeof input.edits !== 'string') {
+    return false;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input.edits);
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(parsed)) {
+    return false;
+  }
+  for (const element of parsed) {
+    if (element === null || typeof element !== 'object' || Array.isArray(element)) {
+      return false;
+    }
+  }
+  input.edits = parsed;
+  return true;
+}
+
 /** Settings resolution: `toolRepair` default on (absent key = enabled). */
 export function resolveToolRepair(s: { toolRepair?: boolean }): boolean {
   return s.toolRepair ?? true;
@@ -186,14 +221,17 @@ export function editPathRepairExtension(
         return entry;
       }
       const args = entry.arguments as Record<string, unknown>;
-      if (hoistEditPath(args)) {
+      const rules: string[] = [];
+      if (repairStringifiedEdits(args)) rules.push('parse-stringified-edits');
+      if (hoistEditPath(args)) rules.push('extract-path');
+      if (rules.length > 0) {
         changed = true;
         appendLog({
           ts: new Date().toISOString(),
           tool: 'edit',
           model: ctx.model?.id,
           outcome: 'fixed',
-          rules: ['extract-path'],
+          rules,
           fingerprint: shapeFingerprint(args),
         });
         return { ...entry, arguments: args };
