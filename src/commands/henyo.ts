@@ -5,7 +5,7 @@ import type {
 import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import { readSettingsFile, writeSettingsFile } from '../settings-io.js';
 import { getEffectiveHenyoSettings } from '../henyo-settings.js';
-import { resolveEditPathFix } from '../edit-path-repair.js';
+import { resolveToolRepair } from '../tool-repair.js';
 import type { HenyoSettings } from '../henyo-settings.js';
 
 /**
@@ -34,7 +34,7 @@ interface KeyInfo {
 
 /** Key registry — order = picker/completion order. */
 const KEYS: KeyInfo[] = [
-  { canonical: 'editPathFix' },
+  { canonical: 'toolRepair' },
   { canonical: 'footer', live: true },
   { canonical: 'agentsMd' },
   { canonical: 'skills.plan-generation', shorthand: 'plan-generation', section: 'skills' },
@@ -67,8 +67,8 @@ function parseValue(token: string): boolean | undefined {
 
 /** Effective (display) state of a key from merged settings. */
 function effectiveState(settings: HenyoSettings, key: KeyInfo): boolean {
-  if (key.canonical === 'editPathFix') {
-    return resolveEditPathFix(settings); // honors legacy toolRepair
+  if (key.canonical === 'toolRepair') {
+    return resolveToolRepair(settings);
   }
   if (key.section) {
     return settings[key.section][key.canonical.split('.')[1]] !== false;

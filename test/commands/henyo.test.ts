@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// Mock @earendil-works/pi-coding-agent (settings-io / edit-path-repair call
+// Mock @earendil-works/pi-coding-agent (settings-io / tool-repair call
 // getAgentDir(); the command module itself uses types only).
 vi.mock('@earendil-works/pi-coding-agent', () => ({
   getAgentDir: () => join(process.env.HOME ?? '', '.pi', 'agent'),
@@ -23,7 +23,6 @@ const settingsFile = join(tmpHome, '.pi', 'agent', 'settings.json');
 const SEED = {
   other: { keep: true },
   henyo: {
-    editPathFix: true,
     toolRepair: true,
     footer: true,
     agentsMd: true,
@@ -32,7 +31,7 @@ const SEED = {
   },
 };
 const CANONICAL_KEYS = [
-  'editPathFix',
+  'toolRepair',
   'footer',
   'agentsMd',
   'skills.plan-generation',
@@ -147,7 +146,7 @@ describe('/henyo command', () => {
     const [title, labels] = ctx.ui.select.mock.calls[0];
     expect(title).toBe('Henyo features (pick to toggle):');
     expect(labels).toEqual([
-      'editPathFix: on',
+      'toolRepair: on',
       'footer: off',
       'agentsMd: on',
       'skills.plan-generation: on',

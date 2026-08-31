@@ -1,4 +1,4 @@
-import { editPathRepairExtension, resolveEditPathFix } from './edit-path-repair.js';
+import { editPathRepairExtension, resolveToolRepair } from './tool-repair.js';
 import { ttftTokpsExtension } from './ttft-tokps.js';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
@@ -66,8 +66,8 @@ export default function (pi: _ExtensionAPI) {
   const henyoSettings = loadHenyoSettings();
 
   // ─── Edit path fix (event hooks only — coexists with tool overrides) ─
-  const editPathFixEnabled = resolveEditPathFix(henyoSettings);
-  if (editPathFixEnabled) {
+  const toolRepairEnabled = resolveToolRepair(henyoSettings);
+  if (toolRepairEnabled) {
     editPathRepairExtension(pi, { enabled: true });
   }
 

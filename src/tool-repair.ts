@@ -16,7 +16,7 @@
  * 3. `before_agent_start` (prevention) — append one guideline line to the
  *    system prompt so models emit the correct shape in the first place.
  *
- * Telemetry: `~/.pi/agent/edit-path-repair.jsonl` (JSONL; `fixed` and
+ * Telemetry: `~/.pi/agent/tool-repair.jsonl` (JSONL; `fixed` and
  * `failed` outcomes only — healthy no-ops are not logged).
  *
  * Because no tools are registered or overridden, this coexists with any
@@ -90,12 +90,9 @@ export function hoistEditPath(input: Record<string, unknown>): boolean {
   return true;
 }
 
-/**
- * Settings resolution: new `editPathFix` wins; legacy `toolRepair` honored
- * only when `editPathFix` is unset; default on.
- */
-export function resolveEditPathFix(s: { editPathFix?: boolean; toolRepair?: boolean }): boolean {
-  return s.editPathFix ?? s.toolRepair ?? true;
+/** Settings resolution: `toolRepair` default on (absent key = enabled). */
+export function resolveToolRepair(s: { toolRepair?: boolean }): boolean {
+  return s.toolRepair ?? true;
 }
 
 /** FNV-1a 32-bit hash (same algorithm as the old telemetry fingerprint). */
@@ -153,7 +150,7 @@ function shapeDiagnostics(input: unknown): string {
 /**
  * Register the three hooks. `opts.enabled` gates all three at runtime so the
  * extension can be registered unconditionally; `opts.logPath` overrides the
- * default `~/.pi/agent/edit-path-repair.jsonl` (used by tests).
+ * default `~/.pi/agent/tool-repair.jsonl` (used by tests).
  */
 export function editPathRepairExtension(
   pi: ExtensionAPI,
@@ -161,7 +158,7 @@ export function editPathRepairExtension(
 ): void {
   const appendLog = (record: LogRecord): void => {
     try {
-      const file = opts.logPath ?? join(getAgentDir(), 'edit-path-repair.jsonl');
+      const file = opts.logPath ?? join(getAgentDir(), 'tool-repair.jsonl');
       mkdirSync(dirname(file), { recursive: true });
       appendFileSync(file, JSON.stringify(record) + '\n');
     } catch {

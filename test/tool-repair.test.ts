@@ -11,8 +11,8 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 import {
   editPathRepairExtension,
   hoistEditPath,
-  resolveEditPathFix,
-} from '../../src/edit-path-repair';
+  resolveToolRepair,
+} from '../../src/tool-repair';
 
 // ─── helpers ───────────────────────────────────────────────────────────
 
@@ -109,26 +109,19 @@ describe('hoistEditPath', () => {
   });
 });
 
-// ─── resolveEditPathFix truth table ────────────────────────────────────
+// ─── resolveToolRepair truth table ────────────────────────────────────
 
-describe('resolveEditPathFix', () => {
-  it('defaults to true when both keys are unset', () => {
-    expect(resolveEditPathFix({})).toBe(true);
+describe('resolveToolRepair', () => {
+  it('defaults to true when toolRepair is unset', () => {
+    expect(resolveToolRepair({})).toBe(true);
   });
 
-  it('honors editPathFix when set (true and false)', () => {
-    expect(resolveEditPathFix({ editPathFix: true })).toBe(true);
-    expect(resolveEditPathFix({ editPathFix: false })).toBe(false);
+  it('returns false when toolRepair is false', () => {
+    expect(resolveToolRepair({ toolRepair: false })).toBe(false);
   });
 
-  it('new key wins when both are set', () => {
-    expect(resolveEditPathFix({ editPathFix: true, toolRepair: false })).toBe(true);
-    expect(resolveEditPathFix({ editPathFix: false, toolRepair: true })).toBe(false);
-  });
-
-  it('legacy toolRepair honored only when editPathFix is unset', () => {
-    expect(resolveEditPathFix({ toolRepair: false })).toBe(false);
-    expect(resolveEditPathFix({ toolRepair: true })).toBe(true);
+  it('returns true when toolRepair is true', () => {
+    expect(resolveToolRepair({ toolRepair: true })).toBe(true);
   });
 });
 
@@ -139,8 +132,8 @@ describe('editPathRepairExtension hooks', () => {
   let logPath: string;
 
   beforeEach(() => {
-    tmp = mkdtempSync(join(tmpdir(), 'edit-path-repair-test-'));
-    logPath = join(tmp, 'edit-path-repair.jsonl');
+    tmp = mkdtempSync(join(tmpdir(), 'tool-repair-test-'));
+    logPath = join(tmp, 'tool-repair.jsonl');
   });
 
   afterEach(() => {

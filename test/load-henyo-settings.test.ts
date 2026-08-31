@@ -22,7 +22,6 @@ vi.stubEnv('HOME', tmpHome);
 const settingsFile = join(tmpHome, '.pi', 'agent', 'settings.json');
 
 const FULL_DEFAULTS = {
-  editPathFix: true,
   toolRepair: true,
   footer: true,
   agentsMd: true,
@@ -32,7 +31,6 @@ const FULL_DEFAULTS = {
   commands: { cwd: true, newp: true },
 };
 const COMPLETE_BLOCK = {
-  editPathFix: true,
   toolRepair: true,
   footer: true,
   agentsMd: true,
@@ -73,12 +71,11 @@ describe('loadHenyoSettings', () => {
     const s = loadHenyoSettings();
     expect(s).toEqual(FULL_DEFAULTS);
     expect(readSettings().henyo).toEqual(FULL_DEFAULTS);
-    // Exact block shape: 8 top-level keys; nested objects carry the 2 skill
-    // and 2 command keys (12 known keys total incl. editPathFix).
+    // Exact block shape: 7 top-level keys; nested objects carry the 2 skill
+    // and 2 command keys (11 known keys total).
     expect(Object.keys(readSettings().henyo).sort()).toEqual([
       'agentsMd',
       'commands',
-      'editPathFix',
       'footer',
       'skills',
       'toolRepair',
@@ -122,7 +119,6 @@ describe('loadHenyoSettings', () => {
     expect(onDisk.henyo.toolRepair).toBe(true); // filled in file
     expect(onDisk.henyo.agentsMd).toBe(true); // filled in file
     expect(onDisk.other.keep).toBe(true); // other top-level keys preserved
-    expect(onDisk.henyo.editPathFix).toBe(true); // filled (resolved from toolRepair default)
   });
 
   it('partial nested skills block → user value kept, missing sibling filled (naive-spread hazard)', () => {
@@ -162,22 +158,10 @@ describe('loadHenyoSettings', () => {
     expect(readSettings()).toEqual({ henyo: FULL_DEFAULTS });
   });
 
-  it('legacy block { toolRepair: false } only → editPathFix: false in result AND file (migration write, behavior preserved)', () => {
-    writeSettings({ other: { keep: true }, henyo: { toolRepair: false } });
-    const s = loadHenyoSettings();
-    expect(s.editPathFix).toBe(false); // resolved from legacy toolRepair
-    expect(s.toolRepair).toBe(false);
-    expect(s.footer).toBe(true); // filled
-    const onDisk = readSettings();
-    expect(onDisk.henyo.editPathFix).toBe(false); // migration write: resolved value persisted
-    expect(onDisk.other.keep).toBe(true);
-  });
-
   it('block lacking ttftTokps/trace → both filled with defaults in result AND persisted by the fill write', () => {
     writeSettings({
       other: { keep: true },
       henyo: {
-        editPathFix: true,
         toolRepair: true,
         footer: true,
         agentsMd: true,
@@ -194,11 +178,10 @@ describe('loadHenyoSettings', () => {
     expect(onDisk.other.keep).toBe(true); // other keys preserved
   });
 
-  it('editPathFix: false passes through unchanged and survives the fill write', () => {
+  it('toolRepair: false passes through unchanged and survives the fill write', () => {
     writeSettings({
       henyo: {
-        editPathFix: false,
-        toolRepair: true,
+        toolRepair: false,
         footer: true,
         agentsMd: true,
         skills: { 'plan-generation': true },
@@ -206,10 +189,10 @@ describe('loadHenyoSettings', () => {
       },
     });
     const s = loadHenyoSettings();
-    expect(s.editPathFix).toBe(false);
+    expect(s.toolRepair).toBe(false);
     expect(s.skills.notes).toBe(true); // filled
     const onDisk = readSettings();
-    expect(onDisk.henyo.editPathFix).toBe(false); // preserved through fill write
+    expect(onDisk.henyo.toolRepair).toBe(false); // preserved through fill write
     expect(onDisk.henyo.skills.notes).toBe(true);
   });
 });

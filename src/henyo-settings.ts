@@ -2,9 +2,7 @@ import { readSettingsFile } from './settings-io.js';
 
 /** The `henyo` block of ~/.pi/agent/settings.json (always fully merged). */
 export interface HenyoSettings {
-  /** Standalone edit path fix + coaching + prompt guideline. */
-  editPathFix: boolean;
-  /** Legacy key — honored when `editPathFix` is unset. */
+  /** Standalone tool repair (event hooks only) + coaching + prompt guideline. */
   toolRepair: boolean;
   footer: boolean;
   agentsMd: boolean;
@@ -17,7 +15,6 @@ export interface HenyoSettings {
 }
 
 export const DEFAULTS: HenyoSettings = {
-  editPathFix: true,
   toolRepair: true,
   footer: true,
   agentsMd: true,
@@ -36,7 +33,7 @@ function isPlainObject(value: unknown): value is Record<string, any> {
  * merged key-by-key so a partial user block never hides default siblings).
  * Returns a fresh copy of the merged settings (module-level DEFAULTS is
  * never exposed or mutated) and whether the input was missing any of the
- * 12 known keys (`editPathFix`, `toolRepair`, `footer`, `agentsMd`,
+ * 11 known keys (`toolRepair`, `footer`, `agentsMd`,
  * `ttftTokps`, `trace`, skills×2, commands×2) — values are never a write
  * trigger.
  */
@@ -48,7 +45,6 @@ export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: bool
     return { henyo, changed: true };
   }
   const h = user as Partial<HenyoSettings>;
-  henyo.editPathFix = h.editPathFix ?? h.toolRepair ?? DEFAULTS.toolRepair;
   henyo.toolRepair = h.toolRepair ?? DEFAULTS.toolRepair;
   henyo.footer = h.footer ?? DEFAULTS.footer;
   henyo.agentsMd = h.agentsMd ?? DEFAULTS.agentsMd;
@@ -59,7 +55,6 @@ export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: bool
   henyo.skills = { ...DEFAULTS.skills, ...userSkills };
   henyo.commands = { ...DEFAULTS.commands, ...userCommands };
   const knownKeys: (keyof HenyoSettings)[] = [
-    'editPathFix',
     'toolRepair',
     'footer',
     'agentsMd',

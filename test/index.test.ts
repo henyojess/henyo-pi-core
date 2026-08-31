@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// Mock @earendil-works/pi-coding-agent (settings-io and edit-path-repair call
+// Mock @earendil-works/pi-coding-agent (settings-io and tool-repair call
 // getAgentDir(); the extension module itself uses the pi object passed in).
 vi.mock('@earendil-works/pi-coding-agent', () => ({
   getAgentDir: () => join(tmpHome, '.pi', 'agent'),
@@ -136,7 +136,6 @@ describe('extension entry point (src/index.ts)', () => {
       settingsFile,
       JSON.stringify({
         henyo: {
-          editPathFix: true,
           toolRepair: true,
           footer: true,
           agentsMd: true,
@@ -161,7 +160,7 @@ describe('extension entry point (src/index.ts)', () => {
 
   it('case F: ttftTokps default (filled true) → ttft handlers registered; ttftTokps:false → absent', async () => {
     // Default settings: fill gives ttftTokps: true → the ttft-exclusive
-    // events register (edit-path-repair uses before_agent_start/
+    // events register (tool-repair uses before_agent_start/
     // message_end/tool_result, so these two are ttft-exclusive).
     rmSync(settingsFile, { force: true });
     const onStub = createStubPi();
