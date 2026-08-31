@@ -34,11 +34,12 @@ const COACHING_LINE =
 const PROMPT_LINE =
   'For the `edit` tool, put `path` at the top level of the arguments, next to `edits` — not inside individual edit objects.';
 
-const VALIDATION_SIGNATURE = 'Validation failed for tool "edit"';
+const GENERIC_COACHING_LINE =
+  "Henyo note: the arguments must match the tool's schema exactly — required fields go at the top level of the arguments. Re-emit the call with the complete argument object.";
 
 interface LogRecord {
   ts: string;
-  tool: 'edit';
+  tool: string;
   model?: string;
   outcome: 'fixed' | 'failed';
   rules?: string[];
@@ -140,46 +141,37 @@ function fnv1a(text: string): string {
 }
 
 /**
- * Fingerprint of the args SHAPE only — sorted top-level keys + `edits` type.
- * Argument values never enter the log.
+ * Fingerprint of the args SHAPE only — sorted top-level keys.
+ * Argument values never enter the log. Uniform across all tools
+ * (plan decision 4); the legacy edit `::edits=<type>` suffix is dropped,
+ * so historical edit fingerprints are non-comparable.
  */
-function shapeFingerprint(input: unknown): string {
-  let keys: string[];
+function shapeFingerprint(tool: string, input: unknown): string {
   if (input && typeof input === 'object' && !Array.isArray(input)) {
-    keys = Object.keys(input as Record<string, unknown>).sort();
-  } else {
-    keys = [`not-an-object:${typeof input}`];
+    const keys = Object.keys(input as Record<string, unknown>).sort();
+    return fnv1a(`${tool}::${keys.join('|')}`);
   }
-  const edits =
-    input && typeof input === 'object' && !Array.isArray(input)
-      ? (input as Record<string, unknown>).edits
-      : undefined;
-  const editsType = Array.isArray(edits)
-    ? `array(${edits.length})`
-    : edits === undefined
-      ? 'missing'
-      : typeof edits;
-  return fnv1a(`edit::${keys.join('|')}::edits=${editsType}`);
+  return fnv1a(`${tool}::not-an-object:${typeof input}`);
 }
 
-/** Shape diagnostics for the `issues` field of `failed` records. */
-function shapeDiagnostics(input: unknown): string {
-  let keys: string;
-  if (input && typeof input === 'object' && !Array.isArray(input)) {
-    keys = `[${Object.keys(input as Record<string, unknown>).join(',')}]`;
-  } else {
-    keys = `not-an-object(${typeof input})`;
+/**
+ * Shape diagnostics for the `issues` field of `failed` records.
+ * Sorted keys for all tools (the old edit format was unsorted); a
+ * tool-agnostic `;edits=<type>` suffix is appended whenever the input
+ * object has an `edits` field (plan decision 4).
+ */
+function shapeDiagnostics(_tool: string, input: unknown): string {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return `not-an-object(${typeof input})`;
   }
-  const edits =
-    input && typeof input === 'object' && !Array.isArray(input)
-      ? (input as Record<string, unknown>).edits
-      : undefined;
-  const editsType = Array.isArray(edits)
-    ? `array(${edits.length})`
-    : edits === undefined
-      ? 'missing'
-      : typeof edits;
-  return `keys=${keys};edits=${editsType}`;
+  const record = input as Record<string, unknown>;
+  let issues = `keys=[${Object.keys(record).sort().join(',')}]`;
+  if ('edits' in record) {
+    const edits = record.edits;
+    const editsType = Array.isArray(edits) ? `array(${edits.length})` : typeof edits;
+    issues += `;edits=${editsType}`;
+  }
+  return issues;
 }
 
 /**
@@ -232,7 +224,7 @@ export function editPathRepairExtension(
           model: ctx.model?.id,
           outcome: 'fixed',
           rules,
-          fingerprint: shapeFingerprint(args),
+          fingerprint: shapeFingerprint('edit', args),
         });
         return { ...entry, arguments: args };
       }
@@ -243,28 +235,37 @@ export function editPathRepairExtension(
     return { message: { ...message, content: newContent } };
   });
 
-  // Hook 2 (O3): coaching — hint on validation failure.
+  // Hook 2 (O3): coaching — hint on validation failures, all tools, both pi
+  // error signatures (`Validation failed for tool "X"` and the older
+  // `Invalid input for tool "X"`). edit gets the specific line; every other
+  // tool gets the generic schema hint.
   pi.on('tool_result', (event, ctx) => {
     if (!opts.enabled) return undefined;
-    if (event.toolName !== 'edit' || !event.isError) return undefined;
+    if (!event.isError) return undefined;
     const originalText = event.content
       .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
       .map((c) => c.text)
       .join('\n');
-    if (!originalText.includes(VALIDATION_SIGNATURE)) return undefined;
+    if (
+      !/Validation failed for tool "[a-z_]+"/.test(originalText) &&
+      !/Invalid input for tool "[a-z_]+"/.test(originalText)
+    ) {
+      return undefined;
+    }
 
+    const coachingLine = event.toolName === 'edit' ? COACHING_LINE : GENERIC_COACHING_LINE;
     const input = event.input as unknown;
     appendLog({
       ts: new Date().toISOString(),
-      tool: 'edit',
+      tool: event.toolName,
       model: ctx.model?.id,
       outcome: 'failed',
-      issues: shapeDiagnostics(input),
-      fingerprint: shapeFingerprint(input),
+      issues: shapeDiagnostics(event.toolName, input),
+      fingerprint: shapeFingerprint(event.toolName, input),
     });
 
     return {
-      content: [{ type: 'text', text: `${originalText}\n\n${COACHING_LINE}` }],
+      content: [{ type: 'text', text: `${originalText}\n\n${coachingLine}` }],
     };
   });
 

@@ -461,20 +461,116 @@ describe('editPathRepairExtension hooks', () => {
       expect(result).toBeUndefined();
     });
 
-    it('returns undefined for other tools', () => {
+    it('other tools (write) validation failure → original text + generic line, failed log with the tool name', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const writeError = 'Validation failed for tool "write":\n- content: Required';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-w',
+          toolName: 'write',
+          input: { path: '/f' },
+          content: [{ type: 'text', text: writeError }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text).toContain(writeError);
+      expect(block.text.startsWith(writeError)).toBe(true);
+      expect(block.text).toContain('the arguments must match the tool\'s schema exactly');
+      // edit-specific line must NOT leak into other tools' coaching.
+      expect(block.text).not.toContain('put `path` at the top level next to `edits`');
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].tool).toBe('write');
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toContain('keys=[');
+    });
+
+    it('read validation failure → original text + generic line preserved in order, failed log with tool read', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const readError = 'Validation failed for tool "read":\n- path: Required';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-r',
+          toolName: 'read',
+          input: { path: 42 },
+          content: [{ type: 'text', text: readError }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text).toContain(readError);
+      expect(block.text).toContain('Henyo note: the arguments must match the tool');
+      // Order: original error first, generic line after.
+      expect(block.text.indexOf(readError)).toBeLessThan(block.text.indexOf('Henyo note:'));
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].tool).toBe('read');
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toContain('keys=[');
+      expect(log[0].issues).toContain('path');
+    });
+
+    it('older "Invalid input" signature also gets the edit coaching line (regression)', () => {
+      const { api, handlers } = makeMockPi();
+      editPathRepairExtension(api, { enabled: true, logPath });
+
+      const oldError = 'Invalid input for tool "edit". Fix these issues and retry:\n- path: Required';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-o',
+          toolName: 'edit',
+          input: { edits: [] },
+          content: [{ type: 'text', text: oldError }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text).toContain(oldError);
+      expect(block.text).toContain('put `path` at the top level next to `edits`');
+      // edit keeps its own line — no generic line for edit.
+      expect(block.text).not.toContain("the arguments must match the tool's schema");
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].tool).toBe('edit');
+    });
+
+    it('non-validation error text ("Could not find the exact text") → undefined, no log', () => {
       const { api, handlers } = makeMockPi();
       editPathRepairExtension(api, { enabled: true, logPath });
 
       const result = handlers['tool_result'](
         {
           type: 'tool_result',
-          toolCallId: 'call-1',
-          toolName: 'write',
-          input: {},
+          toolCallId: 'call-n',
+          toolName: 'edit',
+          input: { path: '/f', edits: [{ oldText: 'x', newText: 'y' }] },
           content: [
             {
               type: 'text',
-              text: 'Validation failed for tool "write":\n- path: Required',
+              text: 'Could not find the exact text in /f. Ensure oldText matches exactly.',
             },
           ],
           isError: true,
