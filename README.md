@@ -31,14 +31,14 @@ henyo-pi-core/
 │   ├── ttft-tokps.ts     # Working line: TTFT + live/exact tok/s display (config-gated)
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
-│   ├── edit-path-repair.ts # Standalone edit path fix (event hooks: repair, coaching, prompt guideline)
+│   ├── tool-repair.ts    # Standalone tool repair (event hooks: repair, coaching, prompt guideline)
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
 │       └── henyo.ts      # /henyo: list or toggle all henyo features
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
-    ├── edit-path-repair.test.ts # Tests for the standalone edit path fix
+    ├── tool-repair.test.ts    # Tests for the standalone tool repair
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
     ├── ttft-tokps.test.ts          # Working line: v2 harness scenarios + trace on/off/rotation/contract
@@ -85,7 +85,7 @@ hand-editing `settings.json`:
 - `/henyo <key>` flips the key's current effective state.
 - `/henyo <key> <value>` sets the key explicitly; values are
   `on off true false enable disable` (case-insensitive).
-- Keys are given in canonical form (`editPathFix`, `footer`, `agentsMd`,
+- Keys are given in canonical form (`toolRepair`, `footer`, `agentsMd`,
   `ttftTokps`, `trace`, `skills.notes`, `commands.cwd`) or, for the dotted
   keys, in their flat shorthand (`notes`, `plan-generation`, `cwd`, `newp`)
   (`ttftTokps`/`trace` are top-level — no shorthand). Tab-completion is
@@ -115,32 +115,40 @@ A structured approach for creating ephemeral working notes during development se
 
 ## Bundled Extensions
 
-### Edit Path Fix
+### Tool repair
 
-Some models (observed: Qwen 3.6) emit the `edit` tool's `path` argument
-nested inside `edits[0]` instead of at the top level, so the call fails
-validation. henyo-pi-core fixes this with three event hooks — no tool
-overrides, so it coexists with other repair layers:
+Some models (observed: Qwen 3.6) emit broken `edit` arguments: `path`
+nested inside `edits[0]` instead of the top level, or the whole `edits`
+array stringified as JSON — the call fails validation. henyo-pi-core
+repairs these and coaches on any tool's schema failures, with three event
+hooks — no tool overrides, so it coexists with other repair layers:
 
 - **Repair** — a `message_end` hook rewrites the assistant message's `edit`
-  calls before execution: `edits[0].path` is hoisted to the top-level `path`
-  and removed from the edit objects.
+  calls before execution: a stringified `edits` value (`"edits": "[...]"`)
+  is parsed back into an array (rule `parse-stringified-edits`), then
+  `edits[0].path` is hoisted to the top-level `path` and removed from the
+  edit objects (rule `extract-path`); both rules can fire on one call and
+  the fix is logged with the rules that fired.
   History side effect: repaired calls appear in the session history in
   corrected form, not in their original shape.
-- **Validation coaching** — when an `edit` call still fails argument
-  validation, a one-line hint is appended to the error the model sees:
-  "`path` goes at the top level, next to `edits`".
+- **Validation coaching** — when **any** tool call still fails argument
+  validation (both pi signatures: `Validation failed for tool "X"` and the
+  older `Invalid input for tool "X"`), a one-line hint is appended to the
+  error the model sees: `edit` gets the specific
+  "`path` goes at the top level, next to `edits`" line, every other tool a
+  generic schema hint. On `Tool X not found` (hallucinated tool name) the
+  hint instead lists the available tool names.
 - **Prompt guideline** — one line is appended to the system prompt so models
   emit the correct shape up front (idempotent — skipped when already present).
 
 Active by default; no configuration needed.
 
-**Log file:** fixes and validation failures are appended as JSONL to
-`~/.pi/agent/edit-path-repair.jsonl` (healthy no-ops are not logged).
+**Log file:** fixes and failures are appended as JSONL to
+`~/.pi/agent/tool-repair.jsonl` (healthy no-ops are not logged).
 Record shape: `{ ts, tool, model, outcome, rules?, issues?, fingerprint }`
-— `outcome` is `fixed` (hoist applied) or `failed` (validation actually
-failed; `issues` carries a shape diagnostic). Argument values are never
-logged.
+— `outcome` is `fixed` (a repair rule applied) or `failed` (validation
+actually failed — `issues` carries a shape diagnostic, or `unknown-tool`
+for hallucinated tool names). Argument values are never logged.
 
 ### Working Line (TTFT + tok/s)
 
@@ -182,7 +190,7 @@ it will be deleted; until then disable it there (or delete it) so the two
 don't render the working line twice.
 
 ```bash
-jq -r .outcome ~/.pi/agent/edit-path-repair.jsonl | sort | uniq -c
+jq -r .outcome ~/.pi/agent/tool-repair.jsonl | sort | uniq -c
 ```
 
 ## Settings
@@ -193,7 +201,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `editPathFix` | `boolean` | `true` | Edit path fix + coaching + prompt guideline (legacy key `toolRepair` honored when `editPathFix` is unset) |
+| `toolRepair` | `boolean` | `true` | Edit path repair + stringified-edits fix + all-tools validation coaching + unknown-tool hint + prompt guideline |
 | `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first install |
 | `ttftTokps` | `boolean` | `true` | Working line with TTFT + tok/s (live estimate, exact when usage is reported, final readout) |
@@ -228,7 +236,7 @@ preserved on settings writes and ignored by the extension.
 ```json
 {
   "henyo": {
-    "editPathFix": true,
+    "toolRepair": true,
     "footer": true,
     "agentsMd": true,
     "ttftTokps": true,
@@ -262,7 +270,7 @@ To disable all henyo features:
 ```json
 {
   "henyo": {
-    "editPathFix": false,
+    "toolRepair": false,
     "footer": false,
     "agentsMd": false,
     "ttftTokps": false,

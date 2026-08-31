@@ -65,7 +65,7 @@ export default function (pi: _ExtensionAPI) {
   // ─── Henyo settings ──────────────────────────────────────────────────
   const henyoSettings = loadHenyoSettings();
 
-  // ─── Edit path fix (event hooks only — coexists with tool overrides) ─
+  // ─── Tool repair (event hooks only — coexists with tool overrides) ──
   const toolRepairEnabled = resolveToolRepair(henyoSettings);
   if (toolRepairEnabled) {
     editPathRepairExtension(pi, { enabled: true });

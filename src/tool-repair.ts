@@ -1,23 +1,37 @@
 /**
- * Standalone edit path fix — event hooks only, no tool overrides.
+ * Standalone tool repair — event hooks only, no tool overrides.
  *
  * What it fixes: some models (observed: Qwen 3.6 "dumb-zone" runs, Jul 26–Aug
- * 9 2026) emit the `edit` tool's `path` argument nested inside `edits[0]`
- * instead of at the top level, so validation fails with "required: path".
- * Provenance: 60 repaired telemetry events, all this one rule.
+ * 22 2026) emit broken `edit` arguments — `path` nested inside `edits[0]`
+ * instead of at the top level (validation fails with "required: path"), or
+ * the whole `edits` array stringified as JSON (validation fails with
+ * "expected array"). It also coaches on validation failures of ANY tool
+ * (both pi error signatures) and on hallucinated tool names. Provenance:
+ * 60 repaired vs 56 unrepairable telemetry events; stringified `edits` was
+ * the dominant unhandled shape (13 old-telemetry + 4 post-deploy + 11
+ * `Invalid input` era).
  *
  * Three hooks:
- * 1. `message_end` (repair) — hoist `edits[0].path` to top-level `path` before
- *    the tool call executes. Side effect: the assistant message is rewritten
- *    in place, so session history shows the corrected shape, not the raw
- *    mistake.
- * 2. `tool_result` (coaching) — when an `edit` call fails validation, append
- *    a one-line hint to the error the model sees.
+ * 1. `message_end` (repair) — for `edit` calls, before execution: parse a
+ *    stringified `edits` back into an array (rule `parse-stringified-edits`),
+ *    then hoist `edits[0].path` to top-level `path` (rule `extract-path`);
+ *    one `fixed` log record carries the full rules array. Side effect: the
+ *    assistant message is rewritten in place, so session history shows the
+ *    corrected shape, not the raw mistake.
+ * 2. `tool_result` (coaching) — on any tool's validation failure (both
+ *    signatures: `Validation failed for tool "X"` and the older
+ *    `Invalid input for tool "X"`), append a one-line hint to the error the
+ *    model sees — `edit` gets the specific line, other tools a generic
+ *    schema hint. On `Tool X not found`, append the available tool names
+ *    from `getActiveTools()` (hallucinated names are coached, never
+ *    remapped).
  * 3. `before_agent_start` (prevention) — append one guideline line to the
  *    system prompt so models emit the correct shape in the first place.
  *
  * Telemetry: `~/.pi/agent/tool-repair.jsonl` (JSONL; `fixed` and
- * `failed` outcomes only — healthy no-ops are not logged).
+ * `failed` outcomes only — healthy no-ops are not logged). Fingerprint is
+ * `fnv1a("<tool>::<sorted keys>")` for all tools (uniform format; historical
+ * edit fingerprints are non-comparable).
  *
  * Because no tools are registered or overridden, this coexists with any
  * repair layer that wraps `prepareArguments`.
