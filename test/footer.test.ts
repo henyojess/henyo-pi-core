@@ -19,7 +19,11 @@ interface CtxOpts {
 
 function makeCtx(opts: CtxOpts) {
   return {
-    model: { name: opts.model ?? 'qwen3.8-27b', reasoning: opts.reasoning ?? true },
+    model: {
+      name: opts.model ?? 'qwen3.8-27b',
+      reasoning: opts.reasoning ?? true,
+      compat: { supportsReasoningEffort: opts.reasoning ?? true },
+    },
     // Note: the component reads the level via the 5th factory arg (getter);
     // this fn is kept for harness fidelity to ExtensionContext.
     getThinkingLevel: vi.fn(() => opts.level),
@@ -85,9 +89,9 @@ describe('footer v2 line 1', () => {
     expect(line.startsWith('qwen3.8-27b(low)')).toBe(true);
   });
 
-  it('omits the suffix for level off', () => {
+  it('appends (off) for level off on a reasoning model', () => {
     const line = strip(render({ level: 'off' })[0]);
-    expect(line.startsWith('qwen3.8-27b•')).toBe(true);
+    expect(line.startsWith('qwen3.8-27b(off)')).toBe(true);
   });
 
   it('omits the suffix for non-reasoning models at any level', () => {
@@ -165,7 +169,11 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       ...footerDataOverrides,
     };
     const ctx: any = {
-      model: { name: 'qwen3.8-27b', reasoning: true },
+      model: {
+        name: 'qwen3.8-27b',
+        reasoning: true,
+        compat: { supportsReasoningEffort: true },
+      },
       sessionManager: {
         getCwd: () => '/home/u/pi/proj',
         getSessionName: () => undefined,
@@ -238,6 +246,42 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
     expect(line).toBe('qwen3.8-27b(xhi)•42%/84k•~(main)');
   });
 
+  it('shows (off) for reasoning models without level support at off', () => {
+    const t = { fg: (_c: string, s: string) => s };
+    const footerData = {
+      getGitBranch: () => 'main',
+      onBranchChange: () => () => {},
+      getExtensionStatuses: () => new Map(),
+      getAvailableProviderCount: () => 1,
+    };
+    const ctx: any = {
+      model: { name: 'qwen3.6-35b-a3b', reasoning: true, compat: { supportsReasoningEffort: false } },
+      sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
+      getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
+    };
+    const comp: any = FooterFactory({ requestRender: vi.fn() }, t, footerData, ctx, () => 'off');
+    const line = strip(comp.render(100)[0]);
+    expect(line).toContain('qwen3.6-35b-a3b(off)');
+  });
+
+  it('shows (on) for reasoning models without level support at non-off', () => {
+    const t = { fg: (_c: string, s: string) => s };
+    const footerData = {
+      getGitBranch: () => 'main',
+      onBranchChange: () => () => {},
+      getExtensionStatuses: () => new Map(),
+      getAvailableProviderCount: () => 1,
+    };
+    const ctx: any = {
+      model: { name: 'qwen3.6-35b-a3b', reasoning: true, compat: { supportsReasoningEffort: false } },
+      sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
+      getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
+    };
+    const comp: any = FooterFactory({ requestRender: vi.fn() }, t, footerData, ctx, () => 'high');
+    const line = strip(comp.render(100)[0]);
+    expect(line).toContain('qwen3.6-35b-a3b(on)');
+  });
+
   it('dispose() calls the branch unsubscribe once and is safe to call twice', () => {
     let disposed = 0;
     const t = { fg: (_c: string, s: string) => s };
@@ -250,7 +294,7 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       getAvailableProviderCount: () => 1,
     };
     const ctx: any = {
-      model: { name: 'm', reasoning: true },
+      model: { name: 'm', reasoning: true, compat: { supportsReasoningEffort: true } },
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => undefined,
     };

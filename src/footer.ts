@@ -96,16 +96,29 @@ class FooterComponent implements Component {
     const contextUsage = this.getContextUsage();
     const modelBase = this.getModel();
     const level = this.getThinkingLevel();
-    // Thinking-level suffix: only for reasoning models, hidden at 'off'
-    const model =
-      this.ctx.model?.reasoning && level !== 'off'
-        ? modelBase + '(' + level.slice(0, 3) + ')'
-        : modelBase;
+    // Thinking-level suffix: for models with level support, show the level
+    // (e.g. xhi, low, off); for models without level support, always show
+    // (off) or (on).
+    const modelCtx = this.ctx.model;
+    // Model<any>['compat'] is a per-API union; only OpenAICompletionsCompat
+    // declares supportsReasoningEffort, so narrow via cast.
+    const compat = modelCtx?.compat as { supportsReasoningEffort?: boolean } | undefined;
+    let modelStr = modelBase;
+    if (modelCtx?.reasoning) {
+      if (compat?.supportsReasoningEffort) {
+        // Level-supported model: always show the level
+        modelStr = modelBase + '(' + level.slice(0, 3) + ')';
+      } else {
+        // No-level model: always show (off) or (on)
+        const levelSuffix = level === 'off' ? 'off' : 'on';
+        modelStr = modelBase + '(' + levelSuffix + ')';
+      }
+    }
     const name = this.ctx.sessionManager.getSessionName()?.trim() ?? '';
 
     // ── Build left content (name•model•context%) ─────────────────────
-    let leftContent = theme.fg('dim', model);
-    let leftWidth = visibleWidth(model);
+    let leftContent = theme.fg('dim', modelStr);
+    let leftWidth = visibleWidth(modelStr);
     if (name) {
       leftContent = theme.fg('text', name) + '•' + leftContent;
       leftWidth += visibleWidth(name) + 1;
