@@ -33,6 +33,7 @@ function createStubPi() {
       handlers[name] = fn;
       return () => delete handlers[name];
     },
+    getThinkingLevel: () => 'off',
   };
 }
 

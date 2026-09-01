@@ -305,7 +305,7 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
       ev: 'before_provider_request',
       provider: ctx.model?.provider,
       model: ctx.model?.id,
-      thinkingLevel: ctx.thinkingLevel,
+      thinkingLevel: pi.getThinkingLevel(),
       ratios: { think: round2(ratios.think), text: round2(ratios.text), tool: round2(ratios.tool) },
       bias: round2(liveBias),
     });
