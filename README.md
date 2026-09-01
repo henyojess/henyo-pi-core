@@ -56,7 +56,7 @@ myproj•qwen3.8-27b(xhi)•42%/84k•/~/pi/proj(main)
 ```
 
 - Session name (bright) is prepended as `name•` only when the session has a name; it is never truncated
-- Model segment is `model` plus a 3-char thinking-level suffix `(xhi)` / `(low)` / … only for reasoning models at a level other than `off`
+- Model segment is `model` plus a thinking-level suffix for reasoning models: a 3-char level (`(low)` / `(med)` / `(xhi)`) when the model's compat declares `supportsReasoningEffort`, else `(on)` / `(off)`; no suffix for non-reasoning models
 - Context usage is `NN%/usedk`, or `?/windowk` when unknown; color-coded: yellow 50–80%, red ≥81%
 - Path is shown from the right as space allows — last segment bright, prefix dim — with the git branch glued in parens: `path(branch)`
 - All segments are joined by `•` (no spaces); non-bright content is dimmed
