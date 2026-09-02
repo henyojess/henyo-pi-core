@@ -13,7 +13,21 @@ import {
   hoistEditPath,
   repairStringifiedEdits,
   resolveToolRepair,
+  salvageCorruptEdits,
+  recoverGarbledPath,
+  dropIncompleteEdits,
 } from '../../src/tool-repair';
+import payloads from './fixtures/edit-failure-payloads.json';
+
+// ─── step-4 fixture helpers ─────────────────────────────────────────────
+
+type FixtureEntry = { model: string; args: Record<string, any> };
+const fixtureGroup = (name: string): FixtureEntry[] =>
+  (payloads as Record<string, FixtureEntry[]>)[name];
+
+// Degeneration marker built via concatenation so the raw sequence never
+// appears as a literal in this source (it triggers parser behavior downstream).
+const THIN_OPEN = '<' + 'think' + '>';
 
 // ─── helpers ───────────────────────────────────────────────────────────
 
@@ -924,5 +938,324 @@ describe('toolRepairExtension hooks', () => {
       });
       expect(result).toBeUndefined();
     });
+  });
+});
+
+// ─── salvageCorruptEdits (step 4.2) ─────────────────────────────────────
+
+describe('salvageCorruptEdits', () => {
+  it('salvages a cut right after a complete entry: truncation + marker → complete array (true)', () => {
+    const input = {
+      path: '/f.txt',
+      edits: JSON.stringify([{ oldText: 'a', newText: 'b' }]) + THIN_OPEN,
+    };
+    expect(salvageCorruptEdits(input)).toBe(true);
+    expect(input.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+  });
+
+  it('salvages a raw control char inside a value plus truncation after a complete entry (true)', () => {
+    const input = {
+      path: '/f.txt',
+      // raw newline inside the value string, then the marker cut
+      edits: '[{"oldText":"a","newText":"b\nz"}' + THIN_OPEN,
+    };
+    expect(salvageCorruptEdits(input)).toBe(true);
+    expect(input.edits).toEqual([{ oldText: 'a', newText: 'b\nz' }]);
+  });
+
+  it('returns false when there is no root path (guard), input untouched', () => {
+    const input = { edits: '[{"oldText":"a","newText":"b"}' + THIN_OPEN };
+    const before = structuredClone(input);
+    expect(salvageCorruptEdits(input)).toBe(false);
+    expect(input).toEqual(before);
+  });
+
+  it('returns false when the edits string already parses (not a corruption case)', () => {
+    const input = { path: '/f.txt', edits: '[{"oldText":"a","newText":"b"}]' };
+    expect(salvageCorruptEdits(input)).toBe(false);
+  });
+
+  it('returns false when edits is not a string', () => {
+    const input = { path: '/f.txt', edits: [{ oldText: 'a', newText: 'b' }] };
+    expect(salvageCorruptEdits(input)).toBe(false);
+  });
+
+  it('returns false when the cut leaves an entry object open (closers cannot repair)', () => {
+    const input = {
+      path: '/f.txt',
+      // cut mid-value → the entry `{` stays open
+      edits: '[{"oldText":"a","newText":"bc' + THIN_OPEN,
+    };
+    expect(salvageCorruptEdits(input)).toBe(false);
+  });
+
+  it('returns false when the salvaged array has zero complete entries', () => {
+    const input = {
+      path: '/f.txt',
+      // parses to [{"oldText":"a"}] — no newText → zero complete
+      edits: '[{"oldText":"a"}' + THIN_OPEN,
+    };
+    expect(salvageCorruptEdits(input)).toBe(false);
+  });
+
+  it('returns false when the parse yields non-object elements', () => {
+    const input = { path: '/f.txt', edits: '[1,2,3' + THIN_OPEN };
+    expect(salvageCorruptEdits(input)).toBe(false);
+  });
+
+  it('returns false when the tail is not inside an open string/array and the parse fails', () => {
+    const input = {
+      path: '/f.txt',
+      // extra `}` at the end — nothing to close, mid-content breakage
+      edits: '[{"oldText":"a","newText":"b"}}]',
+    };
+    expect(salvageCorruptEdits(input)).toBe(false);
+  });
+});
+
+// ─── recoverGarbledPath (step 4.3) ──────────────────────────────────────
+
+describe('recoverGarbledPath', () => {
+  it('recovers the garbled `path>` value from fixture s4s5[2] (true)', () => {
+    const fixture = fixtureGroup('s4s5')[2];
+    const input = structuredClone(fixture.args);
+    expect(recoverGarbledPath(input)).toBe(true);
+    expect(input.path).toBe(fixture.args.edits[0]['path>']);
+    expect(input.edits[0]).not.toHaveProperty('path>');
+  });
+
+  it('returns false when the garbled key holds a non-string value', () => {
+    const input = { edits: [{ oldText: 'a', newText: 'b', 'path>': 42 }] };
+    const before = structuredClone(input);
+    expect(recoverGarbledPath(input)).toBe(false);
+    expect(input).toEqual(before);
+  });
+
+  it('returns false when a root path already exists', () => {
+    const input = { path: '/root', edits: [{ oldText: 'a', newText: 'b', 'path>': '/x' }] };
+    expect(recoverGarbledPath(input)).toBe(false);
+  });
+
+  it('returns false when no garbled-path key is present', () => {
+    const input = { edits: [{ oldText: 'a', newText: 'b' }] };
+    expect(recoverGarbledPath(input)).toBe(false);
+  });
+
+  it('returns false when edits is not a non-empty array of objects', () => {
+    expect(recoverGarbledPath({ edits: [] })).toBe(false);
+    expect(recoverGarbledPath({ edits: 'nope' })).toBe(false);
+    expect(recoverGarbledPath({ edits: [42] })).toBe(false);
+  });
+});
+
+// ─── dropIncompleteEdits (step 4.3) ─────────────────────────────────────
+
+describe('dropIncompleteEdits', () => {
+  it('drops the incomplete entry from fixture s6[2], keeps the 3 complete ones (true)', () => {
+    const fixture = fixtureGroup('s6')[2];
+    const input = structuredClone(fixture.args);
+    expect(dropIncompleteEdits(input)).toBe(true);
+    expect(input.edits).toEqual([fixture.args.edits[0], fixture.args.edits[1], fixture.args.edits[3]]);
+  });
+
+  it('returns false when zero entries are complete (fixture s6[0])', () => {
+    const fixture = fixtureGroup('s6')[0];
+    const input = structuredClone(fixture.args);
+    expect(dropIncompleteEdits(input)).toBe(false);
+    expect(input.edits).toEqual(fixture.args.edits);
+  });
+
+  it('returns false when all entries are already complete', () => {
+    const input = { edits: [{ oldText: 'a', newText: 'b' }] };
+    const before = structuredClone(input);
+    expect(dropIncompleteEdits(input)).toBe(false);
+    expect(input).toEqual(before);
+  });
+
+  it('returns false when edits is not a non-empty array of objects', () => {
+    expect(dropIncompleteEdits({ edits: [] })).toBe(false);
+    expect(dropIncompleteEdits({ edits: 'nope' })).toBe(false);
+    expect(dropIncompleteEdits({ edits: [42] })).toBe(false);
+  });
+
+  it('treats empty-string oldText as incomplete', () => {
+    const input = { edits: [{ oldText: '', newText: 'b' }, { oldText: 'a', newText: 'b' }] };
+    expect(dropIncompleteEdits(input)).toBe(true);
+    expect(input.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+  });
+});
+
+// ─── already-valid args: all three new rules are no-ops ─────────────────
+
+describe('already-valid args (all three new rules no-op)', () => {
+  it('returns false for all three and leaves the args untouched', () => {
+    const input = { path: '/f.txt', edits: [{ oldText: 'a', newText: 'b' }] };
+    expect(salvageCorruptEdits(input)).toBe(false);
+    expect(recoverGarbledPath(input)).toBe(false);
+    expect(dropIncompleteEdits(input)).toBe(false);
+    expect(input.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+    expect(input.path).toBe('/f.txt');
+  });
+});
+
+// ─── fixture-driven outcome table (step 4.5) ────────────────────────────
+// Recorded outcome of the full 5-rule chain on the 24 S3/S4/S5/S6 fixtures
+// (exact-transform simulation, plan step 4):
+//  - s3 (13): ALL untouched — 2 guard-rejected (no root path: idx 4, 5),
+//    11 unrepairable (cut mid-entry leaves the entry object open; mid-content
+//    breakage). Salvage count: 0 of 13.
+//  - s4s5 (6): [2] recover-garbled-path, [3] + [4] extract-path (pre-existing
+//    rule), [0], [1], [5] untouched.
+//  - s6 (5): [2] drop-incomplete-edits (4 → 3 entries), [0], [1], [3], [4]
+//    untouched.
+const OUTCOME_RULES: Record<string, string[][]> = {
+  s3: [[], [], [], [], [], [], [], [], [], [], [], [], []],
+  s4s5: [[], [], ['recover-garbled-path'], ['extract-path'], ['extract-path'], []],
+  s6: [[], [], ['drop-incomplete-edits'], [], []],
+};
+
+function runRepairChain(args: Record<string, any>): string[] {
+  const rules: string[] = [];
+  if (repairStringifiedEdits(args)) rules.push('parse-stringified-edits');
+  if (hoistEditPath(args)) rules.push('extract-path');
+  if (salvageCorruptEdits(args)) rules.push('salvage-corrupt-edits');
+  if (recoverGarbledPath(args)) rules.push('recover-garbled-path');
+  if (dropIncompleteEdits(args)) rules.push('drop-incomplete-edits');
+  return rules;
+}
+
+describe('fixture-driven outcome table (24 S3/S4/S5/S6 payloads)', () => {
+  const groups: Array<[string, string[]]> = [
+    ['s3', ['s3']],
+    ['s4s5', ['s4s5']],
+    ['s6', ['s6']],
+  ];
+
+  for (const [group] of groups) {
+    const entries = fixtureGroup(group);
+    entries.forEach((fixture, i) => {
+      it(`${group}[${i}] (${fixture.model}): final args match the recorded outcome`, () => {
+        const expectedRules = OUTCOME_RULES[group][i];
+        const args = structuredClone(fixture.args);
+        const fired = runRepairChain(args);
+        expect(fired).toEqual(expectedRules);
+        if (expectedRules.length === 0) {
+          // zero false positives: untouched fixtures stay byte-identical
+          expect(args).toEqual(structuredClone(fixture.args));
+        }
+      });
+    });
+  }
+
+  it('records the salvage count: 0 of 13 S3 fixtures salvage under the confirmed closers', () => {
+    const salvaged = fixtureGroup('s3').filter(
+      (_, i) => OUTCOME_RULES.s3[i].includes('salvage-corrupt-edits'),
+    ).length;
+    expect(salvaged).toBe(0);
+  });
+
+  it('s4s5[2]: the garbled `path>` value moves to the root and the key is deleted', () => {
+    const fixture = fixtureGroup('s4s5')[2];
+    const args = structuredClone(fixture.args);
+    runRepairChain(args);
+    expect(args.path).toBe(fixture.args.edits[0]['path>']);
+    expect(args.edits[0]).toEqual(
+      Object.fromEntries(Object.entries(fixture.args.edits[0]).filter(([k]) => k !== 'path>')),
+    );
+  });
+
+  it('s4s5[3] and s4s5[4]: the nested `path` hoists to the root (pre-existing extract-path)', () => {
+    for (const i of [3, 4]) {
+      const fixture = fixtureGroup('s4s5')[i];
+      const args = structuredClone(fixture.args);
+      runRepairChain(args);
+      expect(args.path).toBe(fixture.args.edits[0].path);
+      expect(args.edits[0]).not.toHaveProperty('path');
+      expect(args.edits).toHaveLength(fixture.args.edits.length);
+    }
+  });
+
+  it('s6[2]: the incomplete entry (index 2, missing oldText) drops; the 3 complete ones keep order', () => {
+    const fixture = fixtureGroup('s6')[2];
+    const args = structuredClone(fixture.args);
+    runRepairChain(args);
+    expect(args.path).toBe(fixture.args.path);
+    expect(args.edits).toEqual([fixture.args.edits[0], fixture.args.edits[1], fixture.args.edits[3]]);
+  });
+});
+
+// ─── message_end telemetry for the step-4 rules ─────────────────────────
+
+describe('message_end telemetry for the step-4 rules', () => {
+  let tmp: string;
+  let logPath: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'tool-repair-test-'));
+    logPath = join(tmp, 'tool-repair.jsonl');
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  const editMessage = (args: Record<string, any>) => ({
+    type: 'message_end',
+    message: {
+      role: 'assistant' as const,
+      content: [{ type: 'toolCall' as const, id: 'call-1', name: 'edit', arguments: args }],
+    },
+  });
+
+  it('logs one fixed record with rule name `salvage-corrupt-edits`', () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath });
+
+    const result = handlers['message_end'](
+      editMessage({
+        path: '/f.txt',
+        edits: JSON.stringify([{ oldText: 'a', newText: 'b' }]) + THIN_OPEN,
+      }),
+      ctx,
+    );
+    expect(result).toBeDefined();
+    expect(result.message.content[0].arguments.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+    const log = readLog(logPath);
+    expect(log).toHaveLength(1);
+    expect(log[0].outcome).toBe('fixed');
+    expect(log[0].rules).toEqual(['salvage-corrupt-edits']);
+  });
+
+  it('logs one fixed record with rule name `recover-garbled-path`', () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath });
+
+    const result = handlers['message_end'](
+      editMessage({ edits: [{ 'path>': '/f.txt', oldText: 'a', newText: 'b' }] }),
+      ctx,
+    );
+    expect(result).toBeDefined();
+    expect(result.message.content[0].arguments.path).toBe('/f.txt');
+    const log = readLog(logPath);
+    expect(log).toHaveLength(1);
+    expect(log[0].rules).toEqual(['recover-garbled-path']);
+  });
+
+  it('logs one fixed record with rule name `drop-incomplete-edits`', () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath });
+
+    const result = handlers['message_end'](
+      editMessage({
+        path: '/f.txt',
+        edits: [{ oldText: 'a', newText: 'b' }, { newText: 'c' }],
+      }),
+      ctx,
+    );
+    expect(result).toBeDefined();
+    expect(result.message.content[0].arguments.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
+    const log = readLog(logPath);
+    expect(log).toHaveLength(1);
+    expect(log[0].rules).toEqual(['drop-incomplete-edits']);
   });
 });
