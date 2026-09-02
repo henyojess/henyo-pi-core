@@ -24,7 +24,9 @@
  *    model sees — `edit` gets the specific line, other tools a generic
  *    schema hint. On `Tool X not found`, append the available tool names
  *    from `getActiveTools()` (hallucinated names are coached, never
- *    remapped).
+ *    remapped). On `edit` content-mismatch errors (not-found / not-unique /
+ *    overlap / identical), append a targeted one-line hint — the dominant
+ *    failure class for the served Qwen models (77% of observed edit errors).
  * 3. `before_agent_start` (prevention) — append one guideline line to the
  *    system prompt so models emit the correct shape in the first place.
  *
@@ -52,6 +54,35 @@ const GENERIC_COACHING_LINE =
   "Henyo note: the arguments must match the tool's schema exactly — required fields go at the top level of the arguments. Re-emit the call with the complete argument object.";
 
 const UNKNOWN_TOOL_SIGNATURE = /^Tool\s+"?[A-Za-z0-9_.-]*"? not found$/;
+
+/**
+ * Coaching for `edit` content-mismatch errors — the dominant failure class
+ * for the served Qwen models (77% of observed edit errors, 2026-09-02
+ * session-failure analysis). Ordered, first match on the error's first line
+ * wins. `line` is raw — the hook prefixes `Henyo note: `.
+ */
+const CONTENT_ERROR_RULES: { re: RegExp; category: string; line: string }[] = [
+  {
+    re: /Could not find (edits\[\d+\] in|the exact text in)/,
+    category: 'content-not-found',
+    line: 'Re-read the file now (it may have changed since your last read) and copy oldText verbatim from the fresh read, including exact whitespace and newlines.',
+  },
+  {
+    re: /Found \d+ occurrences/,
+    category: 'content-not-unique',
+    line: 'The text occurs more than once in the file. Extend oldText with enough surrounding lines to be unique.',
+  },
+  {
+    re: /edits\[\d+\] and edits\[\d+\] overlap/,
+    category: 'content-overlap',
+    line: 'The two edit regions overlap. Merge them into one edit targeting the union.',
+  },
+  {
+    re: /No changes made.*identical content/,
+    category: 'content-identical',
+    line: 'newText equals oldText — this edit is a no-op. Re-check what you intended to change.',
+  },
+];
 
 /** Fallback for `getActiveTools()` when it throws (telemetry must not break a run). */
 const FALLBACK_TOOL_LIST = 'bash, read, edit, write, grep, find, ls';
@@ -292,6 +323,29 @@ export function toolRepairExtension(
           },
         ],
       };
+    }
+
+    // Content-mismatch errors (edit only — the signatures are edit-specific):
+    // the dominant failure class for the served Qwen models. Coached with a
+    // targeted one-line hint; telemetry records the category, not shape.
+    if (event.toolName === 'edit') {
+      const firstLine = originalText.split('\n')[0] ?? '';
+      const rule = CONTENT_ERROR_RULES.find((r) => r.re.test(firstLine));
+      if (rule) {
+        const input = event.input as unknown;
+        appendLog({
+          ts: new Date().toISOString(),
+          tool: 'edit',
+          model: ctx.model?.id,
+          outcome: 'failed',
+          issues: rule.category,
+          fingerprint: shapeFingerprint('edit', input),
+        });
+
+        return {
+          content: [{ type: 'text', text: `${originalText}\n\nHenyo note: ${rule.line}` }],
+        };
+      }
     }
 
     if (

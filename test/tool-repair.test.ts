@@ -562,20 +562,170 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].tool).toBe('edit');
     });
 
-    it('non-validation error text ("Could not find the exact text") → undefined, no log', () => {
+    it('content error text ("Could not find the exact text") → coached with content-not-found line, failed log', () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
+      const error = 'Could not find the exact text in /f. Ensure oldText matches exactly.';
       const result = handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-n',
           toolName: 'edit',
           input: { path: '/f', edits: [{ oldText: 'x', newText: 'y' }] },
+          content: [{ type: 'text', text: error }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text.startsWith(error)).toBe(true);
+      expect(block.text).toContain('Henyo note: Re-read the file now');
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toBe('content-not-found');
+    });
+  });
+
+  describe('tool_result (content coaching)', () => {
+    it('content-not-found (edits[N] variant) → coached line + failed log with the category', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const error =
+        'Could not find edits[0] in /f. The oldText must match exactly including all whitespace and newlines.';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-c1',
+          toolName: 'edit',
+          input: { path: '/f', edits: [{ oldText: 'x', newText: 'y' }] },
+          content: [{ type: 'text', text: error }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text.startsWith(error)).toBe(true);
+      expect(block.text).toContain('Henyo note: Re-read the file now');
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toBe('content-not-found');
+    });
+
+    it('content-not-unique → coached line + failed log with the category', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const error = 'Found 2 occurrences of the text in /f. The text must be unique.';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-c2',
+          toolName: 'edit',
+          input: { path: '/f', edits: [{ oldText: 'x', newText: 'y' }] },
+          content: [{ type: 'text', text: error }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text.startsWith(error)).toBe(true);
+      expect(block.text).toContain('Henyo note: The text occurs more than once');
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toBe('content-not-unique');
+    });
+
+    it('content-overlap → coached line + failed log with the category', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const error = 'edits[0] and edits[1] overlap in /f. Merge them into one edit.';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-c3',
+          toolName: 'edit',
+          input: {
+            path: '/f',
+            edits: [{ oldText: 'a', newText: 'b' }, { oldText: 'b', newText: 'c' }],
+          },
+          content: [{ type: 'text', text: error }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text.startsWith(error)).toBe(true);
+      expect(block.text).toContain('Henyo note: The two edit regions overlap');
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toBe('content-overlap');
+    });
+
+    it('content-identical → coached line + failed log with the category', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const error = 'No changes made to /f. The replacement produced identical content.';
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-c4',
+          toolName: 'edit',
+          input: { path: '/f', edits: [{ oldText: 'x', newText: 'x' }] },
+          content: [{ type: 'text', text: error }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text.startsWith(error)).toBe(true);
+      expect(block.text).toContain('Henyo note: newText equals oldText');
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].issues).toBe('content-identical');
+    });
+
+    it('content-error text on a non-edit tool (bash) → undefined, no log', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-c5',
+          toolName: 'bash',
+          input: { command: 'echo x' },
           content: [
             {
               type: 'text',
-              text: 'Could not find the exact text in /f. Ensure oldText matches exactly.',
+              text: 'Could not find edits[0] in /f. The oldText must match exactly.',
             },
           ],
           isError: true,
