@@ -118,30 +118,49 @@ A structured approach for creating ephemeral working notes during development se
 ### Tool repair
 
 Some models (observed: Qwen 3.6) emit broken `edit` arguments: `path`
-nested inside `edits[0]` instead of the top level, or the whole `edits`
-array stringified as JSON — the call fails validation. henyo-pi-core
-repairs these and coaches on any tool's schema failures, with three event
-hooks — no tool overrides, so it coexists with other repair layers:
+nested inside `edits[0]` instead of the top level, the whole `edits`
+array stringified as JSON, `edits` truncated mid-JSON, or entries missing
+keys — the call fails validation. henyo-pi-core repairs these and coaches
+on any tool's schema failures, with three event hooks — no tool overrides,
+so it coexists with other repair layers:
 
 - **Repair** — a `message_end` hook rewrites the assistant message's `edit`
-  calls before execution: a stringified `edits` value (`"edits": "[...]"`)
-  is parsed back into an array (rule `parse-stringified-edits`), then
-  `edits[0].path` is hoisted to the top-level `path` and removed from the
-  edit objects (rule `extract-path`); both rules can fire on one call and
-  the fix is logged with the rules that fired.
+  calls before execution, applying up to five rules in order: a stringified
+  `edits` value (`"edits": "[...]"`) is parsed back into an array
+  (`parse-stringified-edits`); `edits[0].path` is hoisted to the top-level
+  `path` and removed from the edit objects (`extract-path`); `edits` strings
+  that fail strict parsing are salvaged — cut where the model degenerated
+  into its next emission, raw control chars escaped, missing string/array
+  closers appended — only when a root `path` exists and the result has a
+  complete `oldText`/`newText` entry (`salvage-corrupt-edits`); a garbled
+  `path` key nested inside an entry (e.g. `path>`) is moved to the top
+  level and deleted from the entries (`recover-garbled-path`); and entries
+  missing a string `oldText` or `newText` are dropped when at least one
+  entry is complete (`drop-incomplete-edits`). Several rules can fire on
+  one call and the fix is logged with the rules that fired.
   History side effect: repaired calls appear in the session history in
   corrected form, not in their original shape.
-- **Validation coaching** — when **any** tool call still fails argument
-  validation (both pi signatures: `Validation failed for tool "X"` and the
-  older `Invalid input for tool "X"`), a one-line hint is appended to the
-  error the model sees: `edit` gets the specific
-  "`path` goes at the top level, next to `edits`" line, every other tool a
-  generic schema hint. On `Tool X not found` (hallucinated tool name) the
-  hint instead lists the available tool names.
-- **Prompt guideline** — one line is appended to the system prompt so models
-  emit the correct shape up front (idempotent — skipped when already present).
+- **Coaching** — when a tool call fails, a one-line `Henyo note:` hint is
+  appended to the error the model sees. `edit` content-mismatch failures —
+  the dominant class: text not found, text not unique, overlapping edits,
+  or a no-op edit (`oldText` and `newText` identical) — each get a
+  category-specific line. `edit` shape-validation failures (both pi
+  signatures: `Validation failed for tool "X"` and the older
+  `Invalid input for tool "X"`) get the specific
+  "`path` goes at the top level, next to `edits`" line, and every other
+  tool a generic schema hint. On `Tool X not found` (hallucinated tool
+  name) the hint instead lists the available tool names.
+- **Prompt guideline** — two lines are appended to the system prompt (put
+  `path` at the top level next to `edits`, and read the file immediately
+  before `edit` so `edits[].oldText` is copied verbatim from a fresh read)
+  so models emit the correct shape up front; each line is idempotent —
+  skipped when already present, so a mid-session prompt upgrade picks up
+  whichever one is missing.
 
 Active by default; no configuration needed.
+
+Extended 2026-09-02 after the session-failure analysis (77% content mismatch
+/ ~15% structural for the served Qwen models).
 
 **Log file:** fixes and failures are appended as JSONL to
 `~/.pi/agent/tool-repair.jsonl` (healthy no-ops are not logged).
