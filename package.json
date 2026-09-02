@@ -1,6 +1,6 @@
 {
   "name": "henyo-pi-core",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Pi coding agent extension - henyo core functionality",
   "keywords": [
     "pi-package"
