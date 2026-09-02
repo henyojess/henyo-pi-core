@@ -867,6 +867,51 @@ describe('toolRepairExtension hooks', () => {
       expect(matches).toHaveLength(1);
     });
 
+    it('appends the read-before-edit line once, existing PROMPT_LINE still present', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['before_agent_start']({
+        type: 'before_agent_start',
+        prompt: 'p',
+        systemPrompt: 'base system prompt',
+        systemPromptOptions: {},
+      });
+
+      expect(result).toBeDefined();
+      const extended = result.systemPrompt;
+      expect(extended).toContain('put `path` at the top level of the arguments, next to `edits`');
+      expect(extended).toContain('read it immediately before calling edit');
+      // Each line exactly once.
+      expect(extended.match(/not inside individual edit objects/g)).toHaveLength(1);
+      expect(extended.match(/copy edits\[\]\.oldText verbatim from that fresh read/g)).toHaveLength(1);
+      // New line appended after the existing one.
+      expect(extended.indexOf('next to `edits`')).toBeLessThan(
+        extended.indexOf('read it immediately before calling edit'),
+      );
+    });
+
+    it('read-before-edit line is idempotent — second invocation adds nothing', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const first = handlers['before_agent_start']({
+        type: 'before_agent_start',
+        prompt: 'p',
+        systemPrompt: 'base',
+        systemPromptOptions: {},
+      });
+      const second = handlers['before_agent_start']({
+        type: 'before_agent_start',
+        prompt: 'p',
+        systemPrompt: first.systemPrompt,
+        systemPromptOptions: {},
+      });
+
+      expect(second).toBeUndefined();
+      expect(first.systemPrompt).toMatch(/copy edits\[\]\.oldText verbatim from that fresh read/);
+    });
+
     it('returns undefined when the extension is disabled', () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: false, logPath });

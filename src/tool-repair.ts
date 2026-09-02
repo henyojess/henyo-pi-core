@@ -27,8 +27,10 @@
  *    remapped). On `edit` content-mismatch errors (not-found / not-unique /
  *    overlap / identical), append a targeted one-line hint — the dominant
  *    failure class for the served Qwen models (77% of observed edit errors).
- * 3. `before_agent_start` (prevention) — append one guideline line to the
- *    system prompt so models emit the correct shape in the first place.
+ * 3. `before_agent_start` (prevention) — append two guideline lines to the
+ *    system prompt (path shape + read-before-edit) so models emit the correct
+ *    shape and fresh `oldText` in the first place; each line is deduped
+ *    independently.
  *
  * Telemetry: `~/.pi/agent/tool-repair.jsonl` (JSONL; `fixed` and
  * `failed` outcomes only — healthy no-ops are not logged). Fingerprint is
@@ -49,6 +51,9 @@ const COACHING_LINE =
 
 const PROMPT_LINE =
   'For the `edit` tool, put `path` at the top level of the arguments, next to `edits` — not inside individual edit objects.';
+
+const READ_BEFORE_EDIT_LINE =
+  'If you have not read the file this turn (or it may have changed since your last read), read it immediately before calling edit, and copy edits[].oldText verbatim from that fresh read.';
 
 const GENERIC_COACHING_LINE =
   "Henyo note: the arguments must match the tool's schema exactly — required fields go at the top level of the arguments. Re-emit the call with the complete argument object.";
@@ -371,10 +376,21 @@ export function toolRepairExtension(
     };
   });
 
-  // Hook 3 (O5): prevention — one guideline line in the system prompt.
+  // Hook 3 (O5): prevention — two guideline lines in the system prompt,
+  // each with its own idempotency check (a prompt upgraded mid-session has
+  // the old line but not the new one).
   pi.on('before_agent_start', (event) => {
     if (!opts.enabled) return undefined;
-    if (event.systemPrompt.includes(PROMPT_LINE)) return undefined;
-    return { systemPrompt: `${event.systemPrompt}\n\n${PROMPT_LINE}` };
+    let prompt = event.systemPrompt;
+    let changed = false;
+    if (!prompt.includes(PROMPT_LINE)) {
+      prompt = `${prompt}\n\n${PROMPT_LINE}`;
+      changed = true;
+    }
+    if (!prompt.includes(READ_BEFORE_EDIT_LINE)) {
+      prompt = `${prompt}\n\n${READ_BEFORE_EDIT_LINE}`;
+      changed = true;
+    }
+    return changed ? { systemPrompt: prompt } : undefined;
   });
 }
