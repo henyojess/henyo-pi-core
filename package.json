@@ -37,10 +37,10 @@
     "dev": "pi -e ./index.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "tsc --noEmit && eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "format": "prettier --check src/**/*.ts",
-    "format:fix": "prettier --write 'src/**/*.ts'",
+    "lint": "tsc --noEmit && eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" index.ts",
+    "format:fix": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" index.ts",
     "build": "tsc --noEmit"
   },
   "pi": {

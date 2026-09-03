@@ -50,8 +50,10 @@ function readSettings(): any {
 }
 
 let henyoCommand: (pi: any, applyFooter: (enabled: boolean) => void) => void;
-let captured: { name: string; opts: { description: string; getArgumentCompletions: Function; handler: Function } } | null =
-  null;
+let captured: {
+  name: string;
+  opts: { description: string; getArgumentCompletions: Function; handler: Function };
+} | null = null;
 
 beforeAll(async () => {
   const mod: any = await import('../../src/commands/henyo.js');
@@ -275,7 +277,10 @@ describe('/henyo command', () => {
     expect(ctxBare.reload).not.toHaveBeenCalled();
     expect(ctxBare.ui.notify).not.toHaveBeenCalled();
     // Explicit args: write + reload, no notify.
-    const ctxExplicit = await invoke(opts, 'agentsMd off', { hasUI: false, ui: { notify: vi.fn() } });
+    const ctxExplicit = await invoke(opts, 'agentsMd off', {
+      hasUI: false,
+      ui: { notify: vi.fn() },
+    });
     expect(readSettings().henyo.agentsMd).toBe(false);
     expect(ctxExplicit.reload).toHaveBeenCalledOnce();
     expect(ctxExplicit.ui.notify).not.toHaveBeenCalled();
@@ -292,7 +297,10 @@ describe('/henyo command', () => {
   });
 
   it('preserves other top-level keys and the rest of the henyo block', async () => {
-    writeSettings({ other: { keep: true }, henyo: { footer: true, toolRepair: false, skills: {} } });
+    writeSettings({
+      other: { keep: true },
+      henyo: { footer: true, toolRepair: false, skills: {} },
+    });
     const { opts } = register();
     await invoke(opts, 'footer off');
     const s = readSettings();

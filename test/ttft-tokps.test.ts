@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach, afterAll } from 'vitest';
-import { mkdtempSync, rmSync, readdirSync, existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import {
+  mkdtempSync,
+  rmSync,
+  readdirSync,
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -20,9 +28,7 @@ const tmpHome = mkdtempSync(join(tmpdir(), `ttft-home-${Math.random().toString(3
 // the global. Real timers stay REAL: the stall scenario needs the actual
 // 500 ms ticker (same as the harness).
 let fakeNow = 0;
-const perfNowSpy = vi
-  .spyOn(performance, 'now')
-  .mockImplementation(() => fakeNow);
+const perfNowSpy = vi.spyOn(performance, 'now').mockImplementation(() => fakeNow);
 
 /** Harness-shaped fake pi: one handler slot per event. */
 function createStubPi() {
@@ -39,7 +45,9 @@ function createStubPi() {
 
 /** Fresh tmp state dir + log file per scenario (deterministic seeds). */
 function makeEnv(opts: Partial<TtftTokpsOptions> = {}) {
-  const dir = mkdtempSync(join(tmpdir(), `ttft-scenario-${Math.random().toString(36).slice(2, 8)}`));
+  const dir = mkdtempSync(
+    join(tmpdir(), `ttft-scenario-${Math.random().toString(36).slice(2, 8)}`),
+  );
   const statePath = join(dir, 'state.json');
   const logFile = join(dir, 'debug.log');
   const msgs: (string | undefined)[] = [];
@@ -53,7 +61,8 @@ function makeEnv(opts: Partial<TtftTokpsOptions> = {}) {
     model: { provider: 'test', id: 'm' },
     ui: { setWorkingMessage: (m: string | undefined) => msgs.push(m) },
   };
-  const strMsgs = (from: number) => msgs.slice(from).filter((m): m is string => typeof m === 'string');
+  const strMsgs = (from: number) =>
+    msgs.slice(from).filter((m): m is string => typeof m === 'string');
   return { dir, statePath, logFile, stub, ctx, msgs, strMsgs };
 }
 
@@ -144,7 +153,16 @@ describe('trace logging', () => {
     cleanup(env);
     const lines = readLogLines(env.logFile);
     const evs = new Set(lines.map((l) => l.ev));
-    for (const ev of ['init', 'agent_start', 'turn_start', 'before_provider_request', 'message_start', 'first_token', 'sample', 'message_end']) {
+    for (const ev of [
+      'init',
+      'agent_start',
+      'turn_start',
+      'before_provider_request',
+      'message_start',
+      'first_token',
+      'sample',
+      'message_end',
+    ]) {
       expect(evs.has(ev)).toBe(true); // ≥ 1 line per fired event
     }
     expect(lines.filter((l) => l.ev === 'turn_start').length).toBe(1);
@@ -233,7 +251,13 @@ describe('trace logging', () => {
     for (let i = 0; i < 10; i++) {
       fakeNow = 2000 + i * 200;
       env.stub.handlers['message_update'](
-        { assistantMessageEvent: { type: 'text_delta', delta: 'x'.repeat(50), partial: { content: [] } } },
+        {
+          assistantMessageEvent: {
+            type: 'text_delta',
+            delta: 'x'.repeat(50),
+            partial: { content: [] },
+          },
+        },
         ctxA,
       );
     }
@@ -251,7 +275,13 @@ describe('trace logging', () => {
     for (let i = 0; i < 6; i++) {
       fakeNow = 11000 + i * 200;
       env.stub.handlers['message_update'](
-        { assistantMessageEvent: { type: 'toolcall_delta', delta: 'x'.repeat(50), partial: { content: [] } } },
+        {
+          assistantMessageEvent: {
+            type: 'toolcall_delta',
+            delta: 'x'.repeat(50),
+            partial: { content: [] },
+          },
+        },
         ctxB,
       );
     }
@@ -279,7 +309,9 @@ describe('trace logging', () => {
   });
 
   it('silent-fail: non-writable logFile → handlers never throw', () => {
-    const dir = mkdtempSync(join(tmpdir(), `ttft-blocked-${Math.random().toString(36).slice(2, 8)}`));
+    const dir = mkdtempSync(
+      join(tmpdir(), `ttft-blocked-${Math.random().toString(36).slice(2, 8)}`),
+    );
     // A regular file as the parent dir → appendFileSync fails with ENOTDIR
     // (works regardless of uid; a read-only dir wouldn't stop root).
     const blockedParent = join(dir, 'blocked');
@@ -416,7 +448,9 @@ describe('scenario B: exact usage (harness B-exact)', () => {
     for (const t of [11000, 12000, 13000, 14000]) delta(env, 'text_delta', 8, t);
     delta(env, 'text_delta', 8, 15000, { usage: { output: 500, reasoning: 0 } }); // span 4.0s (11000→15000)
     endCall(env, 15100, { output: 500, reasoning: 0 });
-    const liveB = env.strMsgs(msgsB0).find((m) => m.includes('≈125.00 tok/s') && !m.includes('(final)'));
+    const liveB = env
+      .strMsgs(msgsB0)
+      .find((m) => m.includes('≈125.00 tok/s') && !m.includes('(final)'));
     expect(liveB).toBeDefined();
     cleanup(env);
     rmSync(env.dir, { recursive: true, force: true });

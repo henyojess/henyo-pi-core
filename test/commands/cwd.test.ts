@@ -1,18 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mkdirSync, rmSync, writeFileSync, accessSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdirSync, rmSync, writeFileSync, accessSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Mock @earendil-works/pi-coding-agent since it's resolved at runtime by pi
 // (cwd.ts calls getAgentDir() for the session dir; rest is types only)
-vi.mock("@earendil-works/pi-coding-agent", () => ({
-  getAgentDir: () => join(process.env.HOME ?? "", ".pi", "agent"),
+vi.mock('@earendil-works/pi-coding-agent', () => ({
+  getAgentDir: () => join(process.env.HOME ?? '', '.pi', 'agent'),
 }));
 
-import cwdCommand from "../../src/commands/cwd.js";
+import cwdCommand from '../../src/commands/cwd.js';
 
-describe("cwd command", () => {
-  let capturedCommand: { name: string; opts: { description: string; handler: Function } } | null = null;
+describe('cwd command', () => {
+  let capturedCommand: { name: string; opts: { description: string; handler: Function } } | null =
+    null;
 
   const createMockPi = () => ({
     registerCommand(name: string, opts: { description: string; handler: Function }) {
@@ -25,60 +26,71 @@ describe("cwd command", () => {
     capturedCommand = null;
   });
 
-  it("registers the /cwd command with correct metadata", () => {
+  it('registers the /cwd command with correct metadata', () => {
     cwdCommand(createMockPi() as any);
 
     expect(capturedCommand).not.toBeNull();
-    expect(capturedCommand!.name).toBe("cwd");
-    expect(capturedCommand!.opts.description).toContain("Switch to another project directory");
+    expect(capturedCommand!.name).toBe('cwd');
+    expect(capturedCommand!.opts.description).toContain('Switch to another project directory');
   });
 
-  it("shows current CWD when called without args", async () => {
+  it('shows current CWD when called without args', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
-      cwd: "/some/path",
-      hasUI: true, ui: { notify: vi.fn() },
-      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
+      cwd: '/some/path',
+      hasUI: true,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) =>
+        Promise.resolve({ cancelled: false }),
+      ),
     };
 
-    await capturedCommand!.opts.handler("", ctx as any);
+    await capturedCommand!.opts.handler('', ctx as any);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith("CWD: /some/path", "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith('CWD: /some/path', 'info');
   });
 
-  it("suppresses the CWD notification in non-TUI mode (hasUI: false) without throwing", async () => {
+  it('suppresses the CWD notification in non-TUI mode (hasUI: false) without throwing', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
-      cwd: "/some/path",
+      cwd: '/some/path',
       hasUI: false,
       ui: { notify: vi.fn() },
-      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
+      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) =>
+        Promise.resolve({ cancelled: false }),
+      ),
     };
 
-    await expect(capturedCommand!.opts.handler("", ctx as any)).resolves.toBeUndefined();
+    await expect(capturedCommand!.opts.handler('', ctx as any)).resolves.toBeUndefined();
     expect(ctx.ui.notify).not.toHaveBeenCalled();
   });
 
-  it("shows error for non-existent path", async () => {
+  it('shows error for non-existent path', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
       cwd: process.cwd(),
-      hasUI: true, ui: { notify: vi.fn() },
-      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
+      hasUI: true,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) =>
+        Promise.resolve({ cancelled: false }),
+      ),
     };
 
-    await capturedCommand!.opts.handler("/definitely/nonexistent/path", ctx as any);
+    await capturedCommand!.opts.handler('/definitely/nonexistent/path', ctx as any);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: /definitely/nonexistent/path", "error");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(
+      'Path not found: /definitely/nonexistent/path',
+      'error',
+    );
   });
 
-  it("calls switchSession with correct session file and withSession callback", async () => {
+  it('calls switchSession with correct session file and withSession callback', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
@@ -90,7 +102,8 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: testCwd,
-      hasUI: true, ui: { notify: vi.fn() },
+      hasUI: true,
+      ui: { notify: vi.fn() },
       switchSession: vi.fn((path: string, opts?: { withSession?: Function }) => {
         // Invoke withSession if provided (mimicking real pi behavior)
         if (opts?.withSession) {
@@ -109,14 +122,14 @@ describe("cwd command", () => {
         withSession: expect.any(Function),
       }),
     );
-    expect(ctx.ui.notify).toHaveBeenCalledWith(`Now in: ${targetDir}`, "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(`Now in: ${targetDir}`, 'info');
 
     // Cleanup
     rmSync(targetDir, { recursive: true, force: true });
     rmSync(testCwd, { recursive: true, force: true });
   });
 
-  it("deletes the temp session file in withSession", async () => {
+  it('deletes the temp session file in withSession', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
@@ -129,7 +142,8 @@ describe("cwd command", () => {
     let capturedSessionFile: string | undefined;
     const ctx = {
       cwd: testCwd,
-      hasUI: true, ui: { notify: vi.fn() },
+      hasUI: true,
+      ui: { notify: vi.fn() },
       switchSession: vi.fn((path: string, opts?: { withSession?: Function }) => {
         capturedSessionFile = path;
         // Invoke withSession if provided (mimicking real pi behavior)
@@ -147,7 +161,7 @@ describe("cwd command", () => {
     try {
       // Should throw because the file was deleted
       accessSync(capturedSessionFile!);
-      expect.fail("Temp session file should have been deleted");
+      expect.fail('Temp session file should have been deleted');
     } catch {
       // File was deleted as expected
       expect(true).toBe(true);
@@ -158,30 +172,33 @@ describe("cwd command", () => {
     rmSync(testCwd, { recursive: true, force: true });
   });
 
-  it("shows error for path that is a file, not a directory", async () => {
+  it('shows error for path that is a file, not a directory', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
     const fileName = `cwd-test-file-${process.pid}.txt`;
     const tmpFile = join(tmpdir(), fileName);
-    writeFileSync(tmpFile, "test content");
+    writeFileSync(tmpFile, 'test content');
 
     try {
       const ctx = {
         cwd: tmpdir(),
-        hasUI: true, ui: { notify: vi.fn() },
-        switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
+        hasUI: true,
+        ui: { notify: vi.fn() },
+        switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) =>
+          Promise.resolve({ cancelled: false }),
+        ),
       };
 
       await capturedCommand!.opts.handler(fileName, ctx as any);
 
-      expect(ctx.ui.notify).toHaveBeenCalledWith(`Not a directory: ${tmpFile}`, "error");
+      expect(ctx.ui.notify).toHaveBeenCalledWith(`Not a directory: ${tmpFile}`, 'error');
     } finally {
       rmSync(tmpFile, { force: true });
     }
   });
 
-  it("handles directory switch and calls switchSession", async () => {
+  it('handles directory switch and calls switchSession', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
@@ -193,7 +210,8 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: testCwd,
-      hasUI: true, ui: { notify: vi.fn() },
+      hasUI: true,
+      ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, opts?: { withSession?: Function }) => {
         // Invoke withSession if provided (mimicking real pi behavior)
         if (opts?.withSession) {
@@ -205,7 +223,7 @@ describe("cwd command", () => {
 
     await capturedCommand!.opts.handler(targetDir, ctx as any);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith(`Now in: ${targetDir}`, "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith(`Now in: ${targetDir}`, 'info');
     expect(ctx.switchSession).toHaveBeenCalledTimes(1);
 
     // Cleanup
@@ -213,7 +231,7 @@ describe("cwd command", () => {
     rmSync(testCwd, { recursive: true, force: true });
   });
 
-  it("shows cancelled message when switchSession is cancelled", async () => {
+  it('shows cancelled message when switchSession is cancelled', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
@@ -225,7 +243,8 @@ describe("cwd command", () => {
 
     const ctx = {
       cwd: testCwd,
-      hasUI: true, ui: { notify: vi.fn() },
+      hasUI: true,
+      ui: { notify: vi.fn() },
       switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => {
         return Promise.resolve({ cancelled: true });
       }),
@@ -233,7 +252,7 @@ describe("cwd command", () => {
 
     await capturedCommand!.opts.handler(targetDir, ctx as any);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Session switch cancelled", "info");
+    expect(ctx.ui.notify).toHaveBeenCalledWith('Session switch cancelled', 'info');
     expect(ctx.switchSession).toHaveBeenCalledTimes(1);
 
     // Cleanup
@@ -245,18 +264,21 @@ describe("cwd command", () => {
   // which returned null on failure. The current code uses switchSession() with a session
   // file in the target's session directory, deleted only if still empty.
 
-  it("handles invalid path relative to cwd", async () => {
+  it('handles invalid path relative to cwd', async () => {
     cwdCommand(createMockPi() as any);
     expect(capturedCommand).not.toBeNull();
 
     const ctx = {
-      cwd: "/root/workspace",
-      hasUI: true, ui: { notify: vi.fn() },
-      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) => Promise.resolve({ cancelled: false })),
+      cwd: '/root/workspace',
+      hasUI: true,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn((_path: string, _opts?: { withSession?: Function }) =>
+        Promise.resolve({ cancelled: false }),
+      ),
     };
 
-    await capturedCommand!.opts.handler("../nonexistent-dir-xyz", ctx as any);
+    await capturedCommand!.opts.handler('../nonexistent-dir-xyz', ctx as any);
 
-    expect(ctx.ui.notify).toHaveBeenCalledWith("Path not found: ../nonexistent-dir-xyz", "error");
+    expect(ctx.ui.notify).toHaveBeenCalledWith('Path not found: ../nonexistent-dir-xyz', 'error');
   });
 });

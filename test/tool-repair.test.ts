@@ -143,7 +143,7 @@ describe('repairStringifiedEdits', () => {
     ]);
   });
 
-  it('parses valid JSON with a nested path — hoisting is the hook\'s job, not this one', () => {
+  it("parses valid JSON with a nested path — hoisting is the hook's job, not this one", () => {
     const input: Record<string, unknown> = {
       edits: '[{"path":"/f.txt","oldText":"a","newText":"b"}]',
     };
@@ -502,7 +502,7 @@ describe('toolRepairExtension hooks', () => {
       const [block] = result.content;
       expect(block.text).toContain(writeError);
       expect(block.text.startsWith(writeError)).toBe(true);
-      expect(block.text).toContain('the arguments must match the tool\'s schema exactly');
+      expect(block.text).toContain("the arguments must match the tool's schema exactly");
       // edit-specific line must NOT leak into other tools' coaching.
       expect(block.text).not.toContain('put `path` at the top level next to `edits`');
 
@@ -550,7 +550,8 @@ describe('toolRepairExtension hooks', () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const oldError = 'Invalid input for tool "edit". Fix these issues and retry:\n- path: Required';
+      const oldError =
+        'Invalid input for tool "edit". Fix these issues and retry:\n- path: Required';
       const result = handlers['tool_result'](
         {
           type: 'tool_result',
@@ -677,7 +678,10 @@ describe('toolRepairExtension hooks', () => {
           toolName: 'edit',
           input: {
             path: '/f',
-            edits: [{ oldText: 'a', newText: 'b' }, { oldText: 'b', newText: 'c' }],
+            edits: [
+              { oldText: 'a', newText: 'b' },
+              { oldText: 'b', newText: 'c' },
+            ],
           },
           content: [{ type: 'text', text: error }],
           isError: true,
@@ -898,7 +902,9 @@ describe('toolRepairExtension hooks', () => {
       expect(extended).toContain('read it immediately before calling edit');
       // Each line exactly once.
       expect(extended.match(/not inside individual edit objects/g)).toHaveLength(1);
-      expect(extended.match(/copy edits\[\]\.oldText verbatim from that fresh read/g)).toHaveLength(1);
+      expect(extended.match(/copy edits\[\]\.oldText verbatim from that fresh read/g)).toHaveLength(
+        1,
+      );
       // New line appended after the existing one.
       expect(extended.indexOf('next to `edits`')).toBeLessThan(
         extended.indexOf('read it immediately before calling edit'),
@@ -1055,7 +1061,11 @@ describe('dropIncompleteEdits', () => {
     const fixture = fixtureGroup('s6')[2];
     const input = structuredClone(fixture.args);
     expect(dropIncompleteEdits(input)).toBe(true);
-    expect(input.edits).toEqual([fixture.args.edits[0], fixture.args.edits[1], fixture.args.edits[3]]);
+    expect(input.edits).toEqual([
+      fixture.args.edits[0],
+      fixture.args.edits[1],
+      fixture.args.edits[3],
+    ]);
   });
 
   it('returns false when zero entries are complete (fixture s6[0])', () => {
@@ -1079,7 +1089,12 @@ describe('dropIncompleteEdits', () => {
   });
 
   it('treats empty-string oldText as incomplete', () => {
-    const input = { edits: [{ oldText: '', newText: 'b' }, { oldText: 'a', newText: 'b' }] };
+    const input = {
+      edits: [
+        { oldText: '', newText: 'b' },
+        { oldText: 'a', newText: 'b' },
+      ],
+    };
     expect(dropIncompleteEdits(input)).toBe(true);
     expect(input.edits).toEqual([{ oldText: 'a', newText: 'b' }]);
   });
@@ -1148,8 +1163,8 @@ describe('fixture-driven outcome table (24 S3/S4/S5/S6 payloads)', () => {
   }
 
   it('records the salvage count: 0 of 13 S3 fixtures salvage under the confirmed closers', () => {
-    const salvaged = fixtureGroup('s3').filter(
-      (_, i) => OUTCOME_RULES.s3[i].includes('salvage-corrupt-edits'),
+    const salvaged = fixtureGroup('s3').filter((_, i) =>
+      OUTCOME_RULES.s3[i].includes('salvage-corrupt-edits'),
     ).length;
     expect(salvaged).toBe(0);
   });
@@ -1180,7 +1195,11 @@ describe('fixture-driven outcome table (24 S3/S4/S5/S6 payloads)', () => {
     const args = structuredClone(fixture.args);
     runRepairChain(args);
     expect(args.path).toBe(fixture.args.path);
-    expect(args.edits).toEqual([fixture.args.edits[0], fixture.args.edits[1], fixture.args.edits[3]]);
+    expect(args.edits).toEqual([
+      fixture.args.edits[0],
+      fixture.args.edits[1],
+      fixture.args.edits[3],
+    ]);
   });
 });
 

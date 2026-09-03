@@ -96,7 +96,11 @@ describe('loadHenyoSettings', () => {
   });
 
   it('complete block with non-default values → file bytes unchanged (values are not a write trigger)', () => {
-    const block = { ...COMPLETE_BLOCK, footer: false, skills: { ...COMPLETE_BLOCK.skills, notes: false } };
+    const block = {
+      ...COMPLETE_BLOCK,
+      footer: false,
+      skills: { ...COMPLETE_BLOCK.skills, notes: false },
+    };
     writeSettings({ henyo: block });
     const before = rawSettings();
     const s = loadHenyoSettings();
@@ -108,7 +112,11 @@ describe('loadHenyoSettings', () => {
   it('missing top-level keys → merged defaults returned; file gained only the missing keys; existing values untouched', () => {
     writeSettings({
       other: { keep: true },
-      henyo: { footer: false, skills: { ...COMPLETE_BLOCK.skills }, commands: { ...COMPLETE_BLOCK.commands } },
+      henyo: {
+        footer: false,
+        skills: { ...COMPLETE_BLOCK.skills },
+        commands: { ...COMPLETE_BLOCK.commands },
+      },
     });
     const s = loadHenyoSettings();
     expect(s.footer).toBe(false); // preserved

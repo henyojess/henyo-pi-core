@@ -6,6 +6,8 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({}));
 
 import { FooterFactory } from '../src/footer.js';
 
+// ANSI escape sequences (ESC [ ... m) — the control char is intentional.
+// eslint-disable-next-line no-control-regex
 const ANSI = /\x1b\[[0-9;]*m/g;
 const strip = (s: string): string => s.replace(ANSI, '');
 
@@ -255,11 +257,21 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       getAvailableProviderCount: () => 1,
     };
     const ctx: any = {
-      model: { name: 'qwen3.6-35b-a3b', reasoning: true, compat: { supportsReasoningEffort: false } },
+      model: {
+        name: 'qwen3.6-35b-a3b',
+        reasoning: true,
+        compat: { supportsReasoningEffort: false },
+      },
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
     };
-    const comp: any = FooterFactory({ requestRender: vi.fn() } as any, t, footerData, ctx, () => 'off');
+    const comp: any = FooterFactory(
+      { requestRender: vi.fn() } as any,
+      t,
+      footerData,
+      ctx,
+      () => 'off',
+    );
     const line = strip(comp.render(100)[0]);
     expect(line).toContain('qwen3.6-35b-a3b(off)');
   });
@@ -273,11 +285,21 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       getAvailableProviderCount: () => 1,
     };
     const ctx: any = {
-      model: { name: 'qwen3.6-35b-a3b', reasoning: true, compat: { supportsReasoningEffort: false } },
+      model: {
+        name: 'qwen3.6-35b-a3b',
+        reasoning: true,
+        compat: { supportsReasoningEffort: false },
+      },
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
     };
-    const comp: any = FooterFactory({ requestRender: vi.fn() } as any, t, footerData, ctx, () => 'high');
+    const comp: any = FooterFactory(
+      { requestRender: vi.fn() } as any,
+      t,
+      footerData,
+      ctx,
+      () => 'high',
+    );
     const line = strip(comp.render(100)[0]);
     expect(line).toContain('qwen3.6-35b-a3b(on)');
   });
@@ -298,7 +320,13 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => undefined,
     };
-    const comp: any = FooterFactory({ requestRender: vi.fn() } as any, t, footerData, ctx, () => 'low');
+    const comp: any = FooterFactory(
+      { requestRender: vi.fn() } as any,
+      t,
+      footerData,
+      ctx,
+      () => 'low',
+    );
     comp.dispose();
     expect(disposed).toBe(1);
     comp.dispose(); // null branch — no throw

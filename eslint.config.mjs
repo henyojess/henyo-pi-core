@@ -49,6 +49,19 @@ export default [
     },
   },
   {
+    // Test globals (evidence 2026-09-02: 22 no-undef hits — process,
+    // structuredClone, performance, setTimeout; no fetch-API globals needed).
+    files: ['test/**/*.ts'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        performance: 'readonly',
+        setTimeout: 'readonly',
+        structuredClone: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "coverage/", "*.config.*"],
   },
 ];
