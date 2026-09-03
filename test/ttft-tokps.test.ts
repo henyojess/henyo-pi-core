@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, readdirSync, existsSync, readFileSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ttftTokpsExtension, type TtftTokpsOptions } from '../src/ttft-tokps';
+import { ttftTokpsExtension, type TtftTokpsOptions } from '../src/ttft-tokps.js';
 
 // Mock @earendil-works/pi-coding-agent (ttft-tokps calls getAgentDir() at
 // factory time only when statePath is not injected — all scenarios below
@@ -166,8 +166,8 @@ describe('trace logging', () => {
     endCall(env, 5000, { output: 500, reasoning: 0 });
     cleanup(env);
     const lines = readLogLines(env.logFile);
-    const sample = lines.find((l) => l.ev === 'sample');
-    const endLine = lines.find((l) => l.ev === 'message_end');
+    const sample = lines.find((l) => l.ev === 'sample')!;
+    const endLine = lines.find((l) => l.ev === 'message_end')!;
     expect(sample).toBeDefined();
     expect(endLine).toBeDefined();
 

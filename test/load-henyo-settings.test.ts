@@ -53,7 +53,7 @@ function readSettings(): any {
 let loadHenyoSettings: () => any;
 
 beforeAll(async () => {
-  const mod: any = await import('../src/index');
+  const mod: any = await import('../src/index.js');
   loadHenyoSettings = mod.loadHenyoSettings;
 });
 

@@ -54,7 +54,7 @@ let captured: { name: string; opts: { description: string; getArgumentCompletion
   null;
 
 beforeAll(async () => {
-  const mod: any = await import('../../src/commands/henyo');
+  const mod: any = await import('../../src/commands/henyo.js');
   henyoCommand = mod.default;
 });
 
@@ -143,7 +143,7 @@ describe('/henyo command', () => {
     const { opts } = register();
     const ctx = await invoke(opts, '');
     expect(ctx.ui.select).toHaveBeenCalledTimes(1);
-    const [title, labels] = ctx.ui.select.mock.calls[0];
+    const [title, labels] = ctx.ui.select.mock.calls[0] as unknown as [string, string[]];
     expect(title).toBe('Henyo features (pick to toggle):');
     expect(labels).toEqual([
       'toolRepair: on',
@@ -222,7 +222,7 @@ describe('/henyo command', () => {
 
   it('single-arg flip: seeded footer true → /henyo footer → disk false', async () => {
     const { opts, applyFooter } = register();
-    const ctx = await invoke(opts, 'footer');
+    await invoke(opts, 'footer');
     expect(readSettings().henyo.footer).toBe(false);
     expect(applyFooter).toHaveBeenCalledWith(false);
   });

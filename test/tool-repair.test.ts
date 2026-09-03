@@ -16,8 +16,8 @@ import {
   salvageCorruptEdits,
   recoverGarbledPath,
   dropIncompleteEdits,
-} from '../../src/tool-repair';
-import payloads from './fixtures/edit-failure-payloads.json';
+} from '../src/tool-repair.js';
+import payloads from './fixtures/edit-failure-payloads.json' with { type: 'json' };
 
 // ─── step-4 fixture helpers ─────────────────────────────────────────────
 

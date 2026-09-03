@@ -21,10 +21,10 @@ function mkdtempDir() {
 const settingsFile = join(tmpHome, '.pi', 'agent', 'settings.json');
 const agentsMdDst = join(tmpHome, '.pi', 'agent', 'AGENTS.md');
 
-let mod: typeof import('../src/index');
+let mod: typeof import('../src/index.js');
 let readSettingsFile: (p?: never) => Record<string, any>;
 
-function createStubPi() {
+function createStubPi(): any {
   const handlers = new Map<string, (...args: any[]) => any>();
   const commands = new Map<string, any>();
   return {
@@ -65,8 +65,8 @@ function makeCtx() {
 }
 
 beforeAll(async () => {
-  mod = await import('../src/index');
-  ({ readSettingsFile } = await import('../src/settings-io'));
+  mod = await import('../src/index.js');
+  ({ readSettingsFile } = await import('../src/settings-io.js'));
 });
 
 afterAll(() => {
@@ -94,7 +94,7 @@ describe('extension entry point (src/index.ts)', () => {
     // resources_discover returns the enabled skill paths and they exist.
     const discover = stub.handlers.get('resources_discover');
     expect(discover).toBeTypeOf('function');
-    const result = await discover({}, {});
+    const result = await discover!({}, {});
     expect(result.skillPaths).toHaveLength(2);
     for (const p of result.skillPaths) {
       expect(existsSync(p)).toBe(true);
@@ -106,7 +106,7 @@ describe('extension entry point (src/index.ts)', () => {
     await mod.default(stub);
     const { ctx, getFooterCb } = makeCtx();
 
-    await stub.handlers.get('session_start')({}, ctx);
+    await stub.handlers.get('session_start')!({}, ctx);
 
     // Lazy init: SAMPLE_GLOBAL_AGENTS.md copied into the agent dir.
     expect(existsSync(agentsMdDst)).toBe(true);
@@ -116,7 +116,7 @@ describe('extension entry point (src/index.ts)', () => {
     getFooterCb()(stubTui, stubTheme, stubFooterData, ctx);
 
     // footerTui is captured inside the footer callback → model_select re-renders.
-    stub.handlers.get('model_select')();
+    stub.handlers.get('model_select')!();
     expect(stubTui.requestRender).toHaveBeenCalled();
   });
 
@@ -126,7 +126,7 @@ describe('extension entry point (src/index.ts)', () => {
     await mod.default(stub);
     const { ctx, getFooterCb } = makeCtx();
 
-    await stub.handlers.get('session_start')({}, ctx);
+    await stub.handlers.get('session_start')!({}, ctx);
 
     expect(getFooterCb()).toBeUndefined();
   });

@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // but the pattern matches the rest of the suite)
 vi.mock('@earendil-works/pi-coding-agent', () => ({}));
 
-import { FooterFactory } from '../../src/footer';
+import { FooterFactory } from '../src/footer.js';
 
 const ANSI = /\x1b\[[0-9;]*m/g;
 const strip = (s: string): string => s.replace(ANSI, '');
@@ -17,7 +17,7 @@ interface CtxOpts {
   usage?: { tokens: number | null; percent: number | null; contextWindow: number };
 }
 
-function makeCtx(opts: CtxOpts) {
+function makeCtx(opts: CtxOpts): any {
   return {
     model: {
       name: opts.model ?? 'qwen3.8-27b',
@@ -46,7 +46,7 @@ function render(opts: CtxOpts = { level: 'xhigh' }, width = 100, theme?: any) {
     getExtensionStatuses: () => (opts as any)._statuses ?? new Map(),
     getAvailableProviderCount: () => 1,
   };
-  const tui = { requestRender: vi.fn() };
+  const tui = { requestRender: vi.fn() } as any;
   const comp: any = FooterFactory(tui, t, footerData, makeCtx(opts), () => opts.level);
   return comp.render(width);
 }
@@ -181,7 +181,7 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
       ...ctxOverrides,
     };
-    const tui = { requestRender: vi.fn() };
+    const tui = { requestRender: vi.fn() } as any;
     const comp: any = FooterFactory(tui, t, footerData, ctx, () => 'xhigh');
     return comp.render(width);
   }
@@ -247,7 +247,7 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
   });
 
   it('shows (off) for reasoning models without level support at off', () => {
-    const t = { fg: (_c: string, s: string) => s };
+    const t = { fg: (_c: string, s: string) => s } as any;
     const footerData = {
       getGitBranch: () => 'main',
       onBranchChange: () => () => {},
@@ -259,13 +259,13 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
     };
-    const comp: any = FooterFactory({ requestRender: vi.fn() }, t, footerData, ctx, () => 'off');
+    const comp: any = FooterFactory({ requestRender: vi.fn() } as any, t, footerData, ctx, () => 'off');
     const line = strip(comp.render(100)[0]);
     expect(line).toContain('qwen3.6-35b-a3b(off)');
   });
 
   it('shows (on) for reasoning models without level support at non-off', () => {
-    const t = { fg: (_c: string, s: string) => s };
+    const t = { fg: (_c: string, s: string) => s } as any;
     const footerData = {
       getGitBranch: () => 'main',
       onBranchChange: () => () => {},
@@ -277,14 +277,14 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
     };
-    const comp: any = FooterFactory({ requestRender: vi.fn() }, t, footerData, ctx, () => 'high');
+    const comp: any = FooterFactory({ requestRender: vi.fn() } as any, t, footerData, ctx, () => 'high');
     const line = strip(comp.render(100)[0]);
     expect(line).toContain('qwen3.6-35b-a3b(on)');
   });
 
   it('dispose() calls the branch unsubscribe once and is safe to call twice', () => {
     let disposed = 0;
-    const t = { fg: (_c: string, s: string) => s };
+    const t = { fg: (_c: string, s: string) => s } as any;
     const footerData = {
       getGitBranch: () => 'main',
       onBranchChange: () => () => {
@@ -298,7 +298,7 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
       sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
       getContextUsage: () => undefined,
     };
-    const comp: any = FooterFactory({ requestRender: vi.fn() }, t, footerData, ctx, () => 'low');
+    const comp: any = FooterFactory({ requestRender: vi.fn() } as any, t, footerData, ctx, () => 'low');
     comp.dispose();
     expect(disposed).toBe(1);
     comp.dispose(); // null branch — no throw

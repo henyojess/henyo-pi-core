@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mkdirSync, rmSync, writeFileSync, unlinkSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync, accessSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,7 +9,7 @@ vi.mock("@earendil-works/pi-coding-agent", () => ({
   getAgentDir: () => join(process.env.HOME ?? "", ".pi", "agent"),
 }));
 
-import cwdCommand from "../../src/commands/cwd";
+import cwdCommand from "../../src/commands/cwd.js";
 
 describe("cwd command", () => {
   let capturedCommand: { name: string; opts: { description: string; handler: Function } } | null = null;
@@ -88,12 +88,10 @@ describe("cwd command", () => {
     const targetDir = join(tmpdir(), `cwd-target-${Date.now()}`);
     mkdirSync(targetDir, { recursive: true });
 
-    let capturedWithSession: Function | undefined;
     const ctx = {
       cwd: testCwd,
       hasUI: true, ui: { notify: vi.fn() },
       switchSession: vi.fn((path: string, opts?: { withSession?: Function }) => {
-        capturedWithSession = opts?.withSession;
         // Invoke withSession if provided (mimicking real pi behavior)
         if (opts?.withSession) {
           opts.withSession({ hasUI: true, ui: ctx.ui, cwd: targetDir });
@@ -148,7 +146,7 @@ describe("cwd command", () => {
     expect(capturedSessionFile).toBeDefined();
     try {
       // Should throw because the file was deleted
-      require("node:fs").accessSync(capturedSessionFile!);
+      accessSync(capturedSessionFile!);
       expect.fail("Temp session file should have been deleted");
     } catch {
       // File was deleted as expected
