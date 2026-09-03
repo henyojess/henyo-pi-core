@@ -42,6 +42,8 @@ henyo-pi-core/
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
     ├── ttft-tokps.test.ts          # Working line: v2 harness scenarios + trace on/off/rotation/contract
+    ├── fixtures/         # Test fixtures (recorded model failure payloads)
+    │   └── edit-failure-payloads.json
     ├── commands/         # Unit tests for command handlers
     │   ├── cwd.test.ts
     │   ├── henyo.test.ts
