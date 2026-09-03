@@ -11,11 +11,8 @@
     "outDir": "dist",
     "rootDir": ".",
     "types": ["node"],
-    "noUnusedLocals": true,
-    "paths": {
-      "#pi-repair-layer": ["./src/pi-repair-layer.d.ts"]
-    }
+    "noUnusedLocals": true
   },
-  "include": ["src/**/*", "types/**/*"],
-  "exclude": ["node_modules", "dist", ".ext", "ext"]
+  "include": ["src/**/*", "test/**/*", "index.ts"],
+  "exclude": ["node_modules", "dist"]
 }
