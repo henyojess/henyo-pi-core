@@ -24,7 +24,7 @@ export const DEFAULTS: HenyoSettings = {
   commands: { cwd: true, newp: true },
 };
 
-function isPlainObject(value: unknown): value is Record<string, any> {
+export function isPlainObject(value: unknown): value is Record<string, any> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 

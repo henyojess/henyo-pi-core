@@ -4,7 +4,7 @@ import type {
 } from '@earendil-works/pi-coding-agent';
 import type { AutocompleteItem } from '@earendil-works/pi-tui';
 import { readSettingsFile, writeSettingsFile } from '../settings-io.js';
-import { getEffectiveHenyoSettings } from '../henyo-settings.js';
+import { getEffectiveHenyoSettings, isPlainObject } from '../henyo-settings.js';
 import { resolveToolRepair } from '../tool-repair.js';
 import type { HenyoSettings } from '../henyo-settings.js';
 
@@ -47,10 +47,6 @@ const KEYS: KeyInfo[] = [
 
 const VALID_KEYS = KEYS.map((k) => k.canonical).join(', ');
 const VALUE_HINT = 'on, off, true, false, enable or disable';
-
-function isPlainObject(value: unknown): value is Record<string, any> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 /** Canonical key for a token (canonical or shorthand, case-sensitive). */
 function resolveKey(token: string): KeyInfo | undefined {
