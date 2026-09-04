@@ -40,6 +40,7 @@ const CANONICAL_KEYS = [
   'commands.newp',
   'ttftTokps',
   'trace',
+  'editFallback',
 ];
 
 function writeSettings(obj: unknown) {
@@ -105,7 +106,7 @@ describe('/henyo command', () => {
     expect(captured!.opts.getArgumentCompletions).toBeTypeOf('function');
   });
 
-  it('completions token 1: empty prefix → all 9 canonical keys', () => {
+  it('completions token 1: empty prefix → all 10 canonical keys', () => {
     const { opts } = register();
     const items = opts.getArgumentCompletions('');
     expect(items.map((i: any) => i.value)).toEqual(CANONICAL_KEYS);
@@ -157,6 +158,7 @@ describe('/henyo command', () => {
       'commands.newp: on',
       'ttftTokps: on',
       'trace: off',
+      'editFallback: on',
     ]);
   });
 
@@ -214,6 +216,20 @@ describe('/henyo command', () => {
     expect(readSettings().henyo.skills.notes).toBe(false);
     expect(readSettings().henyo.skills['plan-generation']).toBe(true);
     expect(ctx.reload).toHaveBeenCalledOnce();
+  });
+
+  it('/henyo editFallback off → disk false, reload called, no live apply', async () => {
+    const { opts, applyFooter } = register();
+    const ctx = await invoke(opts, 'editFallback off');
+    expect(readSettings().henyo.editFallback).toBe(false);
+    expect(ctx.reload).toHaveBeenCalledOnce();
+    expect(applyFooter).not.toHaveBeenCalled();
+  });
+
+  it('single-arg flip: seeded editFallback (default true) → /henyo editFallback → disk false', async () => {
+    const { opts } = register();
+    await invoke(opts, 'editFallback');
+    expect(readSettings().henyo.editFallback).toBe(false);
   });
 
   it('shorthand: /henyo notes off → disk skills.notes false', async () => {

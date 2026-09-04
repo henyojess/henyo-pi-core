@@ -10,6 +10,13 @@ export interface HenyoSettings {
   ttftTokps: boolean;
   /** ttft-tokps JSONL debug trace, off by default. */
   trace: boolean;
+  /**
+   * Fuzzy/nearest-match edit fallback (tool-repair layer): rewrites
+   * whitespace-drifted `edits[].oldText` to file-exact bytes before execution
+   * and enriches content-mismatch errors with nearest-match candidates /
+   * occurrence line numbers. Event hooks only — built-in `edit` untouched.
+   */
+  editFallback: boolean;
   skills: Record<string, boolean>;
   commands: Record<string, boolean>;
 }
@@ -20,6 +27,7 @@ export const DEFAULTS: HenyoSettings = {
   agentsMd: true,
   ttftTokps: true,
   trace: false,
+  editFallback: true,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -33,9 +41,9 @@ export function isPlainObject(value: unknown): value is Record<string, any> {
  * merged key-by-key so a partial user block never hides default siblings).
  * Returns a fresh copy of the merged settings (module-level DEFAULTS is
  * never exposed or mutated) and whether the input was missing any of the
- * 11 known keys (`toolRepair`, `footer`, `agentsMd`,
- * `ttftTokps`, `trace`, skills×2, commands×2) — values are never a write
- * trigger.
+ * 12 known keys (`toolRepair`, `footer`, `agentsMd`,
+ * `ttftTokps`, `trace`, `editFallback`, skills×2, commands×2) — values are
+ * never a write trigger.
  */
 export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
   const henyo: HenyoSettings = { ...DEFAULTS };
@@ -50,6 +58,7 @@ export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: bool
   henyo.agentsMd = h.agentsMd ?? DEFAULTS.agentsMd;
   henyo.ttftTokps = h.ttftTokps ?? DEFAULTS.ttftTokps;
   henyo.trace = h.trace ?? DEFAULTS.trace;
+  henyo.editFallback = h.editFallback ?? DEFAULTS.editFallback;
   const userSkills = isPlainObject(h.skills) ? h.skills : {};
   const userCommands = isPlainObject(h.commands) ? h.commands : {};
   henyo.skills = { ...DEFAULTS.skills, ...userSkills };
@@ -60,6 +69,7 @@ export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: bool
     'agentsMd',
     'ttftTokps',
     'trace',
+    'editFallback',
     'skills',
     'commands',
   ];

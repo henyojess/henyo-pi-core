@@ -27,6 +27,7 @@ const FULL_DEFAULTS = {
   agentsMd: true,
   ttftTokps: true,
   trace: false,
+  editFallback: true,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -36,6 +37,7 @@ const COMPLETE_BLOCK = {
   agentsMd: true,
   ttftTokps: true,
   trace: false,
+  editFallback: true,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -71,11 +73,12 @@ describe('loadHenyoSettings', () => {
     const s = loadHenyoSettings();
     expect(s).toEqual(FULL_DEFAULTS);
     expect(readSettings().henyo).toEqual(FULL_DEFAULTS);
-    // Exact block shape: 7 top-level keys; nested objects carry the 2 skill
-    // and 2 command keys (11 known keys total).
+    // Exact block shape: 8 top-level keys; nested objects carry the 2 skill
+    // and 2 command keys (12 known keys total).
     expect(Object.keys(readSettings().henyo).sort()).toEqual([
       'agentsMd',
       'commands',
+      'editFallback',
       'footer',
       'skills',
       'toolRepair',
@@ -164,6 +167,40 @@ describe('loadHenyoSettings', () => {
     // Reader tolerates invalid JSON → {} → fill write replaces the file with
     // { henyo: defaults }.
     expect(readSettings()).toEqual({ henyo: FULL_DEFAULTS });
+  });
+
+  it('block lacking editFallback → filled with default true in result AND persisted by the fill write', () => {
+    writeSettings({
+      other: { keep: true },
+      henyo: {
+        toolRepair: true,
+        footer: true,
+        agentsMd: true,
+        ttftTokps: true,
+        trace: false,
+        skills: { 'plan-generation': true, notes: true },
+        commands: { cwd: true, newp: true },
+      },
+    });
+    const s = loadHenyoSettings();
+    expect(s.editFallback).toBe(true); // filled
+    const onDisk = readSettings();
+    expect(onDisk.henyo.editFallback).toBe(true); // filled in file
+    expect(onDisk.other.keep).toBe(true); // other keys preserved
+    // Steady state: a second load with the key present is a zero-write no-op.
+    const before = readFileSync(settingsFile, 'utf-8');
+    loadHenyoSettings();
+    expect(readFileSync(settingsFile, 'utf-8')).toBe(before);
+  });
+
+  it('editFallback: false passes through unchanged (explicit off is not a write trigger)', () => {
+    writeSettings({
+      henyo: { ...COMPLETE_BLOCK, editFallback: false },
+    });
+    const before = readFileSync(settingsFile, 'utf-8');
+    const s = loadHenyoSettings();
+    expect(s.editFallback).toBe(false);
+    expect(readFileSync(settingsFile, 'utf-8')).toBe(before);
   });
 
   it('block lacking ttftTokps/trace → both filled with defaults in result AND persisted by the fill write', () => {

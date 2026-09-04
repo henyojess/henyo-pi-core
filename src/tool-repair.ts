@@ -189,6 +189,11 @@ export function resolveToolRepair(s: { toolRepair?: boolean }): boolean {
   return s.toolRepair ?? true;
 }
 
+/** Settings resolution: `editFallback` default on (absent key = enabled). */
+export function resolveEditFallback(s: { editFallback?: boolean }): boolean {
+  return s.editFallback ?? true;
+}
+
 /**
  * Degeneration markers — where a corrupt `edits` string cut off mid-JSON and
  * the model started emitting the next tool call / thinking block / function
@@ -454,10 +459,15 @@ function shapeDiagnostics(_tool: string, input: unknown): string {
  * Register the three hooks. `opts.enabled` gates all three at runtime so the
  * extension can be registered unconditionally; `opts.logPath` overrides the
  * default `~/.pi/agent/tool-repair.jsonl` (used by tests).
+ * `opts.editFallbackEnabled` (strict: only `true` activates) gates the
+ * fuzzy/nearest-match edit fallback (whitespace-drift `oldText` rewrite on
+ * `message_end`, candidate/duplicate coaching on `tool_result`) — off by
+ * default here so callers that don't know about it keep today's behavior
+ * byte-identical; `src/index.ts` plumbs the `henyo.editFallback` setting.
  */
 export function toolRepairExtension(
   pi: ExtensionAPI,
-  opts: { enabled: boolean; logPath?: string },
+  opts: { enabled: boolean; logPath?: string; editFallbackEnabled?: boolean },
 ): void {
   const appendLog = (record: LogRecord): void => {
     try {
