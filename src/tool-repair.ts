@@ -19,8 +19,14 @@
  *    (`salvage-corrupt-edits`), recover garbled `path>` keys
  *    (`recover-garbled-path`), and drop incomplete entries
  *    (`drop-incomplete-edits`); one `fixed` log record carries the full
- *    rules array. Side effect: the assistant message is rewritten in place,
- *    so session history shows the corrected shape, not the raw mistake.
+ *    rules array. When `opts.editFallbackEnabled` is true, a further stage
+ *    runs after the shape rules: whitespace-drifted `edits[].oldText` whose
+ *    normalized form matches the file uniquely 1:1 is rewritten to the
+ *    file's exact bytes (rule `whitespace-normalize-oldtext`) so the
+ *    built-in's exact match succeeds — matching/reporting logic lives in
+ *    the pure `edit-fallback.ts`. Side effect: the assistant message is
+ *    rewritten in place, so session history shows the corrected shape and
+ *    rewritten oldText, not the raw mistake.
  * 2. `tool_result` (coaching) — on any tool's validation failure (both
  *    signatures: `Validation failed for tool "X"` and the older
  *    `Invalid input for tool "X"`), append a one-line hint to the error the
@@ -29,7 +35,12 @@
  *    from `getActiveTools()` (hallucinated names are coached, never
  *    remapped). On `edit` content-mismatch errors (not-found / not-unique /
  *    overlap / identical), append a targeted one-line hint — the dominant
- *    failure class for the served Qwen models (77% of observed edit errors).
+ *    failure class for the served Qwen models (77% of observed edit
+ *    errors) — which, when `opts.editFallbackEnabled` is true, is upgraded
+ *    to the full nearest-match candidate report (not-found) or the
+ *    occurrence line-number list (not-unique); successful calls that used a
+ *    rewritten `oldText` log an `applied` record (rewrite→result
+ *    correlation via a bounded in-memory toolCallId map).
  * 3. `before_agent_start` (prevention) — append two guideline lines to the
  *    system prompt (path shape + read-before-edit) so models emit the correct
  *    shape and fresh `oldText` in the first place; each line is deduped
@@ -45,9 +56,14 @@
  */
 
 import { appendFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { homedir } from 'node:os';
+import { dirname, isAbsolute, join, resolve as resolveNodePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { classifyEdit, normalizeToLF, splitLinesWithEndings } from './edit-fallback.js';
 
 const COACHING_LINE =
   'Henyo note: for the edit tool, put `path` at the top level next to `edits` (not inside an edit object), and keep `edits` an array of { oldText, newText } objects.';
@@ -99,10 +115,18 @@ interface LogRecord {
   ts: string;
   tool: string;
   model?: string;
-  outcome: 'fixed' | 'failed';
+  outcome: 'fixed' | 'failed' | 'applied';
   rules?: string[];
   issues?: string;
   fingerprint?: string;
+  // Fuzzy-edit fallback records (plan assumption 6) — argument values never
+  // reach the log; `sha12` is the only trace of the original oldText.
+  toolCallId?: string;
+  editIndex?: number;
+  lineRange?: { startLine: number; endLine: number };
+  fileLines?: number;
+  oldTextLines?: number;
+  sha12?: string;
 }
 
 /**
@@ -455,6 +479,212 @@ function shapeDiagnostics(_tool: string, input: unknown): string {
   return issues;
 }
 
+/** Unicode-space variants — the built-in path resolution maps them to plain spaces. */
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+
+/**
+ * Resolve an `edit` tool `path` the way the built-in does (pi
+ * `resolveToCwd` = `resolvePath(path, cwd, {normalizeUnicodeSpaces: true,
+ * stripAtPrefix: true})`): unicode spaces → plain, strip a leading `@`,
+ * `~` → home dir, `file://` URL → path, absolute kept, relative resolved
+ * against `cwd`.
+ *
+ * [assumption]: the built-in's win32 MSYS/Cygwin/WSL drive conversion is
+ * omitted — on those platforms a shell-style path stays unreadable here, so
+ * the rewrite simply does not fire and the built-in's own resolution handles
+ * the call (byte-identical fallback to today's behavior).
+ */
+function resolveEditPath(filePath: string, cwd: string): string {
+  let p = filePath.replace(UNICODE_SPACES, ' ');
+  if (p.startsWith('@')) {
+    p = p.slice(1);
+  }
+  if (p === '~') {
+    return homedir();
+  }
+  if (p.startsWith('~/')) {
+    return join(homedir(), p.slice(2));
+  }
+  if (/^file:\/\//.test(p)) {
+    return fileURLToPath(p);
+  }
+  return isAbsolute(p) ? p : resolveNodePath(cwd, p);
+}
+
+/** First 12 hex chars of SHA-256 — argument values never reach the log. */
+function sha12(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 12);
+}
+
+/** Bounded in-memory rewrite→result correlation map (plan assumption 6). */
+const PENDING_REWRITE_CAP = 100;
+
+interface PendingRewrite {
+  path: string;
+  editIndex: number;
+  lineRange: { startLine: number; endLine: number };
+  fileLines: number;
+  oldTextLines: number;
+  sha12: string;
+}
+
+/** Insert a pending rewrite record; evict the oldest toolCallIds FIFO past the cap. */
+function rememberRewrite(
+  pending: Map<string, PendingRewrite[]>,
+  toolCallId: string,
+  record: PendingRewrite,
+): void {
+  const list = pending.get(toolCallId);
+  if (list) {
+    list.push(record);
+  } else {
+    pending.set(toolCallId, [record]);
+  }
+  const total = (): number => [...pending.values()].reduce((n, l) => n + l.length, 0);
+  while (total() > PENDING_REWRITE_CAP) {
+    const oldest = pending.keys().next();
+    if (oldest.done) break;
+    pending.delete(oldest.value);
+  }
+}
+
+/**
+ * Fuzzy/nearest-match rewrite stage (plan step 3.1). Runs AFTER the five
+ * shape rules (normalize needs the final shape). For each `edits[i]` entry,
+ * `classifyEdit` against the current file; on `rewrite` the entry's
+ * `oldText` is replaced in place with the file's exact bytes (the built-in
+ * then applies it via its exact-match path) and a `fixed` log record + a
+ * pending-map entry are recorded. Unreadable or missing file → no rewrite,
+ * no log, no throw. Returns the number of rewrites applied.
+ */
+async function applyEditFallback(
+  args: Record<string, unknown>,
+  toolCallId: string,
+  cwd: string,
+  model: string | undefined,
+  pending: Map<string, PendingRewrite[]>,
+  appendLog: (record: LogRecord) => void,
+): Promise<number> {
+  const path = args.path;
+  if (typeof path !== 'string') return 0;
+  const edits = args.edits;
+  if (!Array.isArray(edits) || edits.length === 0) return 0;
+  let content: string;
+  try {
+    content = await readFile(resolveEditPath(path, cwd), 'utf8');
+  } catch {
+    return 0;
+  }
+  const fileLines = splitLinesWithEndings(normalizeToLF(content)).length;
+  const timestamp = new Date().toISOString();
+  const fingerprint = shapeFingerprint('edit', args);
+  let count = 0;
+  for (let i = 0; i < edits.length; i++) {
+    const entry = edits[i];
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const edit = entry as Record<string, unknown>;
+    const oldText = edit.oldText;
+    const newText = edit.newText;
+    if (typeof oldText !== 'string' || typeof newText !== 'string') continue;
+    const result = classifyEdit(path, content, oldText, newText);
+    if (result.class !== 'rewrite' || !result.rewrittenOldText || !result.lineRange) {
+      continue;
+    }
+    edit.oldText = result.rewrittenOldText;
+    const oldTextLines = splitLinesWithEndings(normalizeToLF(oldText)).length;
+    const record: PendingRewrite = {
+      path,
+      editIndex: i,
+      lineRange: result.lineRange,
+      fileLines,
+      oldTextLines,
+      sha12: sha12(oldText),
+    };
+    rememberRewrite(pending, toolCallId, record);
+    appendLog({
+      ts: timestamp,
+      tool: 'edit',
+      model,
+      outcome: 'fixed',
+      rules: ['whitespace-normalize-oldtext'],
+      fingerprint,
+      toolCallId,
+      editIndex: i,
+      lineRange: result.lineRange,
+      fileLines,
+      oldTextLines,
+      sha12: record.sha12,
+    });
+    count += 1;
+  }
+  return count;
+}
+
+/** Upgrade produced for a content-mismatch failure (plan step 3.2). */
+interface ContentErrorEnhancement {
+  /** Telemetry `issues` subcategory (plan 3.2). */
+  issues: string;
+  /** `true`: replace the one-line hint; `false`: append after it. */
+  replace: boolean;
+  /** Report body / near-miss hint (no `Henyo note:` prefix). */
+  extra: string;
+}
+
+/**
+ * Re-classify a content-mismatch failure against the CURRENT file state
+ * (plan step 3.2). Multi-edit: the failing `edits[i]` is scoped from the
+ * error's first line (`edits[\d+]`). Returns null when no upgrade
+ * qualifies (file unreadable, shape not editable, class `none`/`rewrite` —
+ * e.g. the file changed since the model's read) so the existing one-line
+ * hint stays untouched (assumption 11: no behavior regression).
+ *
+ * [assumption]: `duplicates` under a not-FOUND error (the file changed
+ * after the model's read) is not reported — outside the plan's
+ * subcategory list; the one-line hint suffices.
+ */
+async function classifyContentError(
+  category: string,
+  firstLine: string,
+  input: Record<string, unknown>,
+  cwd: string,
+): Promise<ContentErrorEnhancement | null> {
+  const path = input.path;
+  const edits = input.edits;
+  if (typeof path !== 'string' || !Array.isArray(edits)) return null;
+  let editIndex = 0;
+  const named = firstLine.match(/edits\[(\d+)\]/);
+  if (named) editIndex = Number(named[1]);
+  const entry = edits[editIndex];
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null;
+  const edit = entry as Record<string, unknown>;
+  const oldText = edit.oldText;
+  const newText = edit.newText;
+  if (typeof oldText !== 'string' || typeof newText !== 'string') return null;
+  let content: string;
+  try {
+    content = await readFile(resolveEditPath(path, cwd), 'utf8');
+  } catch {
+    return null;
+  }
+  const result = classifyEdit(path, content, oldText, newText);
+  switch (result.class) {
+    case 'candidates':
+      return { issues: 'content-not-found:candidates', replace: true, extra: result.report ?? '' };
+    case 'too-large':
+      return { issues: 'too-large', replace: true, extra: result.report ?? '' };
+    case 'no-match':
+      return result.report
+        ? { issues: 'content-not-found:no-match', replace: false, extra: result.report }
+        : null;
+    case 'duplicates':
+      return category === 'content-not-unique'
+        ? { issues: 'content-not-unique:listed', replace: false, extra: result.report ?? '' }
+        : null;
+    default:
+      return null; // none / rewrite — the built-in (re)handles it
+  }
+}
+
 /**
  * Register the three hooks. `opts.enabled` gates all three at runtime so the
  * extension can be registered unconditionally; `opts.logPath` overrides the
@@ -464,6 +694,8 @@ function shapeDiagnostics(_tool: string, input: unknown): string {
  * `message_end`, candidate/duplicate coaching on `tool_result`) — off by
  * default here so callers that don't know about it keep today's behavior
  * byte-identical; `src/index.ts` plumbs the `henyo.editFallback` setting.
+ * The `message_end` and `tool_result` handlers are async (file reads via
+ * `node:fs/promises`; `ExtensionHandler` accepts `Promise<R | void>`).
  */
 export function toolRepairExtension(
   pi: ExtensionAPI,
@@ -479,8 +711,14 @@ export function toolRepairExtension(
     }
   };
 
-  // Hook 1 (O1): repair — hoist nested `path` before execution.
-  pi.on('message_end', (event, ctx) => {
+  // toolCallId → per-edit rewrite records (cap PENDING_REWRITE_CAP, FIFO).
+  const pendingRewrites = new Map<string, PendingRewrite[]>();
+
+  // Hook 1 (O1): repair — hoist nested `path` before execution; when
+  // `editFallbackEnabled`, also rewrite whitespace-drifted `oldText` to the
+  // file's exact bytes (rule `whitespace-normalize-oldtext`) so the
+  // built-in's exact match succeeds. Async (file reads via node:fs/promises).
+  pi.on('message_end', async (event, ctx) => {
     if (!opts.enabled) return undefined;
     const message = event.message;
     if (message.role !== 'assistant') return undefined;
@@ -488,37 +726,53 @@ export function toolRepairExtension(
     if (!Array.isArray(content)) return undefined;
 
     let changed = false;
-    const newContent = content.map((entry) => {
-      if (
-        entry.type !== 'toolCall' ||
-        entry.name !== 'edit' ||
-        entry.arguments === null ||
-        typeof entry.arguments !== 'object' ||
-        Array.isArray(entry.arguments)
-      ) {
+    const newContent = await Promise.all(
+      content.map(async (entry) => {
+        if (
+          entry.type !== 'toolCall' ||
+          entry.name !== 'edit' ||
+          entry.arguments === null ||
+          typeof entry.arguments !== 'object' ||
+          Array.isArray(entry.arguments)
+        ) {
+          return entry;
+        }
+        const args = entry.arguments as Record<string, unknown>;
+        const rules: string[] = [];
+        if (repairStringifiedEdits(args)) rules.push('parse-stringified-edits');
+        if (hoistEditPath(args)) rules.push('extract-path');
+        if (salvageCorruptEdits(args)) rules.push('salvage-corrupt-edits');
+        if (recoverGarbledPath(args)) rules.push('recover-garbled-path');
+        if (dropIncompleteEdits(args)) rules.push('drop-incomplete-edits');
+        // Fuzzy-edit fallback (AFTER the shape rules — normalize needs the
+        // final shape): rewrite whitespace-drifted oldText entries in place.
+        const rewrites = opts.editFallbackEnabled
+          ? await applyEditFallback(
+              args,
+              entry.id,
+              ctx.cwd,
+              ctx.model?.id,
+              pendingRewrites,
+              appendLog,
+            )
+          : 0;
+        if (rules.length > 0 || rewrites > 0) {
+          changed = true;
+          if (rules.length > 0) {
+            appendLog({
+              ts: new Date().toISOString(),
+              tool: 'edit',
+              model: ctx.model?.id,
+              outcome: 'fixed',
+              rules,
+              fingerprint: shapeFingerprint('edit', args),
+            });
+          }
+          return { ...entry, arguments: args };
+        }
         return entry;
-      }
-      const args = entry.arguments as Record<string, unknown>;
-      const rules: string[] = [];
-      if (repairStringifiedEdits(args)) rules.push('parse-stringified-edits');
-      if (hoistEditPath(args)) rules.push('extract-path');
-      if (salvageCorruptEdits(args)) rules.push('salvage-corrupt-edits');
-      if (recoverGarbledPath(args)) rules.push('recover-garbled-path');
-      if (dropIncompleteEdits(args)) rules.push('drop-incomplete-edits');
-      if (rules.length > 0) {
-        changed = true;
-        appendLog({
-          ts: new Date().toISOString(),
-          tool: 'edit',
-          model: ctx.model?.id,
-          outcome: 'fixed',
-          rules,
-          fingerprint: shapeFingerprint('edit', args),
-        });
-        return { ...entry, arguments: args };
-      }
-      return entry;
-    });
+      }),
+    );
 
     if (!changed) return undefined;
     return { message: { ...message, content: newContent } };
@@ -529,8 +783,44 @@ export function toolRepairExtension(
   // any tool, both pi error signatures (`Validation failed for tool "X"`
   // and the older `Invalid input for tool "X"`) get a schema hint. edit gets
   // the specific line; every other tool gets the generic one.
-  pi.on('tool_result', (event, ctx) => {
+  pi.on('tool_result', async (event, ctx) => {
     if (!opts.enabled) return undefined;
+
+    // Fuzzy-edit fallback correlation (plan step 3.2): a successful result
+    // consumes the pending rewrite records and logs `applied`; a failed call
+    // consumes them WITHOUT logging (the built-in apply is atomic — first
+    // failing edit throws before any write, so no partial state) and falls
+    // through to the coaching below, which may be upgraded to the full
+    // candidate/duplicate report.
+    if (opts.editFallbackEnabled && event.toolName === 'edit') {
+      const pending = pendingRewrites.get(event.toolCallId);
+      if (pending) {
+        pendingRewrites.delete(event.toolCallId);
+        if (!event.isError) {
+          const timestamp = new Date().toISOString();
+          const fingerprint = shapeFingerprint('edit', event.input);
+          for (const p of pending) {
+            appendLog({
+              ts: timestamp,
+              tool: 'edit',
+              model: ctx.model?.id,
+              outcome: 'applied',
+              rules: ['whitespace-normalize-oldtext'],
+              fingerprint,
+              toolCallId: event.toolCallId,
+              editIndex: p.editIndex,
+              lineRange: p.lineRange,
+              fileLines: p.fileLines,
+              oldTextLines: p.oldTextLines,
+              sha12: p.sha12,
+            });
+          }
+          return undefined; // success — the result content is untouched
+        }
+        // failed call — fall through to the coaching below
+      }
+    }
+
     if (!event.isError) return undefined;
     const originalText = event.content
       .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
@@ -572,17 +862,39 @@ export function toolRepairExtension(
       const rule = CONTENT_ERROR_RULES.find((r) => r.re.test(firstLine));
       if (rule) {
         const input = event.input as unknown;
+        // Upgrade the one-line hint to the full report when the feature is
+        // on and a report qualifies (assumption 11: nothing qualifies → the
+        // existing one-line hint stays).
+        let note = `Henyo note: ${rule.line}`;
+        let issues = rule.category;
+        if (
+          opts.editFallbackEnabled &&
+          (rule.category === 'content-not-found' || rule.category === 'content-not-unique')
+        ) {
+          const enhancement = await classifyContentError(
+            rule.category,
+            firstLine,
+            event.input,
+            ctx.cwd,
+          );
+          if (enhancement) {
+            note = enhancement.replace
+              ? `Henyo note: ${enhancement.extra}`
+              : `Henyo note: ${rule.line}\n${enhancement.extra}`;
+            issues = enhancement.issues;
+          }
+        }
         appendLog({
           ts: new Date().toISOString(),
           tool: 'edit',
           model: ctx.model?.id,
           outcome: 'failed',
-          issues: rule.category,
+          issues,
           fingerprint: shapeFingerprint('edit', input),
         });
 
         return {
-          content: [{ type: 'text', text: `${originalText}\n\nHenyo note: ${rule.line}` }],
+          content: [{ type: 'text', text: `${originalText}\n\n${note}` }],
         };
       }
     }

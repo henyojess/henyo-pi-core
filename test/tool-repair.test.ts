@@ -222,11 +222,11 @@ describe('toolRepairExtension hooks', () => {
   });
 
   describe('message_end (repair)', () => {
-    it('hoists nested path, keeps role/id/non-edit entries, logs fixed', () => {
+    it('hoists nested path, keeps role/id/non-edit entries, logs fixed', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         { type: 'message_end', message: assistantMessage() },
         ctx,
       );
@@ -251,11 +251,11 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].fingerprint).toMatch(/^[0-9a-f]{8}$/);
     });
 
-    it('returns undefined and logs nothing when path is already top-level', () => {
+    it('returns undefined and logs nothing when path is already top-level', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         {
           type: 'message_end',
           message: {
@@ -280,11 +280,11 @@ describe('toolRepairExtension hooks', () => {
       expect(readLog(logPath)).toHaveLength(0);
     });
 
-    it('returns undefined for non-assistant messages', () => {
+    it('returns undefined for non-assistant messages', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         { type: 'message_end', message: { role: 'user', content: [] } },
         ctx,
       );
@@ -292,11 +292,11 @@ describe('toolRepairExtension hooks', () => {
       expect(readLog(logPath)).toHaveLength(0);
     });
 
-    it('returns undefined when the tool call is not edit', () => {
+    it('returns undefined when the tool call is not edit', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         {
           type: 'message_end',
           message: {
@@ -318,11 +318,11 @@ describe('toolRepairExtension hooks', () => {
       expect(readLog(logPath)).toHaveLength(0);
     });
 
-    it('is a no-op when the extension is disabled', () => {
+    it('is a no-op when the extension is disabled', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: false, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         { type: 'message_end', message: assistantMessage() },
         ctx,
       );
@@ -332,11 +332,11 @@ describe('toolRepairExtension hooks', () => {
   });
 
   describe('message_end (stringified edits)', () => {
-    it('stringified edits (no nested path) → array assigned, fixed log with only the parse rule', () => {
+    it('stringified edits (no nested path) → array assigned, fixed log with only the parse rule', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         {
           type: 'message_end',
           message: {
@@ -371,11 +371,11 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].model).toBe('qwen3.6-27b');
     });
 
-    it('stringified edits with nested path → both rules in one record, path at top level', () => {
+    it('stringified edits with nested path → both rules in one record, path at top level', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['message_end'](
+      const result = await handlers['message_end'](
         {
           type: 'message_end',
           message: {
@@ -408,11 +408,11 @@ describe('toolRepairExtension hooks', () => {
   describe('tool_result (coaching)', () => {
     const validationError = 'Validation failed for tool "edit":\n- path: Required';
 
-    it('appends coaching line after the original error and logs failed', () => {
+    it('appends coaching line after the original error and logs failed', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-1',
@@ -441,11 +441,11 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].model).toBe('qwen3.6-27b');
     });
 
-    it('returns undefined for non-validation errors and logs nothing', () => {
+    it('returns undefined for non-validation errors and logs nothing', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-1',
@@ -461,11 +461,11 @@ describe('toolRepairExtension hooks', () => {
       expect(readLog(logPath)).toHaveLength(0);
     });
 
-    it('returns undefined when the result is not an error', () => {
+    it('returns undefined when the result is not an error', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-1',
@@ -480,12 +480,12 @@ describe('toolRepairExtension hooks', () => {
       expect(result).toBeUndefined();
     });
 
-    it('other tools (write) validation failure → original text + generic line, failed log with the tool name', () => {
+    it('other tools (write) validation failure → original text + generic line, failed log with the tool name', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const writeError = 'Validation failed for tool "write":\n- content: Required';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-w',
@@ -513,12 +513,12 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toContain('keys=[');
     });
 
-    it('read validation failure → original text + generic line preserved in order, failed log with tool read', () => {
+    it('read validation failure → original text + generic line preserved in order, failed log with tool read', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const readError = 'Validation failed for tool "read":\n- path: Required';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-r',
@@ -546,13 +546,13 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toContain('path');
     });
 
-    it('older "Invalid input" signature also gets the edit coaching line (regression)', () => {
+    it('older "Invalid input" signature also gets the edit coaching line (regression)', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const oldError =
         'Invalid input for tool "edit". Fix these issues and retry:\n- path: Required';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-o',
@@ -577,12 +577,12 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].tool).toBe('edit');
     });
 
-    it('content error text ("Could not find the exact text") → coached with content-not-found line, failed log', () => {
+    it('content error text ("Could not find the exact text") → coached with content-not-found line, failed log', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const error = 'Could not find the exact text in /f. Ensure oldText matches exactly.';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-n',
@@ -607,13 +607,13 @@ describe('toolRepairExtension hooks', () => {
   });
 
   describe('tool_result (content coaching)', () => {
-    it('content-not-found (edits[N] variant) → coached line + failed log with the category', () => {
+    it('content-not-found (edits[N] variant) → coached line + failed log with the category', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const error =
         'Could not find edits[0] in /f. The oldText must match exactly including all whitespace and newlines.';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-c1',
@@ -637,12 +637,12 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toBe('content-not-found');
     });
 
-    it('content-not-unique → coached line + failed log with the category', () => {
+    it('content-not-unique → coached line + failed log with the category', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const error = 'Found 2 occurrences of the text in /f. The text must be unique.';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-c2',
@@ -666,12 +666,12 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toBe('content-not-unique');
     });
 
-    it('content-overlap → coached line + failed log with the category', () => {
+    it('content-overlap → coached line + failed log with the category', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const error = 'edits[0] and edits[1] overlap in /f. Merge them into one edit.';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-c3',
@@ -701,12 +701,12 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toBe('content-overlap');
     });
 
-    it('content-identical → coached line + failed log with the category', () => {
+    it('content-identical → coached line + failed log with the category', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
       const error = 'No changes made to /f. The replacement produced identical content.';
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-c4',
@@ -730,11 +730,11 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toBe('content-identical');
     });
 
-    it('content-error text on a non-edit tool (bash) → undefined, no log', () => {
+    it('content-error text on a non-edit tool (bash) → undefined, no log', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-c5',
@@ -757,11 +757,11 @@ describe('toolRepairExtension hooks', () => {
   });
 
   describe('tool_result (unknown tools)', () => {
-    it('unquoted "Tool calc not found" → hint lists getActiveTools() in order, failed log unknown-tool', () => {
+    it('unquoted "Tool calc not found" → hint lists getActiveTools() in order, failed log unknown-tool', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-u1',
@@ -788,14 +788,14 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].tool).toBe('calc');
     });
 
-    it('quoted variant matches; getActiveTools throwing → fallback list, hint still returned', () => {
+    it('quoted variant matches; getActiveTools throwing → fallback list, hint still returned', async () => {
       const { api, handlers } = makeMockPi();
       api.getActiveTools = () => {
         throw new Error('nope');
       };
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-u2',
@@ -820,11 +820,11 @@ describe('toolRepairExtension hooks', () => {
       expect(log[0].issues).toBe('unknown-tool');
     });
 
-    it('known-tool error (read ENOENT text) → undefined, no log', () => {
+    it('known-tool error (read ENOENT text) → undefined, no log', async () => {
       const { api, handlers } = makeMockPi();
       toolRepairExtension(api, { enabled: true, logPath });
 
-      const result = handlers['tool_result'](
+      const result = await handlers['tool_result'](
         {
           type: 'tool_result',
           toolCallId: 'call-k',
@@ -1226,11 +1226,11 @@ describe('message_end telemetry for the step-4 rules', () => {
     },
   });
 
-  it('logs one fixed record with rule name `salvage-corrupt-edits`', () => {
+  it('logs one fixed record with rule name `salvage-corrupt-edits`', async () => {
     const { api, handlers } = makeMockPi();
     toolRepairExtension(api, { enabled: true, logPath });
 
-    const result = handlers['message_end'](
+    const result = await handlers['message_end'](
       editMessage({
         path: '/f.txt',
         edits: JSON.stringify([{ oldText: 'a', newText: 'b' }]) + THIN_OPEN,
@@ -1245,11 +1245,11 @@ describe('message_end telemetry for the step-4 rules', () => {
     expect(log[0].rules).toEqual(['salvage-corrupt-edits']);
   });
 
-  it('logs one fixed record with rule name `recover-garbled-path`', () => {
+  it('logs one fixed record with rule name `recover-garbled-path`', async () => {
     const { api, handlers } = makeMockPi();
     toolRepairExtension(api, { enabled: true, logPath });
 
-    const result = handlers['message_end'](
+    const result = await handlers['message_end'](
       editMessage({ edits: [{ 'path>': '/f.txt', oldText: 'a', newText: 'b' }] }),
       ctx,
     );
@@ -1260,11 +1260,11 @@ describe('message_end telemetry for the step-4 rules', () => {
     expect(log[0].rules).toEqual(['recover-garbled-path']);
   });
 
-  it('logs one fixed record with rule name `drop-incomplete-edits`', () => {
+  it('logs one fixed record with rule name `drop-incomplete-edits`', async () => {
     const { api, handlers } = makeMockPi();
     toolRepairExtension(api, { enabled: true, logPath });
 
-    const result = handlers['message_end'](
+    const result = await handlers['message_end'](
       editMessage({
         path: '/f.txt',
         edits: [{ oldText: 'a', newText: 'b' }, { newText: 'c' }],
