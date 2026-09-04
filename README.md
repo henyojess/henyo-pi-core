@@ -32,6 +32,7 @@ henyo-pi-core/
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
 │   ├── tool-repair.ts    # Standalone tool repair (event hooks: repair, coaching, prompt guideline)
+│   ├── edit-fallback.ts  # Fuzzy/nearest-match edit fallback: pure matching + report core (no pi imports)
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
@@ -39,6 +40,8 @@ henyo-pi-core/
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
     ├── tool-repair.test.ts    # Tests for the standalone tool repair
+    ├── tool-repair-edit-fallback.test.ts # Hook wiring: rewrite, pending telemetry, coaching, guards
+    ├── edit-fallback.test.ts # Unit tests for the pure matching/candidate/duplicate core
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
     ├── ttft-tokps.test.ts          # Working line: v2 harness scenarios + trace on/off/rotation/contract
@@ -82,7 +85,7 @@ user message in the new session.
 
 List or toggle all henyo features from the TUI — the replacement for
 hand-editing `settings.json`:
-- With no args: opens a picker of all 9 keys labeled `key: on` / `key: off`
+- With no args: opens a picker of all 10 keys labeled `key: on` / `key: off`
   (state from the effective merged settings); pick one to toggle it.
 - `/henyo <key>` flips the key's current effective state.
 - `/henyo <key> <value>` sets the key explicitly; values are
@@ -142,12 +145,33 @@ so it coexists with other repair layers:
   one call and the fix is logged with the rules that fired.
   History side effect: repaired calls appear in the session history in
   corrected form, not in their original shape.
+- **Edit fallback** — a second `message_end` stage for `edit` calls that
+  survived the shape rules but would still fail on whitespace drift:
+  when the built-in exact match would fail (the `oldText` is absent from
+  the file), the fallback looks for the one region whose
+  whitespace-normalized lines match the `oldText` exactly (1:1, unique).
+  On a unique match the `oldText` is rewritten to the file's exact bytes
+  (raw lines, CRLF preserved, final-line terminator included; leading BOM
+  excluded) and the edit proceeds; the file is read once per call, and a
+  1 MB UTF-8 size guard skips huge files. Everything else is
+  **report-only, never applied**: ambiguous or multi-match drift, a
+  ratio-0.8 nearest-match report with the top candidate line ranges,
+  or duplicate-occurrence line lists appended to the error.
+  `edits[].oldText === newText`, empty `oldText`, and lone-`\r`
+  (old-Mac) files are left to the built-in behavior unchanged.
 - **Coaching** — when a tool call fails, a one-line `Henyo note:` hint is
   appended to the error the model sees. `edit` content-mismatch failures —
   the dominant class: text not found, text not unique, overlapping edits,
   or a no-op edit (`oldText` and `newText` identical) — each get a
-  category-specific line. `edit` shape-validation failures (both pi
-  signatures: `Validation failed for tool "X"` and the older
+  category-specific line, and the edit-fallback stage upgrades three of
+  them when it can say more: not-found errors with a strong nearest match
+  (ratio ≥ 0.8, within the 0.03 gap filter) gain a `candidates` report —
+  top candidate line ranges and ratios — which replaces the plain hint,
+  and not-found errors whose best match sits between 0.6 and 0.8 gain a
+  near-miss hint pointing at the nearest region. Not-unique errors gain
+  the exact occurrence line numbers. Overlap and no-op
+  failures keep the plain one-line hint. `edit` shape-validation failures
+  (both pi signatures: `Validation failed for tool "X"` and the older
   `Invalid input for tool "X"`) get the specific
   "`path` goes at the top level, next to `edits`" line, and every other
   tool a generic schema hint. On `Tool X not found` (hallucinated tool
@@ -159,17 +183,46 @@ so it coexists with other repair layers:
   skipped when already present, so a mid-session prompt upgrade picks up
   whichever one is missing.
 
-Active by default; no configuration needed.
+Active by default; no configuration needed. The edit-fallback stage is
+gated by the `editFallback` key (default `true`) — with it off (or with
+`toolRepair` off) the hooks resolve byte-identical to the pre-fallback
+behavior: no file reads, no rewrites, plain one-line coaching only.
 
 Extended 2026-09-02 after the session-failure analysis (77% content mismatch
-/ ~15% structural for the served Qwen models).
+/ ~15% structural for the served Qwen models). Extended 2026-09-04 with the
+edit-fallback stage (unique 1:1 whitespace-drift rewrite +
+candidate/duplicate coaching).
+
+**Safety model:** the rewrite fires only when the built-in exact match
+would fail (so it never shadows a successful edit), only on a unique
+1:1 whitespace-normalized match, and only when `oldText !== newText`;
+the rewritten `oldText` is the file's exact bytes at that region, so the
+resulting edit is the one the model intended, applied at the region the
+built-in itself would accept. Anything ambiguous is reported (line
+ranges / occurrence lines) instead of applied. Telemetry tracks the
+outcome per call (`fixed` → `applied` / `failed`) so every auto-rewrite
+is auditable after the fact.
+
+**Upgrade caveat:** the exact-match predicate is a byte-level port of pi's
+internal `dist/core/tools/edit-diff.js` (pi 0.84.2). After upgrading pi,
+re-run `pnpm test` — if pi's matching semantics change, the port and its
+"built-in would fail" guard must be re-derived before the fallback stays
+sound.
 
 **Log file:** fixes and failures are appended as JSONL to
 `~/.pi/agent/tool-repair.jsonl` (healthy no-ops are not logged).
 Record shape: `{ ts, tool, model, outcome, rules?, issues?, fingerprint }`
-— `outcome` is `fixed` (a repair rule applied) or `failed` (validation
-actually failed — `issues` carries a shape diagnostic, or `unknown-tool`
-for hallucinated tool names). Argument values are never logged.
+— `outcome` is `fixed` (a repair rule or an edit-fallback rewrite
+applied), `applied` (an edit-fallback rewrite was confirmed by the
+subsequent successful tool result), or `failed` (validation actually
+failed — `issues` carries a shape diagnostic, a content-mismatch
+category, or `unknown-tool` for hallucinated tool names). Rewrite
+records add `lineRange` (`{ startLine, endLine }`), `fileLines`,
+`oldTextLines`, `editIndex` (for multi-edit calls), and `sha12` (first 12
+hex of SHA-256 of the original `oldText` — argument values are never
+logged). Content-mismatch `issues` can carry a subcategory after a colon:
+`content-not-found:candidates`, `content-not-found:no-match`,
+`content-not-unique:listed`, `too-large`.
 
 ### Working Line (TTFT + tok/s)
 
@@ -223,6 +276,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `toolRepair` | `boolean` | `true` | Edit path repair + stringified-edits fix + all-tools validation coaching + unknown-tool hint + prompt guideline |
+| `editFallback` | `boolean` | `true` | Fuzzy/nearest-match edit fallback: unique 1:1 whitespace-drift rewrite + candidate/duplicate coaching on content-mismatch errors |
 | `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first session (if it does not already exist) |
 | `ttftTokps` | `boolean` | `true` | Working line with TTFT + tok/s (live estimate, exact when usage is reported, final readout) |
@@ -258,6 +312,7 @@ preserved on settings writes and ignored by the extension.
 {
   "henyo": {
     "toolRepair": true,
+    "editFallback": true,
     "footer": true,
     "agentsMd": true,
     "ttftTokps": true,
@@ -292,6 +347,7 @@ To disable all henyo features:
 {
   "henyo": {
     "toolRepair": false,
+    "editFallback": false,
     "footer": false,
     "agentsMd": false,
     "ttftTokps": false,
