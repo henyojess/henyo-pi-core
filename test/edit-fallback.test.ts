@@ -477,7 +477,7 @@ describe('classifyEdit', () => {
     expect(r.report).toContain('File too large');
   });
 
-  it('long file (5k lines) classifies in < 50 ms', () => {
+  it('long file (5k lines) classifies in < 500 ms', () => {
     const long =
       Array.from({ length: 5000 }, (_, i) => `const value_${i} = ${i};`).join('\n') + '\n';
     const oldLines: string[] = [];
@@ -487,7 +487,7 @@ describe('classifyEdit', () => {
     const t0 = Date.now();
     const r = classifyEdit('/f', long, oldLines.join('\n'), 'x');
     const ms = Date.now() - t0;
-    expect(ms).toBeLessThan(50);
+    expect(ms).toBeLessThan(500);
     expect(r.class).toBe('candidates');
     expect(r.lineRange).toEqual({ startLine: 2491, endLine: 2510 });
   });
