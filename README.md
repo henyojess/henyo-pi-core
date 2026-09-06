@@ -33,6 +33,7 @@ henyo-pi-core/
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
 │   ├── tool-repair.ts    # Standalone tool repair (event hooks: repair, coaching, prompt guideline)
 │   ├── edit-fallback.ts  # Fuzzy/nearest-match edit fallback: pure matching + report core (no pi imports)
+│   ├── compaction-retry.ts # Compaction summary retry guard: strict plain-text prompt, up to 3 targeted retries
 │   └── commands/         # Custom slash commands
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
@@ -45,6 +46,7 @@ henyo-pi-core/
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state
     ├── ttft-tokps.test.ts          # Working line: v2 harness scenarios + trace on/off/rotation/contract
+    ├── compaction-retry.test.ts    # Compaction retry guard: success, 4 failure retries, exhaustion, abort, no-ops, contract
     ├── fixtures/         # Test fixtures (recorded model failure payloads)
     │   └── edit-failure-payloads.json
     ├── commands/         # Unit tests for command handlers
@@ -85,13 +87,13 @@ user message in the new session.
 
 List or toggle all henyo features from the TUI — the replacement for
 hand-editing `settings.json`:
-- With no args: opens a picker of all 10 keys labeled `key: on` / `key: off`
+- With no args: opens a picker of all 11 keys labeled `key: on` / `key: off`
   (state from the effective merged settings); pick one to toggle it.
 - `/henyo <key>` flips the key's current effective state.
 - `/henyo <key> <value>` sets the key explicitly; values are
   `on off true false enable disable` (case-insensitive).
 - Keys are given in canonical form (`toolRepair`, `footer`, `agentsMd`,
-  `ttftTokps`, `trace`, `skills.notes`, `commands.cwd`) or, for the dotted
+  `ttftTokps`, `trace`, `compactionRetry`, `skills.notes`, `commands.cwd`) or, for the dotted
   keys, in their flat shorthand (`notes`, `plan-generation`, `cwd`, `newp`)
   (`ttftTokps`/`trace` are top-level — no shorthand). Tab-completion is
   offered for both keys and values.
@@ -281,6 +283,34 @@ don't render the working line twice.
 jq -r .outcome ~/.pi/agent/tool-repair.jsonl | sort | uniq -c
 ```
 
+### Compaction Retry Guard
+
+Some models (observed: qwen3.8-27b via apollo-8002) "narrate" tool calls
+in the tool-free summarization request. Pi treats any toolCall block in
+the summary response as a hard failure ("Summarization attempted to call
+a tool"), so auto-compaction dies and the session eventually runs out of
+context. The guard takes over summary generation on
+`session_before_compact`:
+
+- **Strict plain-text system prompt** — the summary request forbids tool
+calls, JSON tool blocks, and conversation continuation; reasoning is off
+(saves output budget, fewer narration artifacts)
+- **Targeted retries** — up to 3 attempts; each failure class (tool call
+emitted / empty text / truncated response / API error) gets a targeted
+repair note appended to the next attempt's prompt
+- **Clean format** — the same structured checkpoint format pi's built-in
+summarization uses (including the previous summary when one exists), so
+future compactions merge cleanly
+- **Safe fallback** — if it can't get clean text after 3 attempts it
+falls back to pi's default compaction (with an `error` notify)
+
+Gated by `compactionRetry` (default `false`).
+
+**Legacy note:** the original standalone
+`~/.pi/agent/extensions/compaction-retry.ts` pre-dates this port. It is
+superseded — remove it when the core feature is enabled so the two don't
+double-register `session_before_compact`.
+
 ## Settings
 
 All henyo-pi-core features can be individually enabled or disabled via a `henyo` block in `~/.pi/agent/settings.json`. The block is created automatically on first install and extended when the extension adds new features — only *missing* keys are added (with their defaults); keys you have set are never modified. Absent or unknown keys behave as enabled, so a partial block is always safe.
@@ -295,6 +325,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first session (if it does not already exist) |
 | `ttftTokps` | `boolean` | `true` | Working line with TTFT + tok/s (live estimate, exact when usage is reported, final readout) |
 | `trace` | `boolean` | `false` | JSONL trace of every ttftTokps display decision (incl. the exact displayed string), size-rotated |
+| `compactionRetry` | `boolean` | `false` | Compaction summary retry guard: strict plain-text prompt + up to 3 targeted retries; falls back to pi's default compaction |
 | `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |
 | `commands.<name>` | `boolean` | `true` | Enable/disable individual custom commands |
 
@@ -331,6 +362,7 @@ preserved on settings writes and ignored by the extension.
     "agentsMd": true,
     "ttftTokps": true,
     "trace": false,
+    "compactionRetry": true,
     "skills": {
       "plan-generation": true,
       "notes": false
@@ -366,6 +398,7 @@ To disable all henyo features:
     "agentsMd": false,
     "ttftTokps": false,
     "trace": false,
+    "compactionRetry": false,
     "skills": {
       "plan-generation": false,
       "notes": false
