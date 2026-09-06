@@ -18,6 +18,7 @@ import {
   dropIncompleteEdits,
   normalizeForFingerprint,
   editLocationFingerprint,
+  classifyEmission,
 } from '../src/tool-repair.js';
 import payloads from './fixtures/edit-failure-payloads.json' with { type: 'json' };
 
@@ -270,6 +271,75 @@ describe('editLocationFingerprint', () => {
   it('uses the raw string edits as the oldText source', () => {
     const a = editLocationFingerprint(locInput('/dir/a.txt', '[{"oldText":"a","newText":"b"}]'));
     expect(a).toMatch(/^[0-9a-f]{8}$/);
+  });
+});
+
+// ─── classifyEmission (telemetry v2, plan step 4.1) ─────────────────────
+
+describe('classifyEmission', () => {
+  const editIn = (edits: unknown) => ({ path: '/f.txt', edits });
+
+  // truncated ×3
+  it('string edits cut mid-string (unparseable, ends mid-quote) → truncated', () => {
+    expect(classifyEmission('edit', editIn('[{"oldText": "abc'))).toBe('truncated');
+  });
+
+  it('odd unescaped quote count (dangling quote after a closed value) → truncated', () => {
+    expect(classifyEmission('edit', editIn('{"oldText": "a" "'))).toBe('truncated');
+  });
+
+  it('array form with last entry missing newText → truncated', () => {
+    expect(
+      classifyEmission('edit', editIn([{ oldText: 'a', newText: 'b' }, { oldText: 'c' }])),
+    ).toBe('truncated');
+  });
+
+  // glued ×2
+  it('two glued objects (}{ ) → glued', () => {
+    expect(
+      classifyEmission(
+        'edit',
+        editIn('{"oldText": "a", "newText": "b"}{"oldText": "c", "newText": "d"}'),
+      ),
+    ).toBe('glued');
+  });
+
+  it('two "oldText" + }{ with whitespace between → glued', () => {
+    expect(
+      classifyEmission(
+        'edit',
+        editIn('{"oldText": "a", "newText": "b"} {"oldText": "c", "newText": "d"}'),
+      ),
+    ).toBe('glued');
+  });
+
+  // shape-quirk ×3
+  it('parseable stringified array → shape-quirk', () => {
+    expect(classifyEmission('edit', editIn('[{"oldText": "a", "newText": "b"}]'))).toBe(
+      'shape-quirk',
+    );
+  });
+
+  it('closed unparseable string with <function= debris and balanced quotes → shape-quirk', () => {
+    expect(
+      classifyEmission(
+        'edit',
+        editIn('{"oldText": "a", "newText": "b"} <fu' + 'nction=next>{"cmd":"ls"}'),
+      ),
+    ).toBe('shape-quirk');
+  });
+
+  it('array containing a string entry → shape-quirk', () => {
+    expect(classifyEmission('edit', editIn(['{"oldText": "a"}']))).toBe('shape-quirk');
+  });
+
+  // undefined ×2
+  it('non-edit tool → undefined', () => {
+    expect(classifyEmission('bash', { command: 'ls' })).toBeUndefined();
+  });
+
+  it('edit with no edits field → undefined', () => {
+    expect(classifyEmission('edit', { path: '/f.txt' })).toBeUndefined();
   });
 });
 
@@ -1091,6 +1161,41 @@ describe('toolRepairExtension hooks', () => {
 
       await handlers['tool_result'](okEdit('call-ok', A_IN), ctx);
       expect(readLog(logPath).filter((r) => r.outcome === 'recovered')).toHaveLength(0);
+    });
+  });
+
+  // Telemetry v2 — emission classification (plan step 4; A4: validation-class
+  // `failed` records only).
+  describe('tool_result (emission — telemetry v2)', () => {
+    it('failed edit (validation error, stringified truncated edits) → 1 failed record with emission: truncated + the Step-1 location fingerprint', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const input = { path: '/f.txt', edits: '[{"oldText": "abc' };
+      const result = await handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-trunc',
+          toolName: 'edit',
+          input,
+          content: [
+            {
+              type: 'text',
+              text: 'Validation failed for tool "edit":\n- edits: Expected array, received string',
+            },
+          ],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeDefined();
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].emission).toBe('truncated');
+      expect(log[0].fingerprint).toBe(editLocationFingerprint(input));
     });
   });
 

@@ -122,6 +122,9 @@ interface LogRecord {
   // Telemetry v2 recovery fields — `recoveredBy` is the toolCallId of the
   // successful edit that closed the failure; `afterMs` is the time between
   // the failure and the recovery.
+  // Telemetry v2: `recovered` closes open failures; `ok` is the denominator
+  // (step 2); `emission` tags validation-failure payloads (step 4, plan A4).
+  emission?: string;
   recoveredBy?: string;
   afterMs?: number;
   // Fuzzy-edit fallback records (plan assumption 6) — argument values never
@@ -526,6 +529,85 @@ export function editLocationFingerprint(input: unknown): string | undefined {
   return fnv1a(
     `edit::loc::${basename(path)}::${normalizeForFingerprint(merged).slice(0, FP_PREFIX_LEN)}`,
   );
+}
+
+/** Emission classes for validation-failure `edits` payloads (telemetry v2, plan A4). */
+export type EmissionClass = 'truncated' | 'glued' | 'shape-quirk';
+
+/** Escape-aware count of `"` characters (a `\` before a quote skips it). */
+function countUnescapedQuotes(s: string): number {
+  let count = 0;
+  let escaped = false;
+  for (const c of s) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (c === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (c === '"') count += 1;
+  }
+  return count;
+}
+
+/**
+ * Classify a validation-failed `edit` `edits` payload by emission shape
+ * (telemetry v2, plan A4) — separates truncated args (G3) from vLLM
+ * multi-call glue (G5) from ordinary shape quirks, so both gap frequencies
+ * are measurable from the log alone. Heuristic tag only — NEVER mutates
+ * arguments. Returns `undefined` for non-`edit` tools, missing `edits`, and
+ * array shapes with no recognizable defect (callers omit the `emission`
+ * field).
+ *
+ * Array `edits`: last entry an object with `oldText` but no string
+ * `newText` while all earlier entries are complete → `truncated`; any
+ * entry a string → `shape-quirk`; else `undefined`.
+ * String `edits` (trimmed): parseable JSON → `shape-quirk`; odd unescaped
+ * `"` count OR does not end in `"` / `]` / `}` → `truncated`; ≥2
+ * `"oldText"` + `}{` (glue) → `glued`; else `shape-quirk` (closed
+ * unparseable debris, e.g. tag bleed).
+ */
+export function classifyEmission(toolName: string, input: unknown): EmissionClass | undefined {
+  if (toolName !== 'edit') return undefined;
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return undefined;
+  const edits = (input as Record<string, unknown>).edits;
+  if (edits === undefined) return undefined;
+  if (Array.isArray(edits)) {
+    const entries = edits as unknown[];
+    const last = entries[entries.length - 1];
+    const lastIsIncomplete =
+      last !== null &&
+      typeof last === 'object' &&
+      !Array.isArray(last) &&
+      typeof (last as Record<string, unknown>).oldText === 'string' &&
+      typeof (last as Record<string, unknown>).newText !== 'string';
+    const earlierComplete = entries
+      .slice(0, -1)
+      .every(
+        (e) =>
+          e !== null &&
+          typeof e === 'object' &&
+          !Array.isArray(e) &&
+          typeof (e as Record<string, unknown>).oldText === 'string' &&
+          typeof (e as Record<string, unknown>).newText === 'string',
+      );
+    if (lastIsIncomplete && earlierComplete) return 'truncated';
+    if (entries.some((e) => typeof e === 'string')) return 'shape-quirk';
+    return undefined;
+  }
+  if (typeof edits !== 'string') return undefined;
+  const s = edits.trim();
+  try {
+    JSON.parse(s);
+    return 'shape-quirk';
+  } catch {
+    // unparseable — fall through to the heuristics
+  }
+  if (countUnescapedQuotes(s) % 2 === 1 || !/["\]}]$/.test(s)) return 'truncated';
+  if ((s.match(/"oldText"/g) ?? []).length >= 2 && /}\s*\{/.test(s)) return 'glued';
+  return 'shape-quirk';
 }
 
 /**
@@ -1081,14 +1163,20 @@ export function toolRepairExtension(
       event.toolName === 'edit'
         ? (editLocationFingerprint(input) ?? shapeFingerprint(event.toolName, input))
         : shapeFingerprint(event.toolName, input);
-    appendLog({
+    const record: LogRecord = {
       ts,
       tool: event.toolName,
       model: ctx.model?.id,
       outcome: 'failed',
       issues,
       fingerprint,
-    });
+    };
+    // Telemetry v2 (plan A4): emission tag on validation-class failures only
+    // — the classifier returns `undefined` for non-`edit` tools, so other
+    // tools' records stay untouched.
+    const emission = classifyEmission(event.toolName, input);
+    if (emission) record.emission = emission;
+    appendLog(record);
     // Telemetry v2: track the failure for recovery (edit only — the ok /
     // applied sites only fire for edit successes).
     if (event.toolName === 'edit') {
