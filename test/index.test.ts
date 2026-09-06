@@ -175,4 +175,21 @@ describe('extension entry point (src/index.ts)', () => {
     expect(offStub.handlers.has('agent_start')).toBe(false);
     expect(offStub.handlers.has('before_provider_request')).toBe(false);
   });
+
+  it('case G: compactionRetry default (off) → no session_before_compact handler; explicit true → handler present', async () => {
+    // Default settings: fill gives compactionRetry: false → the compaction
+    // guard does not register. session_before_compact is compaction-retry
+    // exclusive (no other feature registers that event), so absence/probe
+    // is unambiguous.
+    rmSync(settingsFile, { force: true });
+    const offStub = createStubPi();
+    await mod.default(offStub);
+    expect(offStub.handlers.has('session_before_compact')).toBe(false);
+
+    // Explicitly enabled → the guard registers.
+    writeFileSync(settingsFile, JSON.stringify({ henyo: { compactionRetry: true } }), 'utf-8');
+    const onStub = createStubPi();
+    await mod.default(onStub);
+    expect(onStub.handlers.has('session_before_compact')).toBe(true);
+  });
 });

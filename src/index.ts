@@ -1,5 +1,6 @@
 import { toolRepairExtension, resolveToolRepair, resolveEditFallback } from './tool-repair.js';
 import { ttftTokpsExtension } from './ttft-tokps.js';
+import { compactionRetryExtension } from './compaction-retry.js';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type {
   ExtensionAPI as _ExtensionAPI,
@@ -77,6 +78,13 @@ export default function (pi: _ExtensionAPI) {
   // ─── TTFT/TPS working line (config-gated display + opt-in trace) ────
   if (henyoSettings.ttftTokps !== false) {
     ttftTokpsExtension(pi, { traceEnabled: henyoSettings.trace === true });
+  }
+
+  // ─── Compaction retry guard (off by default) ──────────────────────────
+  // Takes over session_before_compact summary generation: strict plain-text
+  // prompt + up to 3 targeted retries; falls back to pi's default compaction.
+  if (henyoSettings.compactionRetry === true) {
+    compactionRetryExtension(pi);
   }
 
   // ─── Event subscriptions ───────────────────────────────────────────
