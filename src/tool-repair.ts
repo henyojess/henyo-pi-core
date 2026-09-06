@@ -115,7 +115,7 @@ interface LogRecord {
   ts: string;
   tool: string;
   model?: string;
-  outcome: 'fixed' | 'failed' | 'applied';
+  outcome: 'fixed' | 'failed' | 'applied' | 'ok';
   rules?: string[];
   issues?: string;
   fingerprint?: string;
@@ -849,6 +849,20 @@ export function toolRepairExtension(
   // the specific line; every other tool gets the generic one.
   pi.on('tool_result', async (event, ctx) => {
     if (!opts.enabled) return undefined;
+
+    // Telemetry v2 denominator: every successful `edit` result logs exactly
+    // one `ok` record (repaired by message_end or not — the denominator is
+    // all successful edits), so error rates are computable from the log
+    // alone. Edit-only by plan assumption A1.
+    if (event.toolName === 'edit' && !event.isError) {
+      appendLog({
+        ts: new Date().toISOString(),
+        tool: 'edit',
+        model: ctx.model?.id,
+        outcome: 'ok',
+        fingerprint: editLocationFingerprint(event.input) ?? shapeFingerprint('edit', event.input),
+      });
+    }
 
     // Fuzzy-edit fallback correlation (plan step 3.2): a successful result
     // consumes the pending rewrite records and logs `applied`; a failed call

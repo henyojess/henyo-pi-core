@@ -920,6 +920,60 @@ describe('toolRepairExtension hooks', () => {
     });
   });
 
+  // Telemetry v2 — the `ok` denominator (plan step 2, assumption A1: edit
+  // only). The fallback-harness case (ok + applied together) lives in
+  // tool-repair-edit-fallback.test.ts.
+  describe('tool_result (ok denominator — telemetry v2)', () => {
+    it('successful edit (no pending rewrites) → exactly 1 ok record with the location fingerprint', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const input = { path: '/f.txt', edits: [{ oldText: 'a', newText: 'b' }] };
+      const result = await handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-ok',
+          toolName: 'edit',
+          input,
+          content: [{ type: 'text', text: 'OK' }],
+          isError: false,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeUndefined();
+      const log = readLog(logPath);
+      expect(log).toHaveLength(1);
+      expect(log[0].outcome).toBe('ok');
+      expect(log[0].tool).toBe('edit');
+      expect(log[0].model).toBe('qwen3.6-27b');
+      expect(log[0].fingerprint).toBe(editLocationFingerprint(input));
+    });
+
+    it('successful bash → 0 ok records (edit-only denominator, A1)', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const result = await handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-bash',
+          toolName: 'bash',
+          input: { command: 'ls' },
+          content: [{ type: 'text', text: 'file1' }],
+          isError: false,
+          details: undefined,
+        },
+        ctx,
+      );
+
+      expect(result).toBeUndefined();
+      const log = readLog(logPath);
+      expect(log.filter((r) => r.outcome === 'ok')).toHaveLength(0);
+    });
+  });
+
   describe('before_agent_start (prevention)', () => {
     it('appends the guideline line to the system prompt', () => {
       const { api, handlers } = makeMockPi();

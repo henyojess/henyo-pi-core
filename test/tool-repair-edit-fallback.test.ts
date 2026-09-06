@@ -158,6 +158,37 @@ describe('whitespace-drift single edit — rewrite + applied telemetry', () => {
   });
 });
 
+// ─── telemetry v2: ok denominator + applied (plan step 2.2) ──────────────
+
+describe('successful edit with pending rewrites → ok + applied both (telemetry v2)', () => {
+  it('2 drift rewrites → exactly 1 ok record and 2 applied records', async () => {
+    mkfile('c.txt', 'aa  x\nbb y\ncc  z\ndd w\n');
+    const f = 'c.txt';
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath, editFallbackEnabled: true });
+    const edits = [
+      { oldText: 'aa x\nbb y', newText: 'AA X\nBB Y' },
+      { oldText: 'cc z\ndd w', newText: 'CC Z\nDD W' },
+    ];
+    const out = await handlers['message_end'](editEndEvent(f, edits), ctxFor(dir));
+    expect(out).toBeDefined();
+    const args = (out as any).message.content[1].arguments;
+    const fixed = readLog(logPath).filter((r) => r.outcome === 'fixed');
+    expect(fixed).toHaveLength(2); // 2 pending rewrites
+
+    const res = await handlers['tool_result'](
+      resultEvent('call-1', 'Successfully edited c.txt', args, false),
+      ctxFor(dir),
+    );
+    expect(res).toBeUndefined();
+    const ok = readLog(logPath).filter((r) => r.outcome === 'ok');
+    const applied = readLog(logPath).filter((r) => r.outcome === 'applied');
+    expect(ok).toHaveLength(1);
+    expect(applied).toHaveLength(2);
+    expect(ok[0].fingerprint).toBe(applied[0].fingerprint);
+  });
+});
+
 // ─── 3.4: ambiguous → NOT rewritten, candidate report ───────────────────
 
 describe('ambiguous edit — no rewrite, candidate report on not-found', () => {
@@ -427,19 +458,20 @@ describe('telemetry shape', () => {
       ctxFor(dir),
     );
     const log = readLog(logPath); // throws if any line is not valid JSON
-    expect(log).toHaveLength(2);
+    expect(log).toHaveLength(3);
     for (const record of log) {
       const raw = JSON.stringify(record);
       expect(raw).not.toContain('line1\nline2\nline3'); // original oldText never logged
       expect(raw).not.toContain('line1\n  line2'); // rewritten bytes never logged
+      expect(record.tool).toBe('edit');
+      expect(record.model).toBe('test-model');
+      expect(record.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      if (record.outcome === 'ok') continue; // v2 denominator — no rewrite fields
       expect(record.sha12).toMatch(/^[0-9a-f]{12}$/);
       expect(record.lineRange).toEqual({ startLine: 1, endLine: 3 });
       expect(record.fileLines).toBe(3);
       expect(record.oldTextLines).toBe(3);
-      expect(record.tool).toBe('edit');
-      expect(record.model).toBe('test-model');
-      expect(record.ts).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     }
-    expect(log.map((r) => r.outcome)).toEqual(['fixed', 'applied']);
+    expect(log.map((r) => r.outcome)).toEqual(['fixed', 'ok', 'applied']);
   });
 });
