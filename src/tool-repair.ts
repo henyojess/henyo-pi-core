@@ -115,10 +115,15 @@ interface LogRecord {
   ts: string;
   tool: string;
   model?: string;
-  outcome: 'fixed' | 'failed' | 'applied' | 'ok';
+  outcome: 'fixed' | 'failed' | 'applied' | 'ok' | 'recovered';
   rules?: string[];
   issues?: string;
   fingerprint?: string;
+  // Telemetry v2 recovery fields — `recoveredBy` is the toolCallId of the
+  // successful edit that closed the failure; `afterMs` is the time between
+  // the failure and the recovery.
+  recoveredBy?: string;
+  afterMs?: number;
   // Fuzzy-edit fallback records (plan assumption 6) — argument values never
   // reach the log; `sha12` is the only trace of the original oldText.
   toolCallId?: string;
@@ -592,6 +597,18 @@ interface PendingRewrite {
   sha12: string;
 }
 
+/** Telemetry v2: an open (not yet recovered) edit failure — recovery state (plan A2/A5). */
+interface OpenFailure {
+  fingerprint: string;
+  toolCallId: string;
+  ts: string;
+  issues: string;
+  model: string | undefined;
+}
+
+/** Per-file cap on open failures (FIFO, drop oldest) — implementation constant. */
+const OPEN_FAILURES_CAP = 8;
+
 /** Insert a pending rewrite record; evict the oldest toolCallIds FIFO past the cap. */
 function rememberRewrite(
   pending: Map<string, PendingRewrite[]>,
@@ -778,6 +795,52 @@ export function toolRepairExtension(
   // toolCallId → per-edit rewrite records (cap PENDING_REWRITE_CAP, FIFO).
   const pendingRewrites = new Map<string, PendingRewrite[]>();
 
+  // Telemetry v2 recovery state (plan A2/A5): open edit failures per file
+  // key (basename of the top-level `path`), in-memory only — "same session"
+  // is the intended semantics. Per-file FIFO cap OPEN_FAILURES_CAP.
+  const openFailures = new Map<string, OpenFailure[]>();
+
+  /** fileKey for an edit input — basename of a string top-level `path`; `undefined` (no tracking) otherwise. */
+  const editFileKey = (input: unknown): string | undefined => {
+    if (input === null || typeof input !== 'object' || Array.isArray(input)) return undefined;
+    const path = (input as Record<string, unknown>).path;
+    return typeof path === 'string' ? basename(path) : undefined;
+  };
+
+  /** Push an open failure for a file; FIFO drop the oldest past the cap. */
+  const rememberOpenFailure = (fileKey: string, entry: OpenFailure): void => {
+    const list = openFailures.get(fileKey) ?? [];
+    list.push(entry);
+    while (list.length > OPEN_FAILURES_CAP) list.shift();
+    openFailures.set(fileKey, list);
+  };
+
+  /**
+   * Pop ALL open failures for a file and log one `recovered` record per
+   * entry (carrying the ORIGINAL failure's fingerprint, issues, ts; plan
+   * A2 — per-file coarseness). Called from both the ok site and the
+   * applied success path; the ok site runs first, so the applied-site
+   * call is a no-op in practice.
+   */
+  const recoverFailures = (fileKey: string, byToolCallId: string, nowTs: string): void => {
+    const list = openFailures.get(fileKey);
+    if (list === undefined || list.length === 0) return;
+    openFailures.delete(fileKey);
+    for (const entry of list) {
+      appendLog({
+        ts: nowTs,
+        tool: 'edit',
+        model: entry.model,
+        outcome: 'recovered',
+        fingerprint: entry.fingerprint,
+        issues: entry.issues,
+        toolCallId: entry.toolCallId,
+        recoveredBy: byToolCallId,
+        afterMs: Date.now() - new Date(entry.ts).getTime(),
+      });
+    }
+  };
+
   // Hook 1 (O1): repair — hoist nested `path` before execution; when
   // `editFallbackEnabled`, also rewrite whitespace-drifted `oldText` to the
   // file's exact bytes (rule `whitespace-normalize-oldtext`) so the
@@ -855,13 +918,19 @@ export function toolRepairExtension(
     // all successful edits), so error rates are computable from the log
     // alone. Edit-only by plan assumption A1.
     if (event.toolName === 'edit' && !event.isError) {
+      const ts = new Date().toISOString();
       appendLog({
-        ts: new Date().toISOString(),
+        ts,
         tool: 'edit',
         model: ctx.model?.id,
         outcome: 'ok',
         fingerprint: editLocationFingerprint(event.input) ?? shapeFingerprint('edit', event.input),
       });
+      // Telemetry v2: close any open failures on this file (plan A2).
+      const fileKey = editFileKey(event.input);
+      if (fileKey !== undefined) {
+        recoverFailures(fileKey, event.toolCallId, ts);
+      }
     }
 
     // Fuzzy-edit fallback correlation (plan step 3.2): a successful result
@@ -893,6 +962,12 @@ export function toolRepairExtension(
               oldTextLines: p.oldTextLines,
               sha12: p.sha12,
             });
+          }
+          // Telemetry v2: recovery is already closed by the ok site above
+          // (which runs first) — called here too per plan spec; no-op.
+          const fileKey = editFileKey(event.input);
+          if (fileKey !== undefined) {
+            recoverFailures(fileKey, event.toolCallId, timestamp);
           }
           return undefined; // success — the result content is untouched
         }
@@ -963,14 +1038,27 @@ export function toolRepairExtension(
             issues = enhancement.issues;
           }
         }
+        const ts = new Date().toISOString();
+        const fingerprint = editLocationFingerprint(input) ?? shapeFingerprint('edit', input);
         appendLog({
-          ts: new Date().toISOString(),
+          ts,
           tool: 'edit',
           model: ctx.model?.id,
           outcome: 'failed',
           issues,
-          fingerprint: editLocationFingerprint(input) ?? shapeFingerprint('edit', input),
+          fingerprint,
         });
+        // Telemetry v2: track the failure for recovery (per-file, A2).
+        const fileKey = editFileKey(input);
+        if (fileKey !== undefined) {
+          rememberOpenFailure(fileKey, {
+            fingerprint,
+            toolCallId: event.toolCallId,
+            ts,
+            issues,
+            model: ctx.model?.id,
+          });
+        }
 
         return {
           content: [{ type: 'text', text: `${originalText}\n\n${note}` }],
@@ -987,17 +1075,34 @@ export function toolRepairExtension(
 
     const coachingLine = event.toolName === 'edit' ? COACHING_LINE : GENERIC_COACHING_LINE;
     const input = event.input as unknown;
+    const ts = new Date().toISOString();
+    const issues = shapeDiagnostics(event.toolName, input);
+    const fingerprint =
+      event.toolName === 'edit'
+        ? (editLocationFingerprint(input) ?? shapeFingerprint(event.toolName, input))
+        : shapeFingerprint(event.toolName, input);
     appendLog({
-      ts: new Date().toISOString(),
+      ts,
       tool: event.toolName,
       model: ctx.model?.id,
       outcome: 'failed',
-      issues: shapeDiagnostics(event.toolName, input),
-      fingerprint:
-        event.toolName === 'edit'
-          ? (editLocationFingerprint(input) ?? shapeFingerprint(event.toolName, input))
-          : shapeFingerprint(event.toolName, input),
+      issues,
+      fingerprint,
     });
+    // Telemetry v2: track the failure for recovery (edit only — the ok /
+    // applied sites only fire for edit successes).
+    if (event.toolName === 'edit') {
+      const fileKey = editFileKey(input);
+      if (fileKey !== undefined) {
+        rememberOpenFailure(fileKey, {
+          fingerprint,
+          toolCallId: event.toolCallId,
+          ts,
+          issues,
+          model: ctx.model?.id,
+        });
+      }
+    }
 
     return {
       content: [{ type: 'text', text: `${originalText}\n\n${coachingLine}` }],

@@ -974,6 +974,126 @@ describe('toolRepairExtension hooks', () => {
     });
   });
 
+  // Telemetry v2 — recovery tracking (plan step 3; A2 per-file, A5 in-memory).
+  describe('tool_result (recovery — telemetry v2)', () => {
+    const failEdit = (id: string, input: any, text: string) => ({
+      type: 'tool_result',
+      toolCallId: id,
+      toolName: 'edit',
+      input,
+      content: [{ type: 'text', text }],
+      isError: true,
+      details: undefined,
+    });
+    const okEdit = (id: string, input: any) => ({
+      type: 'tool_result',
+      toolCallId: id,
+      toolName: 'edit',
+      input,
+      content: [{ type: 'text', text: 'OK' }],
+      isError: false,
+      details: undefined,
+    });
+    const errNotFound = '/dir/a.txt';
+    const A_IN = { path: '/dir/a.txt', edits: [{ oldText: 'x', newText: 'y' }] };
+    const B_IN = { path: '/dir/b.txt', edits: [{ oldText: 'x', newText: 'y' }] };
+
+    it('fail(a.txt) → ok(a.txt) → 1 recovered with the failed fp, recoveredBy = ok toolCallId, afterMs ≥ 0', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](
+        failEdit(
+          'call-fail',
+          A_IN,
+          `Could not find the exact text in ${errNotFound}. The old text must match exactly including all whitespace and newlines.`,
+        ),
+        ctx,
+      );
+      await handlers['tool_result'](okEdit('call-ok', A_IN), ctx);
+
+      const log = readLog(logPath);
+      const failed = log.filter((r) => r.outcome === 'failed');
+      const ok = log.filter((r) => r.outcome === 'ok');
+      const recovered = log.filter((r) => r.outcome === 'recovered');
+      expect(failed).toHaveLength(1);
+      expect(ok).toHaveLength(1);
+      expect(recovered).toHaveLength(1);
+      expect(recovered[0].fingerprint).toBe(failed[0].fingerprint);
+      expect(recovered[0].toolCallId).toBe('call-fail');
+      expect(recovered[0].recoveredBy).toBe('call-ok');
+      expect(recovered[0].afterMs).toBeGreaterThanOrEqual(0);
+      expect(recovered[0].issues).toBe('content-not-found');
+    });
+
+    it('fail(a.txt) → ok(b.txt) → 0 recovered; open failure still recoverable by a later ok(a.txt)', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](
+        failEdit(
+          'call-fail',
+          A_IN,
+          `Could not find the exact text in ${errNotFound}. The old text must match exactly including all whitespace and newlines.`,
+        ),
+        ctx,
+      );
+      await handlers['tool_result'](okEdit('call-ok-b', B_IN), ctx);
+      expect(readLog(logPath).filter((r) => r.outcome === 'recovered')).toHaveLength(0);
+
+      await handlers['tool_result'](okEdit('call-ok-a', A_IN), ctx);
+      const recovered = readLog(logPath).filter((r) => r.outcome === 'recovered');
+      expect(recovered).toHaveLength(1);
+      expect(recovered[0].recoveredBy).toBe('call-ok-a');
+      expect(recovered[0].toolCallId).toBe('call-fail');
+    });
+
+    it('fail ×2 (a.txt) → ok(a.txt) → 2 recovered records (FIFO order)', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](
+        failEdit(
+          'call-f1',
+          A_IN,
+          `Could not find the exact text in ${errNotFound}. The old text must match exactly including all whitespace and newlines.`,
+        ),
+        ctx,
+      );
+      await handlers['tool_result'](
+        failEdit(
+          'call-f2',
+          A_IN,
+          `Found 2 occurrences of the text in ${errNotFound}. The text must be unique. Please provide more context to make it unique.`,
+        ),
+        ctx,
+      );
+      await handlers['tool_result'](okEdit('call-ok', A_IN), ctx);
+
+      const recovered = readLog(logPath).filter((r) => r.outcome === 'recovered');
+      expect(recovered).toHaveLength(2);
+      expect(recovered.map((r) => r.toolCallId)).toEqual(['call-f1', 'call-f2']);
+      expect(recovered.every((r) => r.recoveredBy === 'call-ok')).toBe(true);
+    });
+
+    it('failure without a resolvable path → no state pushed (no leak), 0 recovered on a later ok', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      // no top-level path (path nested in edits[0] — validation class)
+      const input = { edits: [{ path: '/dir/a.txt', oldText: 'x' }] };
+      await handlers['tool_result'](
+        failEdit('call-fail', input, 'Validation failed for tool "edit":\n- path: Required'),
+        ctx,
+      );
+      const failed = readLog(logPath).filter((r) => r.outcome === 'failed');
+      expect(failed).toHaveLength(1); // still logged — tracking is what is skipped
+
+      await handlers['tool_result'](okEdit('call-ok', A_IN), ctx);
+      expect(readLog(logPath).filter((r) => r.outcome === 'recovered')).toHaveLength(0);
+    });
+  });
+
   describe('before_agent_start (prevention)', () => {
     it('appends the guideline line to the system prompt', () => {
       const { api, handlers } = makeMockPi();
