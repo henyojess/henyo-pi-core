@@ -209,18 +209,32 @@ re-run `pnpm test` — if pi's matching semantics change, the port and its
 "built-in would fail" guard must be re-derived before the fallback stays
 sound.
 
-**Log file:** fixes and failures are appended as JSONL to
-`~/.pi/agent/tool-repair.jsonl` (healthy no-ops are not logged).
-Record shape: `{ ts, tool, model, outcome, rules?, issues?, fingerprint }`
+**Log file:** telemetry outcomes are appended as JSONL to
+`~/.pi/agent/tool-repair.jsonl` (non-`edit` successes are not logged — the
+`ok` denominator is edit-only). Record shape:
+`{ ts, tool, model, outcome, rules?, issues?, fingerprint, emission?, recoveredBy?, afterMs? }`
 — `outcome` is `fixed` (a repair rule or an edit-fallback rewrite
-applied), `applied` (an edit-fallback rewrite was confirmed by the
-subsequent successful tool result), or `failed` (validation actually
-failed — `issues` carries a shape diagnostic, a content-mismatch
-category, or `unknown-tool` for hallucinated tool names). Rewrite
+applied), `ok` (denominator — every successful `edit` tool result),
+`applied` (an edit-fallback rewrite was confirmed by the
+subsequent successful tool result), `recovered` (a previously failed
+`edit` on the same file succeeded — carries the original failure's
+`fingerprint` and `issues`, plus `recoveredBy` (the successful call's
+`toolCallId`) and `afterMs` (failure→recovery time in ms)), or `failed`
+(validation actually failed — `issues` carries a shape diagnostic, a
+content-mismatch category, or `unknown-tool` for hallucinated tool
+names). Validation-class `failed` records may carry `emission`:
+`truncated` (args cut off mid-payload — G3), `glued` (multiple object
+emissions concatenated into one args value — G5), or `shape-quirk` (any
+other unparseable shape) — so the truncation/glue gaps are measurable
+from the log alone. Rewrite
 records add `lineRange` (`{ startLine, endLine }`), `fileLines`,
 `oldTextLines`, `editIndex` (for multi-edit calls), and `sha12` (first 12
 hex of SHA-256 of the original `oldText` — argument values are never
-logged). Content-mismatch `issues` can carry a subcategory after a colon:
+logged). Fingerprint: `edit` events use the location fingerprint (hash of
+the path basename + a normalized `oldText` prefix — an irreversible hash,
+values never logged); non-edit events keep the shape fingerprint (hash of
+the sorted top-level argument keys). Content-mismatch `issues` can carry
+a subcategory after a colon:
 `content-not-found:candidates`, `content-not-found:no-match`,
 `content-not-unique:listed`, `too-large`.
 

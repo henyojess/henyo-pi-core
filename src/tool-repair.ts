@@ -46,10 +46,17 @@
  *    shape and fresh `oldText` in the first place; each line is deduped
  *    independently.
  *
- * Telemetry: `~/.pi/agent/tool-repair.jsonl` (JSONL; `fixed` and
- * `failed` outcomes only — healthy no-ops are not logged). Fingerprint is
- * `fnv1a("<tool>::<sorted keys>")` for all tools (uniform format; historical
- * edit fingerprints are non-comparable).
+ * Telemetry: `~/.pi/agent/tool-repair.jsonl` (JSONL; v2 outcome set:
+ * `fixed`, `ok` — denominator for every successful `edit`, `applied`,
+ * `recovered` — a previously failed edit on the same file succeeded
+ * (carries the original failure's `fingerprint`/`issues` plus
+ * `recoveredBy` and `afterMs`), and `failed`; non-`edit` successes are
+ * not logged). Validation-class `failed` records may carry `emission`
+ * (`truncated`/`glued`/`shape-quirk`). Fingerprint: `edit` events use the
+ * location fingerprint (`fnv1a("edit::loc::<basename>::<normalized
+ * oldText prefix>")` — an irreversible hash; argument values are never
+ * logged); non-edit events keep `fnv1a("<tool>::<sorted keys>")` (shape
+ * only; historical edit fingerprints are non-comparable across v2).
  *
  * Because no tools are registered or overridden, this coexists with any
  * repair layer that wraps `prepareArguments`.
