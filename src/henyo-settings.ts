@@ -17,6 +17,12 @@ export interface HenyoSettings {
    * occurrence line numbers. Event hooks only — built-in `edit` untouched.
    */
   editFallback: boolean;
+  /**
+   * Compaction summary retry guard: takes over summary generation on
+   * `session_before_compact` with a strict plain-text prompt + up to 3
+   * targeted retries; off by default.
+   */
+  compactionRetry: boolean;
   skills: Record<string, boolean>;
   commands: Record<string, boolean>;
 }
@@ -28,6 +34,7 @@ export const DEFAULTS: HenyoSettings = {
   ttftTokps: true,
   trace: false,
   editFallback: true,
+  compactionRetry: false,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -41,9 +48,9 @@ export function isPlainObject(value: unknown): value is Record<string, any> {
  * merged key-by-key so a partial user block never hides default siblings).
  * Returns a fresh copy of the merged settings (module-level DEFAULTS is
  * never exposed or mutated) and whether the input was missing any of the
- * 12 known keys (`toolRepair`, `footer`, `agentsMd`,
- * `ttftTokps`, `trace`, `editFallback`, skills×2, commands×2) — values are
- * never a write trigger.
+ * 13 known keys (`toolRepair`, `footer`, `agentsMd`,
+ * `ttftTokps`, `trace`, `editFallback`, `compactionRetry`, skills×2,
+ * commands×2) — values are never a write trigger.
  */
 export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: boolean } {
   const henyo: HenyoSettings = { ...DEFAULTS };
@@ -59,6 +66,7 @@ export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: bool
   henyo.ttftTokps = h.ttftTokps ?? DEFAULTS.ttftTokps;
   henyo.trace = h.trace ?? DEFAULTS.trace;
   henyo.editFallback = h.editFallback ?? DEFAULTS.editFallback;
+  henyo.compactionRetry = h.compactionRetry ?? DEFAULTS.compactionRetry;
   const userSkills = isPlainObject(h.skills) ? h.skills : {};
   const userCommands = isPlainObject(h.commands) ? h.commands : {};
   henyo.skills = { ...DEFAULTS.skills, ...userSkills };
@@ -70,6 +78,7 @@ export function mergeHenyo(user: unknown): { henyo: HenyoSettings; changed: bool
     'ttftTokps',
     'trace',
     'editFallback',
+    'compactionRetry',
     'skills',
     'commands',
   ];

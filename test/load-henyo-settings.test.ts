@@ -28,6 +28,7 @@ const FULL_DEFAULTS = {
   ttftTokps: true,
   trace: false,
   editFallback: true,
+  compactionRetry: false,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -38,6 +39,7 @@ const COMPLETE_BLOCK = {
   ttftTokps: true,
   trace: false,
   editFallback: true,
+  compactionRetry: false,
   skills: { 'plan-generation': true, notes: true },
   commands: { cwd: true, newp: true },
 };
@@ -74,10 +76,11 @@ describe('loadHenyoSettings', () => {
     expect(s).toEqual(FULL_DEFAULTS);
     expect(readSettings().henyo).toEqual(FULL_DEFAULTS);
     // Exact block shape: 8 top-level keys; nested objects carry the 2 skill
-    // and 2 command keys (12 known keys total).
+    // and 2 command keys (13 known keys total).
     expect(Object.keys(readSettings().henyo).sort()).toEqual([
       'agentsMd',
       'commands',
+      'compactionRetry',
       'editFallback',
       'footer',
       'skills',
@@ -239,5 +242,19 @@ describe('loadHenyoSettings', () => {
     const onDisk = readSettings();
     expect(onDisk.henyo.toolRepair).toBe(false); // preserved through fill write
     expect(onDisk.henyo.skills.notes).toBe(true);
+  });
+
+  it('compactionRetry: true user value wins over the default false and is not rewritten (steady state)', () => {
+    writeSettings({ other: { keep: true }, henyo: { compactionRetry: true } });
+    const s = loadHenyoSettings();
+    expect(s.compactionRetry).toBe(true); // user value, not the default
+    const onDisk = readSettings();
+    expect(onDisk.henyo.compactionRetry).toBe(true); // not rewritten by the fill write
+    expect(onDisk.henyo.toolRepair).toBe(true); // missing sibling filled
+    expect(onDisk.other.keep).toBe(true); // other top-level keys preserved
+    // Steady state: the file is now complete → second load is a zero-write no-op.
+    const before = rawSettings();
+    loadHenyoSettings();
+    expect(rawSettings()).toBe(before);
   });
 });
