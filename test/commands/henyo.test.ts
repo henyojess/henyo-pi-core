@@ -41,6 +41,7 @@ const CANONICAL_KEYS = [
   'ttftTokps',
   'trace',
   'editFallback',
+  'compactionRetry',
 ];
 
 function writeSettings(obj: unknown) {
@@ -106,17 +107,21 @@ describe('/henyo command', () => {
     expect(captured!.opts.getArgumentCompletions).toBeTypeOf('function');
   });
 
-  it('completions token 1: empty prefix → all 10 canonical keys', () => {
+  it('completions token 1: empty prefix → all 11 canonical keys', () => {
     const { opts } = register();
     const items = opts.getArgumentCompletions('');
     expect(items.map((i: any) => i.value)).toEqual(CANONICAL_KEYS);
     for (const i of items) expect(i.label).toBe(i.value);
   });
 
-  it('completions token 1: "com" → the 2 commands.* keys', () => {
+  it('completions token 1: "com" → the 2 commands.* keys + compactionRetry (all three start with "com")', () => {
     const { opts } = register();
     const items = opts.getArgumentCompletions('com');
-    expect(items.map((i: any) => i.value)).toEqual(['commands.cwd', 'commands.newp']);
+    expect(items.map((i: any) => i.value)).toEqual([
+      'commands.cwd',
+      'commands.newp',
+      'compactionRetry',
+    ]);
   });
 
   it('completions token 1: shorthand prefix "no" → skills.notes (value stays canonical)', () => {
@@ -141,7 +146,7 @@ describe('/henyo command', () => {
   });
 
   // ── bare /henyo (picker) ────────────────────────────────────────────
-  it('bare args (TUI): ui.select called with 9 labels matching seeded states', async () => {
+  it('bare args (TUI): ui.select called with 11 labels matching seeded states', async () => {
     writeSettings({ henyo: { ...SEED.henyo, footer: false } });
     const { opts } = register();
     const ctx = await invoke(opts, '');
@@ -159,6 +164,7 @@ describe('/henyo command', () => {
       'ttftTokps: on',
       'trace: off',
       'editFallback: on',
+      'compactionRetry: off',
     ]);
   });
 
@@ -224,6 +230,20 @@ describe('/henyo command', () => {
     expect(readSettings().henyo.editFallback).toBe(false);
     expect(ctx.reload).toHaveBeenCalledOnce();
     expect(applyFooter).not.toHaveBeenCalled();
+  });
+
+  it('/henyo compactionRetry on from default (off) → disk true, reload called, notify enabled', async () => {
+    const { opts } = register();
+    const ctx = await invoke(opts, 'compactionRetry on');
+    expect(readSettings().henyo.compactionRetry).toBe(true);
+    expect(ctx.reload).toHaveBeenCalledOnce();
+    expect(ctx.ui.notify).toHaveBeenCalledWith('Henyo compactionRetry enabled — reloading', 'info');
+  });
+
+  it('single-arg flip: compactionRetry effective-off (default) → /henyo compactionRetry → disk true', async () => {
+    const { opts } = register();
+    await invoke(opts, 'compactionRetry');
+    expect(readSettings().henyo.compactionRetry).toBe(true);
   });
 
   it('single-arg flip: seeded editFallback (default true) → /henyo editFallback → disk false', async () => {
