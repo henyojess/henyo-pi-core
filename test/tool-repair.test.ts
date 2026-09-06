@@ -16,6 +16,8 @@ import {
   salvageCorruptEdits,
   recoverGarbledPath,
   dropIncompleteEdits,
+  normalizeForFingerprint,
+  editLocationFingerprint,
 } from '../src/tool-repair.js';
 import payloads from './fixtures/edit-failure-payloads.json' with { type: 'json' };
 
@@ -193,6 +195,81 @@ describe('resolveToolRepair', () => {
 
   it('returns true when toolRepair is true', () => {
     expect(resolveToolRepair({ toolRepair: true })).toBe(true);
+  });
+});
+
+// ─── editLocationFingerprint (telemetry v2, plan step 1.1) ────────────
+
+describe('normalizeForFingerprint', () => {
+  it('maps CRLF to LF, trims the whole, collapses whitespace runs per line', () => {
+    expect(normalizeForFingerprint('  a   b\r\n  c  d\n')).toBe('a b\n c d');
+  });
+});
+
+describe('editLocationFingerprint', () => {
+  const locInput = (path: unknown, edits: unknown) => ({ path, edits });
+
+  it('returns the same 8-hex fp for the same oldText + path (stable across calls)', () => {
+    const a = editLocationFingerprint(locInput('/dir/a.txt', [{ oldText: 'hello', newText: 'x' }]));
+    const b = editLocationFingerprint(locInput('/dir/a.txt', [{ oldText: 'hello', newText: 'y' }]));
+    expect(a).toMatch(/^[0-9a-f]{8}$/);
+    expect(a).toBe(b);
+  });
+
+  it('returns different fps for different oldText on the same path', () => {
+    const a = editLocationFingerprint(locInput('/dir/a.txt', [{ oldText: 'hello', newText: 'x' }]));
+    const b = editLocationFingerprint(locInput('/dir/a.txt', [{ oldText: 'world', newText: 'x' }]));
+    expect(a).not.toBe(b);
+  });
+
+  it('returns the same fp for CRLF + extra-space variants of the same oldText', () => {
+    const plain = editLocationFingerprint(
+      locInput('/dir/a.txt', [{ oldText: 'line one\nline   two', newText: 'x' }]),
+    );
+    const variant = editLocationFingerprint(
+      locInput('/dir/a.txt', [{ oldText: 'line one\r\nline two', newText: 'x' }]),
+    );
+    expect(plain).toBe(variant);
+  });
+
+  it('truncates oldText >120 chars but stays stable across calls', () => {
+    const long = 'x'.repeat(200);
+    const a = editLocationFingerprint(locInput('/dir/a.txt', [{ oldText: long, newText: 'x' }]));
+    const b = editLocationFingerprint(locInput('/dir/a.txt', [{ oldText: long, newText: 'x' }]));
+    expect(a).toBe(b);
+  });
+
+  it('returns undefined when path is missing or not a string', () => {
+    expect(editLocationFingerprint({ edits: [{ oldText: 'a', newText: 'b' }] })).toBeUndefined();
+    expect(editLocationFingerprint(locInput(42, [{ oldText: 'a', newText: 'b' }]))).toBeUndefined();
+  });
+
+  it('merges array edits entries in order (order matters)', () => {
+    const fwd = editLocationFingerprint(
+      locInput('/dir/a.txt', [{ oldText: 'a' }, { oldText: 'b' }]),
+    );
+    const rev = editLocationFingerprint(
+      locInput('/dir/a.txt', [{ oldText: 'b' }, { oldText: 'a' }]),
+    );
+    const joined = editLocationFingerprint(locInput('/dir/a.txt', 'a\nb'));
+    expect(fwd).toBe(joined);
+    expect(fwd).not.toBe(rev);
+  });
+
+  it('returns undefined for non-object input', () => {
+    expect(editLocationFingerprint(null)).toBeUndefined();
+    expect(editLocationFingerprint('edits')).toBeUndefined();
+    expect(editLocationFingerprint(42)).toBeUndefined();
+    expect(editLocationFingerprint([{ oldText: 'a' }])).toBeUndefined();
+  });
+
+  it('returns undefined for an empty array edits (no resolvable oldText)', () => {
+    expect(editLocationFingerprint(locInput('/dir/a.txt', []))).toBeUndefined();
+  });
+
+  it('uses the raw string edits as the oldText source', () => {
+    const a = editLocationFingerprint(locInput('/dir/a.txt', '[{"oldText":"a","newText":"b"}]'));
+    expect(a).toMatch(/^[0-9a-f]{8}$/);
   });
 });
 
