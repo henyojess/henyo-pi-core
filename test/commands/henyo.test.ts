@@ -26,7 +26,7 @@ const SEED = {
     toolRepair: true,
     footer: true,
     agentsMd: true,
-    skills: { 'plan-generation': true, notes: true },
+    skills: { plans: true, notes: true },
     commands: { cwd: true, newp: true },
   },
 };
@@ -34,7 +34,7 @@ const CANONICAL_KEYS = [
   'toolRepair',
   'footer',
   'agentsMd',
-  'skills.plan-generation',
+  'skills.plans',
   'skills.notes',
   'commands.cwd',
   'commands.newp',
@@ -157,7 +157,7 @@ describe('/henyo command', () => {
       'toolRepair: on',
       'footer: off',
       'agentsMd: on',
-      'skills.plan-generation: on',
+      'skills.plans: on',
       'skills.notes: on',
       'commands.cwd: on',
       'commands.newp: on',
@@ -220,7 +220,7 @@ describe('/henyo command', () => {
     const { opts } = register();
     const ctx = await invoke(opts, 'skills.notes off');
     expect(readSettings().henyo.skills.notes).toBe(false);
-    expect(readSettings().henyo.skills['plan-generation']).toBe(true);
+    expect(readSettings().henyo.skills['plans']).toBe(true);
     expect(ctx.reload).toHaveBeenCalledOnce();
   });
 

@@ -29,7 +29,7 @@ const FULL_DEFAULTS = {
   trace: false,
   editFallback: true,
   compactionRetry: false,
-  skills: { 'plan-generation': true, notes: true },
+  skills: { plans: true, notes: true },
   commands: { cwd: true, newp: true },
 };
 const COMPLETE_BLOCK = {
@@ -40,7 +40,7 @@ const COMPLETE_BLOCK = {
   trace: false,
   editFallback: true,
   compactionRetry: false,
-  skills: { 'plan-generation': true, notes: true },
+  skills: { plans: true, notes: true },
   commands: { cwd: true, newp: true },
 };
 
@@ -88,7 +88,7 @@ describe('loadHenyoSettings', () => {
       'trace',
       'ttftTokps',
     ]);
-    expect(Object.keys(readSettings().henyo.skills).sort()).toEqual(['notes', 'plan-generation']);
+    expect(Object.keys(readSettings().henyo.skills).sort()).toEqual(['notes', 'plans']);
     expect(Object.keys(readSettings().henyo.commands).sort()).toEqual(['cwd', 'newp']);
   });
 
@@ -144,10 +144,10 @@ describe('loadHenyoSettings', () => {
     });
     const s = loadHenyoSettings();
     expect(s.skills.notes).toBe(false);
-    expect(s.skills['plan-generation']).toBe(true);
+    expect(s.skills['plans']).toBe(true);
     const onDisk = readSettings();
     expect(onDisk.henyo.skills.notes).toBe(false);
-    expect(onDisk.henyo.skills['plan-generation']).toBe(true);
+    expect(onDisk.henyo.skills['plans']).toBe(true);
   });
 
   it('henyo.skills is an array → skills defaults in result, no throw', () => {
@@ -181,7 +181,7 @@ describe('loadHenyoSettings', () => {
         agentsMd: true,
         ttftTokps: true,
         trace: false,
-        skills: { 'plan-generation': true, notes: true },
+        skills: { plans: true, notes: true },
         commands: { cwd: true, newp: true },
       },
     });
@@ -213,7 +213,7 @@ describe('loadHenyoSettings', () => {
         toolRepair: true,
         footer: true,
         agentsMd: true,
-        skills: { 'plan-generation': true, notes: true },
+        skills: { plans: true, notes: true },
         commands: { cwd: true, newp: true },
       },
     });
@@ -232,7 +232,7 @@ describe('loadHenyoSettings', () => {
         toolRepair: false,
         footer: true,
         agentsMd: true,
-        skills: { 'plan-generation': true },
+        skills: { plans: true },
         commands: { ...COMPLETE_BLOCK.commands },
       },
     });

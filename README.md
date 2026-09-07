@@ -23,7 +23,7 @@ henyo-pi-core/
 ├── vitest.config.ts      # Vitest test runner config
 ├── index.ts              # Re-export for pi extension loading
 ├── skills/               # Bundled pi skills
-│   ├── plan-generation/  # Structured plan generation for multi-step tasks
+│   ├── plans/  # Structured plan generation for multi-step tasks
 │   └── notes/            # Ephemeral working notes for tracking context and decisions
 ├── src/
 │   ├── index.ts          # Extension factory (registers commands, tools, events)
@@ -94,7 +94,7 @@ hand-editing `settings.json`:
   `on off true false enable disable` (case-insensitive).
 - Keys are given in canonical form (`toolRepair`, `footer`, `agentsMd`,
   `ttftTokps`, `trace`, `compactionRetry`, `skills.notes`, `commands.cwd`) or, for the dotted
-  keys, in their flat shorthand (`notes`, `plan-generation`, `cwd`, `newp`)
+  keys, in their flat shorthand (`notes`, `plans`, `cwd`, `newp`)
   (`ttftTokps`/`trace` are top-level — no shorthand). Tab-completion is
   offered for both keys and values.
 - `footer` applies live in the current session; all other keys are written
@@ -108,7 +108,7 @@ hand-editing `settings.json`:
 
 ## Bundled Skills
 
-### `/skill:plan-generation`
+### `/skill:plans`
 
 A structured methodology for producing plans that an agent can execute without human clarification. Every plan is a checklist: read, check off steps, commit, verify. Produces plans with measurable acceptance criteria, scope boundaries, dependency ordering, and per-step verification. Use whenever a plan is requested or when a task involves multiple steps, file changes, or dependencies.
 
@@ -335,7 +335,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `plan-generation` | `true` | Structured plan generation for multi-step tasks |
+| `plans` | `true` | Structured plan generation for multi-step tasks |
 | `notes` | `true` | Ephemeral working notes for tracking context and decisions |
 
 **Commands:**
@@ -364,7 +364,7 @@ preserved on settings writes and ignored by the extension.
     "trace": false,
     "compactionRetry": true,
     "skills": {
-      "plan-generation": true,
+      "plans": true,
       "notes": false
     },
     "commands": {
@@ -400,7 +400,7 @@ To disable all henyo features:
     "trace": false,
     "compactionRetry": false,
     "skills": {
-      "plan-generation": false,
+      "plans": false,
       "notes": false
     },
     "commands": {

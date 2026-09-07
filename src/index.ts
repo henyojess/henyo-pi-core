@@ -25,7 +25,7 @@ function extPath(...segments: string[]) {
   return join(__dirname, '..', ...segments);
 }
 
-const SKILLS = { 'plan-generation': 'skills/plan-generation', notes: 'skills/notes' };
+const SKILLS = { plans: 'skills/plans', notes: 'skills/notes' };
 
 const COMMANDS: Record<
   string,

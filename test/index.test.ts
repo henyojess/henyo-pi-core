@@ -83,7 +83,7 @@ describe('extension entry point (src/index.ts)', () => {
     const written = JSON.parse(readFileSync(settingsFile, 'utf-8'));
     expect(written.henyo.footer).toBe(true);
     expect(written.henyo.toolRepair).toBe(true);
-    expect(written.henyo.skills).toEqual({ 'plan-generation': true, notes: true });
+    expect(written.henyo.skills).toEqual({ plans: true, notes: true });
     expect(written.henyo.commands).toEqual({ cwd: true, newp: true });
 
     // All commands registered (defaults = enabled).
@@ -139,7 +139,7 @@ describe('extension entry point (src/index.ts)', () => {
           toolRepair: true,
           footer: true,
           agentsMd: true,
-          skills: { 'plan-generation': true, notes: true },
+          skills: { plans: true, notes: true },
           commands: { cwd: false, newp: false },
         },
       }),

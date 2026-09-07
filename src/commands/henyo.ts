@@ -17,7 +17,7 @@ import type { HenyoSettings } from '../henyo-settings.js';
  *   /henyo <key> <value>   set <key> to <value> (on|off|true|false|enable|disable)
  *
  * Keys accept the canonical dotted form or a flat shorthand (`notes`,
- * `plan-generation`, `cwd`, `newp`). `footer` applies live via the
+ * `plans`, `cwd`, `newp`). `footer` applies live via the
  * `applyFooter` callback; every other key is written and applied after
  * `ctx.reload()` (terminal — the success toast precedes the reload).
  */
@@ -37,7 +37,7 @@ const KEYS: KeyInfo[] = [
   { canonical: 'toolRepair' },
   { canonical: 'footer', live: true },
   { canonical: 'agentsMd' },
-  { canonical: 'skills.plan-generation', shorthand: 'plan-generation', section: 'skills' },
+  { canonical: 'skills.plans', shorthand: 'plans', section: 'skills' },
   { canonical: 'skills.notes', shorthand: 'notes', section: 'skills' },
   { canonical: 'commands.cwd', shorthand: 'cwd', section: 'commands' },
   { canonical: 'commands.newp', shorthand: 'newp', section: 'commands' },

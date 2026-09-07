@@ -35,7 +35,7 @@ export const DEFAULTS: HenyoSettings = {
   trace: false,
   editFallback: true,
   compactionRetry: false,
-  skills: { 'plan-generation': true, notes: true },
+  skills: { plans: true, notes: true },
   commands: { cwd: true, newp: true },
 };
 

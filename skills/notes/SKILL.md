@@ -36,7 +36,7 @@ Key observations, findings, or decisions. Use lists and tables.
 - **Dates are checked, never guessed:** the current date is NOT in your context — model-recalled dates are fabricated. Run `date +%F` and use its output for the `**Date:**` field (and any other date you write in the note).
 - **Lowercase-slug filenames:** e.g., `fix-auth-timeout.md`, not `Fix Auth Timeout.md`
 - **Notes are ephemeral:** Delete once an implementation plan exists in `~/.pi/agent/plans/` — the plan is the record
-  - **Note spawned the plan:** the plan's Final Verification carries the delete item (plan-generation skill, source-note rule); the executor removes the note at plan completion.
+  - **Note spawned the plan:** the plan's Final Verification carries the delete item (plans skill, source-note rule); the executor removes the note at plan completion.
   - **Plan already exists (discovered later):** delete the note now.
   - **Conflict rule:** if a plan instructs *updating* a note (e.g., status → Planned) instead of deleting it, log `[deviation]: plan says update note; notes skill mandates delete` next to that step and still delete the note at plan completion.
 - **Location:** `~/.pi/agent/notes/` (global agent dir; `~` = user home — expand to absolute, never rebase onto cwd)
@@ -58,5 +58,5 @@ Key observations, findings, or decisions. Use lists and tables.
 
 - Information that belongs in code comments
 - Permanent documentation (use README or inline docs)
-- Implementation plans (use the plan-generation skill)
+- Implementation plans (use the plans skill)
 - Session context (use session storage)
