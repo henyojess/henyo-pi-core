@@ -31,7 +31,7 @@ Read this entire plan. Then state how you will work with it.
 3. **Immediately** mark it `[x]` in the plan file, adding implementation notes — prefix
    assumptions and deviations with `[assumption]:` / `[deviation]:`.
 4. Move to the next `[ ]` sub-step.
-5. When all sub-steps in a step are `[x]`, run verification + commit.
+5. When all sub-steps in a step are `[x]`, mark the step header's own checkbox `[x]`.
 
 ### Discipline
 - Mark each checkbox **right after completing that sub-step**, not at the end of the step.
@@ -138,8 +138,11 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 ### N.x [Sub-task]
 - [ ] [action] — do the work
 
-### N.x Verify + commit
-- [ ] [verification command] passes
+### N.x Verify
+- [ ] Test suite passes (dynamic verification)
+- [ ] Static checks pass — type-check, lint, or project-equivalent (structural verification)
+
+### N.y Commit
 - [ ] Run `git add` and `git commit -m "[type](scope): [description]"`
 ```
 
