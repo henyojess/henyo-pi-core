@@ -1,7 +1,16 @@
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI as _ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { join, resolve } from 'node:path';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  statSync,
+  writeFileSync,
+  unlinkSync,
+} from 'node:fs';
 
 /** Generate a simple session ID (matches pi's internal format). */
 function generateSessionId(): string {
@@ -107,6 +116,15 @@ export default function (pi: _ExtensionAPI) {
           if (isSessionEmpty(sessionFile)) {
             try {
               unlinkSync(sessionFile);
+              // Clean up the empty session directory if no other files exist
+              const sessionDir = getSessionDirForCwd(target);
+              try {
+                if (readdirSync(sessionDir).length === 0) {
+                  rmdirSync(sessionDir);
+                }
+              } catch {
+                // Directory may already be gone or no longer empty; ignore
+              }
             } catch {
               // File may already be gone; ignore
             }
@@ -119,6 +137,15 @@ export default function (pi: _ExtensionAPI) {
         // Clean up the temp file if the switch was cancelled
         try {
           unlinkSync(sessionFile);
+          // Also clean up the empty session directory
+          const sessionDir = getSessionDirForCwd(target);
+          try {
+            if (readdirSync(sessionDir).length === 0) {
+              rmdirSync(sessionDir);
+            }
+          } catch {
+            // Directory may already be gone or no longer empty; ignore
+          }
         } catch {
           // File may already be gone; ignore
         }
