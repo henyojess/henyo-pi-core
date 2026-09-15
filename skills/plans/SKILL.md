@@ -25,6 +25,13 @@ Instruct the agent how to execute the plan:
 
 Read this entire plan. Then state how you will work with it.
 
+If this plan was spawned by a note in `~/.pi/agent/notes/` (see Source Note
+Inheritance), do this before Step 1:
+1. Re-read the source note file — do not rely on memory of its content.
+2. Verify every Source Note Inheritance row maps to a plan location.
+3. Delete the source note `~/.pi/agent/notes/<source>.md`. The plan is now
+   the sole record.
+
 ### Execution Loop (per sub-step)
 1. Find the first unchecked `[ ]` sub-step in the current step.
 2. Do the work described in that sub-step.
@@ -167,10 +174,10 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - [ ] Git diff shows clean work
 ```
 
-**When a note in `~/.pi/agent/notes/` spawned the plan**, Final Verification must include:
+**When a note in `~/.pi/agent/notes/` spawned the plan**, the note is deleted at the start of execution (Before You Start), gated on the inheritance mapping check. Final Verification must include a residual confirmation:
 
 ```
-- [ ] Delete source note `~/.pi/agent/notes/<source>.md` (ephemeral — the plan is the record; never "update the note" instead)
+- [ ] Source note `~/.pi/agent/notes/<source>.md` is deleted (removed at execution start — the plan is the record; never "update the note" instead)
 ```
 
 ### 10. Meta (optional)
@@ -182,6 +189,24 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 ## Estimated Effort
 - Step 1: 30 min
 ```
+
+### 11. Source Note Inheritance (when a plan is spawned from a note)
+
+When a note in `~/.pi/agent/notes/` spawned the plan, the plan must carry the note's content so nothing is lost when the note is deleted:
+
+```
+## Source Note Inheritance
+
+Source: ~/.pi/agent/notes/<note>.md
+
+| Note item (finding / decision / context / next step) | Carried into |
+|---|---|
+| [item] | Inventory row N / Assumption #N / Step N.x / retained here (background only) |
+```
+
+- **Exhaustive:** every entry in the note's Context, Notes (findings/decisions), and Next Steps needs a row — mapped to a concrete plan location, or explicitly "retained here" for background-only content. Nothing is dropped silently.
+- **Gated delete:** the note is deleted only after the executor re-reads the note file and confirms every row maps (see Before You Start). Delete-at-execution-start, not at generation, not at completion.
+- **Supersede at generation:** when creating the plan, set the note's `Status: Superseded` and add `Superseded by: <plan path>` — the note is visibly dead even before deletion runs.
 
 ---
 
@@ -200,7 +225,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory.
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
-14. **Source notes die with the plan.** If a note in `~/.pi/agent/notes/` spawned the plan, Final Verification includes a delete-the-note item — never "update the note". The plan is the record; the note is removed at plan completion, not at generation.
+14. **Source notes are inherited, then die.** If a note in `~/.pi/agent/notes/` spawned the plan, the plan must include a Source Note Inheritance section mapping every finding/decision/context item/next step to a plan location, and the note is marked `Status: Superseded` with `Superseded by: <plan path>` at generation. The note is deleted as the first action of execution — after review, before Step 1 — gated on re-reading the note file and verifying the mapping. Never "update the note" instead.
 15. **Handoff path.** After creating a plan file, the reply must end with one line per
     plan created — the plan's full absolute path (`~` expanded), at the very end, after
     the summary. The line is bare — no labels, no prose, no backticks. Multiple files in
@@ -244,7 +269,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, Final Verification must include the delete-source-note item (rule 14).
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 11) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user
@@ -280,6 +305,7 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 21 | Assumptions & Open Questions section present | Ambiguities hidden in prose/steps instead of the table |
 | 22 | Unattended rule in embedded instructions | Template still says "if told to proceed without asking" |
 | 23 | Out-of-plan dependency rule in embedded instructions | Template lacks the "deps beyond the plan's list are `[blocker]`s" line |
-| 24 | Plan generated from a note includes the delete-source-note Final Verification item | A note spawned the plan but the plan omits the delete item (or says "update the note" instead) |
+| 24 | Plan generated from a note includes the Source Note Inheritance section with exhaustive mapping | A note spawned the plan but a finding/decision/next step has no inheritance row (re-read the note file to verify), or the note was not marked Superseded |
+| 25 | Source note delete is in Before You Start, gated on the mapping check | The delete instruction is missing, sits in Final Verification instead, or is not gated on re-reading the note and verifying the mapping |
 
-If any row fails, edit the plan and re-check. Do not present until all 24 pass.
+If any row fails, edit the plan and re-check. Do not present until all 25 pass.

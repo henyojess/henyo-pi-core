@@ -36,9 +36,9 @@ Key observations, findings, or decisions. Use lists and tables.
 - **Dates are checked, never guessed:** the current date is NOT in your context — model-recalled dates are fabricated. Run `date +%F` and use its output for the `**Date:**` field (and any other date you write in the note).
 - **Lowercase-slug filenames:** e.g., `fix-auth-timeout.md`, not `Fix Auth Timeout.md`
 - **Notes are ephemeral:** Delete once an implementation plan exists in `~/.pi/agent/plans/` — the plan is the record
-  - **Note spawned the plan:** the plan's Final Verification carries the delete item (plans skill, source-note rule); the executor removes the note at plan completion.
-  - **Plan already exists (discovered later):** delete the note now.
-  - **Conflict rule:** if a plan instructs *updating* a note (e.g., status → Planned) instead of deleting it, log `[deviation]: plan says update note; notes skill mandates delete` next to that step and still delete the note at plan completion.
+  - **Note spawned the plan:** the plan carries a Source Note Inheritance section that maps every note finding/decision/next step into plan locations (plans skill, rule 14) — nothing may be lost. At plan generation, mark the note `Status: Superseded` and add `Superseded by: <plan path>`. The executor then re-reads the note, verifies every inheritance row maps, and deletes the note as the first action of execution — after review, before Step 1, never later.
+  - **Plan already exists (discovered later):** delete the note now — but only after verifying the plan carries the note's findings (inheritance section or equivalent); if it doesn't, fold them into the plan first.
+  - **Conflict rule:** if a plan instructs *updating* a note (e.g., status → Planned) instead of deleting it, log `[deviation]: plan says update note; notes skill mandates delete` next to that step and still delete the note at execution start (or immediately if execution has already begun).
 - **Location:** `~/.pi/agent/notes/` (global agent dir; `~` = user home — expand to absolute, never rebase onto cwd)
 - **One note per file:** Each note addresses a single topic or problem
 - **Handoff path:** when you create a note, the reply must end with one line
