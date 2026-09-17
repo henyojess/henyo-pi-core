@@ -747,8 +747,20 @@ async function applyEditFallback(
   }
   const fileLines = splitLinesWithEndings(normalizeToLF(content)).length;
   const timestamp = new Date().toISOString();
-  const fingerprint = shapeFingerprint('edit', args);
-  let count = 0;
+  // First pass: decide + apply rewrites (independent per edit — classifyEdit
+  // only reads the file, not the args). All mutations land BEFORE the
+  // fingerprint is computed, so the `fixed` records carry the same location
+  // fingerprint as the paired `applied`/`ok`/`failed` records (A1, plan
+  // tool-repair-a1a2-coherence) — a pre-mutation fingerprint is NOT
+  // whitespace-invariant: normalizeForFingerprint keeps one leading space per
+  // indented line. `shapeFingerprint` covers args without a resolvable location.
+  interface PlannedRewrite {
+    editIndex: number;
+    oldText: string;
+    rewrittenOldText: string;
+    lineRange: { startLine: number; endLine: number };
+  }
+  const planned: PlannedRewrite[] = [];
   for (let i = 0; i < edits.length; i++) {
     const entry = edits[i];
     if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) continue;
@@ -761,11 +773,23 @@ async function applyEditFallback(
       continue;
     }
     edit.oldText = result.rewrittenOldText;
+    planned.push({
+      editIndex: i,
+      oldText,
+      rewrittenOldText: result.rewrittenOldText,
+      lineRange: result.lineRange,
+    });
+  }
+  if (planned.length === 0) return 0;
+  const fingerprint = editLocationFingerprint(args) ?? shapeFingerprint('edit', args);
+  let count = 0;
+  for (const pw of planned) {
+    const { editIndex: i, oldText, lineRange } = pw;
     const oldTextLines = splitLinesWithEndings(normalizeToLF(oldText)).length;
     const record: PendingRewrite = {
       path,
       editIndex: i,
-      lineRange: result.lineRange,
+      lineRange,
       fileLines,
       oldTextLines,
       sha12: sha12(oldText),
@@ -780,7 +804,7 @@ async function applyEditFallback(
       fingerprint,
       toolCallId,
       editIndex: i,
-      lineRange: result.lineRange,
+      lineRange,
       fileLines,
       oldTextLines,
       sha12: record.sha12,

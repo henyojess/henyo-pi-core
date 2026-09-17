@@ -155,6 +155,9 @@ describe('whitespace-drift single edit — rewrite + applied telemetry', () => {
     expect(applied[0].lineRange).toEqual({ startLine: 1, endLine: 3 });
     expect(applied[0].fileLines).toBe(3);
     expect(applied[0].sha12).toBe(fixed[0].sha12);
+    // A1: the rewrite `fixed` record and the paired `applied` record carry the
+    // same location fingerprint (correlation without `toolCallId`)
+    expect(fixed[0].fingerprint).toBe(applied[0].fingerprint);
   });
 });
 
@@ -186,6 +189,10 @@ describe('successful edit with pending rewrites → ok + applied both (telemetry
     expect(ok).toHaveLength(1);
     expect(applied).toHaveLength(2);
     expect(ok[0].fingerprint).toBe(applied[0].fingerprint);
+    // A1: both `fixed` records (shared args object) carry the same location
+    // fingerprint as the paired `ok`/`applied` records
+    expect(fixed[0].fingerprint).toBe(ok[0].fingerprint);
+    expect(fixed[1].fingerprint).toBe(ok[0].fingerprint);
   });
 });
 
