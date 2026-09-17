@@ -829,12 +829,12 @@ interface ContentErrorEnhancement {
  * (plan step 3.2). Multi-edit: the failing `edits[i]` is scoped from the
  * error's first line (`edits[\d+]`). Returns null when no upgrade
  * qualifies (file unreadable, shape not editable, class `none`/`rewrite` —
- * e.g. the file changed since the model's read) so the existing one-line
- * hint stays untouched (assumption 11: no behavior regression).
- *
- * [assumption]: `duplicates` under a not-FOUND error (the file changed
- * after the model's read) is not reported — outside the plan's
- * subcategory list; the one-line hint suffices.
+ * e.g. the file changed since the model's read — or category/class mismatch,
+ * e.g. a not-unique error whose current-file class is `candidates`/`no-match`/
+ * `too-large`, or a not-found error whose class is `duplicates` — the file
+ * changed after the model's read; the one-line hint suffices in both
+ * directions) so the existing one-line hint stays untouched
+ * (assumption 11: no behavior regression).
  */
 async function classifyContentError(
   category: string,
@@ -863,11 +863,15 @@ async function classifyContentError(
   const result = classifyEdit(path, content, oldText, newText);
   switch (result.class) {
     case 'candidates':
-      return { issues: 'content-not-found:candidates', replace: true, extra: result.report ?? '' };
+      return category === 'content-not-found'
+        ? { issues: 'content-not-found:candidates', replace: true, extra: result.report ?? '' }
+        : null;
     case 'too-large':
-      return { issues: 'too-large', replace: true, extra: result.report ?? '' };
+      return category === 'content-not-found'
+        ? { issues: 'too-large', replace: true, extra: result.report ?? '' }
+        : null;
     case 'no-match':
-      return result.report
+      return category === 'content-not-found' && result.report
         ? { issues: 'content-not-found:no-match', replace: false, extra: result.report }
         : null;
     case 'duplicates':

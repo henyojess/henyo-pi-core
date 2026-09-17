@@ -258,6 +258,39 @@ describe('duplicate edit — line numbers in the result', () => {
   });
 });
 
+// ─── A2: category gate — drifted file must not upgrade not-unique ───────
+
+describe('category gate — not-unique error whose file drifted', () => {
+  it('not-unique error, current file reclassifies as candidates → plain one-line hint, no report, no subcategory', async () => {
+    // At error time the file held the oldText twice (built-in: not-unique);
+    // before the tool_result re-read it drifted to a single near-miss block
+    // (1 token off of 6 lines → ratio 5/6 ≈ 0.833 ≥ 0.8, not a
+    // whitespace-normalized 1:1) so the current-file class is `candidates` —
+    // which must NOT upgrade a not-unique error (A2 gate).
+    const f = mkfile('u.txt', 'aa1\nbb2\ncc3\ndd4\nee5\nffX\n');
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath, editFallbackEnabled: true });
+    const res = await handlers['tool_result'](
+      resultEvent(
+        'call-1',
+        errNotUnique(f, 2),
+        { path: f, edits: [{ oldText: 'aa1\nbb2\ncc3\ndd4\nee5\nff6', newText: 'x' }] },
+        true,
+      ),
+      ctxFor(dir),
+    );
+    const text = res.content[0].text as string;
+    // the not-unique one-liner stands alone — no nearest-match report
+    expect(text).toBe(
+      `${errNotUnique(f, 2)}\n\nHenyo note: The text occurs more than once in the file. Extend oldText with enough surrounding lines to be unique.`,
+    );
+    expect(text).not.toContain('Nearest match');
+    const failed = readLog(logPath).filter((r) => r.outcome === 'failed');
+    expect(failed).toHaveLength(1);
+    expect(failed[0].issues).toBe('content-not-unique'); // no `:candidates` subcategory
+  });
+});
+
 // ─── 3.4: multi-edit scoping ─────────────────────────────────────────────
 
 describe('multi-edit calls', () => {
