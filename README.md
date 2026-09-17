@@ -214,7 +214,7 @@ sound.
 **Log file:** telemetry outcomes are appended as JSONL to
 `~/.pi/agent/tool-repair.jsonl` (non-`edit` successes are not logged — the
 `ok` denominator is edit-only). Record shape:
-`{ ts, tool, model, outcome, rules?, issues?, fingerprint, emission?, recoveredBy?, afterMs? }`
+`{ ts, tool, model, outcome, rules?, issues?, fingerprint, category?, emission?, recoveredBy?, afterMs? }`
 — `outcome` is `fixed` (a repair rule or an edit-fallback rewrite
 applied), `ok` (denominator — every successful `edit` tool result),
 `applied` (an edit-fallback rewrite was confirmed by the
@@ -224,7 +224,11 @@ subsequent successful tool result), `recovered` (a previously failed
 `toolCallId`) and `afterMs` (failure→recovery time in ms)), or `failed`
 (validation actually failed — `issues` carries a shape diagnostic, a
 content-mismatch category, or `unknown-tool` for hallucinated tool
-names). Validation-class `failed` records may carry `emission`:
+names). Content-mismatch `failed` records carry `category` (the original
+built-in error category) so an upgraded `issues` subcategory stays
+traceable to its origin category — `issues !== category` is the upgrade
+signal, and a `category` that doesn't match the `issues` prefix is the
+mislabel signal. Validation-class `failed` records may carry `emission`:
 `truncated` (args cut off mid-payload — G3), `glued` (multiple object
 emissions concatenated into one args value — G5), or `shape-quirk` (any
 other unparseable shape) — so the truncation/glue gaps are measurable

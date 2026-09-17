@@ -227,6 +227,7 @@ describe('ambiguous edit — no rewrite, candidate report on not-found', () => {
     const failed = readLog(logPath).filter((r) => r.outcome === 'failed');
     expect(failed).toHaveLength(1);
     expect(failed[0].issues).toBe('content-not-found:candidates');
+    expect(failed[0].category).toBe('content-not-found'); // upgraded subcategory, original preserved
   });
 });
 
@@ -288,6 +289,7 @@ describe('category gate — not-unique error whose file drifted', () => {
     const failed = readLog(logPath).filter((r) => r.outcome === 'failed');
     expect(failed).toHaveLength(1);
     expect(failed[0].issues).toBe('content-not-unique'); // no `:candidates` subcategory
+    expect(failed[0].category).toBe('content-not-unique'); // issues === category — no upgrade
   });
 });
 

@@ -125,6 +125,13 @@ interface LogRecord {
   outcome: 'fixed' | 'failed' | 'applied' | 'ok' | 'recovered';
   rules?: string[];
   issues?: string;
+  // Original built-in error category for content-mismatch `failed` records
+  // — `issues !== category` signals an upgraded subcategory (e.g.
+  // `content-not-found:candidates`); the mislabel check is `category` vs
+  // the `issues` prefix. Only content-mismatch `failed` records carry it;
+  // `unknown-tool` and validation-class records are untouched (their
+  // `issues` is the first-class classification).
+  category?: string;
   fingerprint?: string;
   // Telemetry v2 recovery fields — `recoveredBy` is the toolCallId of the
   // successful edit that closed the failure; `afterMs` is the time between
@@ -1163,6 +1170,9 @@ export function toolRepairExtension(
           model: ctx.model?.id,
           outcome: 'failed',
           issues,
+          // Original category — `issues !== category` is the upgraded
+          // subcategory / mislabel signal from the log alone.
+          category: rule.category,
           fingerprint,
         });
         // Telemetry v2: track the failure for recovery (per-file, A2).
