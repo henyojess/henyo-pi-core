@@ -402,7 +402,7 @@ describe('editFallback disabled — zero new behavior', () => {
       );
       // byte-identical to the no-feature build: built-in error + one-line hint only
       expect(res.content[0].text).toBe(
-        `${errNotFound(f)}\n\nHenyo note: Re-read the file now (it may have changed since your last read) and copy oldText verbatim from the fresh read, including exact whitespace and newlines.`,
+        `${errNotFound(f)}\n\nHenyo note: Re-read the file now (it may have changed since your last read) and copy oldText verbatim from the fresh read, including exact whitespace and newlines. Do not re-emit an oldText that has already failed — it will fail again.`,
       );
       const failed = readLog(logPath).filter((r) => r.outcome === 'failed');
       expect(failed).toHaveLength(1);

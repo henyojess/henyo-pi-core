@@ -1206,6 +1206,8 @@ export function toolRepairExtension(
         // Assumption 6: verbatim retry = a same-fingerprint failure is open
         // for this file and no successful `read` of it happened after that
         // failure (ISO-8601 ts compare is lexicographically correct).
+        // File-scoped only: no resolvable path → no tracking, no flag
+        // (matches the documented "no state pushed" no-leak behavior).
         const readTs = fileKey !== undefined ? (lastReadTs.get(fileKey) ?? '') : '';
         const retriedVerbatim =
           fileKey !== undefined &&

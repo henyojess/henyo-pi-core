@@ -901,6 +901,163 @@ describe('toolRepairExtension hooks', () => {
       expect(result).toBeUndefined();
       expect(readLog(logPath)).toHaveLength(0);
     });
+
+    it('not-found coaching now carries the anti-verbatim-retry prohibition', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const error = 'Could not find the exact text in /f. Ensure oldText matches exactly.';
+      const result = await handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-proh',
+          toolName: 'edit',
+          input: { path: '/f', edits: [{ oldText: 'x', newText: 'y' }] },
+          content: [{ type: 'text', text: error }],
+          isError: true,
+          details: undefined,
+        },
+        ctx,
+      );
+      expect(result).toBeDefined();
+      const [block] = result.content;
+      expect(block.text).toContain('Henyo note: Re-read the file now');
+      expect(block.text).toContain(
+        'Do not re-emit an oldText that has already failed — it will fail again.',
+      );
+    });
+  });
+
+  describe('tool_result (retriedVerbatim — telemetry v2)', () => {
+    const A_IN = { path: '/dir/a.txt', edits: [{ oldText: 'x', newText: 'y' }] };
+    const failNotFound = (id: string) => ({
+      type: 'tool_result',
+      toolCallId: id,
+      toolName: 'edit',
+      input: A_IN,
+      content: [{ type: 'text', text: 'Could not find the exact text in /dir/a.txt: "x".' }],
+      isError: true,
+      details: undefined,
+    });
+    const okEdit = (id: string, input: any) => ({
+      type: 'tool_result',
+      toolCallId: id,
+      toolName: 'edit',
+      input,
+      content: [{ type: 'text', text: 'OK' }],
+      isError: false,
+      details: undefined,
+    });
+    const okRead = (id: string) => ({
+      type: 'tool_result',
+      toolCallId: id,
+      toolName: 'read',
+      input: { path: '/dir/a.txt' },
+      content: [{ type: 'text', text: 'x\nfile content\n' }],
+      isError: false,
+      details: undefined,
+    });
+
+    it('same-fingerprint edit fails twice with no read between → second record has retriedVerbatim', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](failNotFound('call-f1'), ctx);
+      await handlers['tool_result'](failNotFound('call-f2'), ctx);
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(2);
+      expect(log[0].outcome).toBe('failed');
+      expect(log[0].retriedVerbatim).toBeUndefined();
+      expect(log[1].outcome).toBe('failed');
+      expect(log[1].retriedVerbatim).toBe(true);
+      expect(log[1].fingerprint).toBe(log[0].fingerprint);
+    });
+
+    it('successful read of the file in between → later same-fingerprint failure NOT flagged; the read logs nothing', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](failNotFound('call-f1'), ctx);
+      await handlers['tool_result'](okRead('call-r1'), ctx);
+      await handlers['tool_result'](failNotFound('call-f2'), ctx);
+
+      const log = readLog(logPath);
+      // The read itself logs no record (not recovery, not an ok denominator).
+      expect(log).toHaveLength(2);
+      expect(log.every((r: any) => r.outcome === 'failed')).toBe(true);
+      expect(log[0].retriedVerbatim).toBeUndefined();
+      expect(log[1].retriedVerbatim).toBeUndefined();
+    });
+
+    it('recovery (ok) closes the open failure → later same-fingerprint failure NOT flagged', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](failNotFound('call-f1'), ctx);
+      await handlers['tool_result'](okEdit('call-ok', A_IN), ctx);
+      await handlers['tool_result'](failNotFound('call-f2'), ctx);
+
+      const log = readLog(logPath);
+      expect(log.map((r: any) => r.outcome)).toEqual(['failed', 'ok', 'recovered', 'failed']);
+      expect(log[3].retriedVerbatim).toBeUndefined();
+    });
+
+    it('validation-class failure path also flags the second identical same-file failure', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      // resolvable top-level path (file-scoped semantics) but a validation-class
+      // error, so this exercises the generic failure path, not the content rules
+      const badInput = { path: '/dir/b.txt', edits: [{ oldText: 'x' }] }; // missing newText
+      const failValidation = (id: string) => ({
+        type: 'tool_result',
+        toolCallId: id,
+        toolName: 'edit',
+        input: badInput,
+        content: [
+          {
+            type: 'text',
+            text: 'Validation failed for tool "edit":\n- edits[0].newText: Required',
+          },
+        ],
+        isError: true,
+        details: undefined,
+      });
+
+      await handlers['tool_result'](failValidation('call-v1'), ctx);
+      await handlers['tool_result'](failValidation('call-v2'), ctx);
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(2);
+      expect(log[0].retriedVerbatim).toBeUndefined();
+      expect(log[1].retriedVerbatim).toBe(true);
+      expect(log[1].fingerprint).toBe(log[0].fingerprint);
+    });
+
+    it('successful bash result does not reset retriedVerbatim state (reads only)', async () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      await handlers['tool_result'](failNotFound('call-f1'), ctx);
+      await handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: 'call-bash',
+          toolName: 'bash',
+          input: { command: 'cat /dir/a.txt' },
+          content: [{ type: 'text', text: 'x' }],
+          isError: false,
+          details: undefined,
+        },
+        ctx,
+      );
+      await handlers['tool_result'](failNotFound('call-f2'), ctx);
+
+      const log = readLog(logPath);
+      expect(log).toHaveLength(2);
+      expect(log[1].retriedVerbatim).toBe(true);
+    });
   });
 
   describe('tool_result (unknown tools)', () => {
@@ -1286,6 +1443,59 @@ describe('toolRepairExtension hooks', () => {
 
       expect(second).toBeUndefined();
       expect(first.systemPrompt).toMatch(/copy edits\[\]\.oldText verbatim from that fresh read/);
+    });
+
+    it('trust-result and no-bypass lines appended once each, ordered after read-before-edit', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const result = handlers['before_agent_start']({
+        type: 'before_agent_start',
+        prompt: 'p',
+        systemPrompt: 'base system prompt',
+        systemPromptOptions: {},
+      });
+
+      expect(result).toBeDefined();
+      const extended = result.systemPrompt;
+      // Each new line exactly once; pre-existing lines still exactly once.
+      expect(extended.match(/trust that result/g)).toHaveLength(1);
+      expect(extended.match(/Edit existing files only with the `edit` tool/g)).toHaveLength(1);
+      expect(extended).toContain('never via');
+      expect(extended.match(/not inside individual edit objects/g)).toHaveLength(1);
+      expect(extended.match(/copy edits\[\]\.oldText verbatim from that fresh read/g)).toHaveLength(
+        1,
+      );
+      // Order: path-shape, read-before-edit, trust-result, no-bypass.
+      const pos = (needle: string) => extended.indexOf(needle);
+      expect(pos('read it immediately before calling edit')).toBeLessThan(pos('trust that result'));
+      expect(pos('trust that result')).toBeLessThan(
+        pos('Edit existing files only with the `edit` tool'),
+      );
+    });
+
+    it('trust-result and no-bypass lines are idempotent — second call returns undefined', () => {
+      const { api, handlers } = makeMockPi();
+      toolRepairExtension(api, { enabled: true, logPath });
+
+      const first = handlers['before_agent_start']({
+        type: 'before_agent_start',
+        prompt: 'p',
+        systemPrompt: 'base',
+        systemPromptOptions: {},
+      });
+      const second = handlers['before_agent_start']({
+        type: 'before_agent_start',
+        prompt: 'p',
+        systemPrompt: first.systemPrompt,
+        systemPromptOptions: {},
+      });
+
+      expect(second).toBeUndefined();
+      expect(first.systemPrompt.match(/trust that result/g)).toHaveLength(1);
+      expect(
+        first.systemPrompt.match(/Edit existing files only with the `edit` tool/g),
+      ).toHaveLength(1);
     });
 
     it('returns undefined when the extension is disabled', () => {
