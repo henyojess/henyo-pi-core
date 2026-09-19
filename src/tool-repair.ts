@@ -41,10 +41,11 @@
  *    occurrence line-number list (not-unique); successful calls that used a
  *    rewritten `oldText` log an `applied` record (rewrite→result
  *    correlation via a bounded in-memory toolCallId map).
- * 3. `before_agent_start` (prevention) — append two guideline lines to the
- *    system prompt (path shape + read-before-edit) so models emit the correct
- *    shape and fresh `oldText` in the first place; each line is deduped
- *    independently.
+ * 3. `before_agent_start` (prevention) — append four guideline lines to the
+ *    system prompt (path shape + read-before-edit + trust a reported success
+ *    over transcript-echo display artifacts + edit existing files only via
+ *    the `edit` tool) so models emit the correct shape and fresh `oldText`
+ *    in the first place; each line is deduped independently.
  *
  * Telemetry: `~/.pi/agent/tool-repair.jsonl` (JSONL; v2 outcome set:
  * `fixed`, `ok` — denominator for every successful `edit`, `applied`,
@@ -52,7 +53,9 @@
  * (carries the original failure's `fingerprint`/`issues` plus
  * `recoveredBy` and `afterMs`), and `failed`; non-`edit` successes are
  * not logged). Validation-class `failed` records may carry `emission`
- * (`truncated`/`glued`/`shape-quirk`). Fingerprint: `edit` events use the
+ * (`truncated`/`glued`/`shape-quirk`); `failed` `edit` records may carry
+ * `retriedVerbatim` (a same-fingerprint failure is open for the file with
+ * no successful `read` of it in between). Fingerprint: `edit` events use the
  * location fingerprint (`fnv1a("edit::loc::<basename>::<normalized
  * oldText prefix>")` — an irreversible hash; argument values are never
  * logged); non-edit events keep `fnv1a("<tool>::<sorted keys>")` (shape
@@ -81,6 +84,12 @@ const PROMPT_LINE =
 const READ_BEFORE_EDIT_LINE =
   'If you have not read the file this turn (or it may have changed since your last read), read it immediately before calling edit, and copy edits[].oldText verbatim from that fresh read.';
 
+const TRUST_RESULT_LINE =
+  'If an `edit` or `write` call reports success, trust that result — do not re-read the file to verify its integrity because of stray characters (e.g. `\\r`) in the transcript echo of your own call. The tool result is authoritative; that echo is a display artifact.';
+
+const NO_BYPASS_LINE =
+  'Edit existing files only with the `edit` tool — never via `sed`/`awk`/`echo` in bash, and never via `write` re-emitting the whole file.';
+
 const GENERIC_COACHING_LINE =
   "Henyo note: the arguments must match the tool's schema exactly — required fields go at the top level of the arguments. Re-emit the call with the complete argument object.";
 
@@ -96,7 +105,7 @@ const CONTENT_ERROR_RULES: { re: RegExp; category: string; line: string }[] = [
   {
     re: /Could not find (edits\[\d+\] in|the exact text in)/,
     category: 'content-not-found',
-    line: 'Re-read the file now (it may have changed since your last read) and copy oldText verbatim from the fresh read, including exact whitespace and newlines.',
+    line: 'Re-read the file now (it may have changed since your last read) and copy oldText verbatim from the fresh read, including exact whitespace and newlines. Do not re-emit an oldText that has already failed — it will fail again.',
   },
   {
     re: /Found \d+ occurrences/,
@@ -138,7 +147,13 @@ interface LogRecord {
   // the failure and the recovery.
   // Telemetry v2: `recovered` closes open failures; `ok` is the denominator
   // (step 2); `emission` tags validation-failure payloads (step 4, plan A4).
+  // Telemetry v2: `retriedVerbatim` (assumption 6, plan
+  // tool-repair-edit-usage-improvements) — set on a `failed` `edit` record
+  // when a failure with the same `fingerprint` is still open for the same
+  // file and no successful `read` of that file happened after it (reads
+  // reset the flag; recovery closes the open-failure list).
   emission?: string;
+  retriedVerbatim?: boolean;
   recoveredBy?: string;
   afterMs?: number;
   // Fuzzy-edit fallback records (plan assumption 6) — argument values never
@@ -924,6 +939,14 @@ export function toolRepairExtension(
   // is the intended semantics. Per-file FIFO cap OPEN_FAILURES_CAP.
   const openFailures = new Map<string, OpenFailure[]>();
 
+  // Telemetry v2 (assumption 6): last successful `read` timestamp per file
+  // key. A read resets `retriedVerbatim` — the model then holds fresh
+  // content, so a later same-fingerprint failure is not a blind verbatim
+  // retry. Reads intentionally do NOT call `recoverFailures` (a read is not
+  // recovery of the failed edit; logging `recovered` with a read's
+  // toolCallId would mislabel the record).
+  const lastReadTs = new Map<string, string>();
+
   /** fileKey for an edit input — basename of a string top-level `path`; `undefined` (no tracking) otherwise. */
   const editFileKey = (input: unknown): string | undefined => {
     if (input === null || typeof input !== 'object' || Array.isArray(input)) return undefined;
@@ -950,6 +973,7 @@ export function toolRepairExtension(
     const list = openFailures.get(fileKey);
     if (list === undefined || list.length === 0) return;
     openFailures.delete(fileKey);
+    lastReadTs.delete(fileKey); // bookkeeping: fresh tracking after recovery
     for (const entry of list) {
       appendLog({
         ts: nowTs,
@@ -1054,6 +1078,19 @@ export function toolRepairExtension(
       const fileKey = editFileKey(event.input);
       if (fileKey !== undefined) {
         recoverFailures(fileKey, event.toolCallId, ts);
+      }
+    }
+
+    // Telemetry v2 (assumption 6, plan tool-repair-edit-usage-improvements):
+    // a successful `read` resets `retriedVerbatim` for that file — the model
+    // then holds fresh content, so a later same-fingerprint failure is not a
+    // blind verbatim retry. A read must NOT call `recoverFailures`: it is not
+    // recovery of the failed edit, and logging `recovered` with a read's
+    // toolCallId would mislabel the record.
+    if (event.toolName === 'read' && !event.isError) {
+      const fileKey = editFileKey(event.input);
+      if (fileKey !== undefined) {
+        lastReadTs.set(fileKey, new Date().toISOString());
       }
     }
 
@@ -1164,6 +1201,17 @@ export function toolRepairExtension(
         }
         const ts = new Date().toISOString();
         const fingerprint = editLocationFingerprint(input) ?? shapeFingerprint('edit', input);
+        // Telemetry v2: track the failure for recovery (per-file, A2).
+        const fileKey = editFileKey(input);
+        // Assumption 6: verbatim retry = a same-fingerprint failure is open
+        // for this file and no successful `read` of it happened after that
+        // failure (ISO-8601 ts compare is lexicographically correct).
+        const readTs = fileKey !== undefined ? (lastReadTs.get(fileKey) ?? '') : '';
+        const retriedVerbatim =
+          fileKey !== undefined &&
+          (openFailures.get(fileKey) ?? []).some(
+            (f) => f.fingerprint === fingerprint && f.ts > readTs,
+          );
         appendLog({
           ts,
           tool: 'edit',
@@ -1174,9 +1222,8 @@ export function toolRepairExtension(
           // subcategory / mislabel signal from the log alone.
           category: rule.category,
           fingerprint,
+          ...(retriedVerbatim ? { retriedVerbatim: true } : {}),
         });
-        // Telemetry v2: track the failure for recovery (per-file, A2).
-        const fileKey = editFileKey(input);
         if (fileKey !== undefined) {
           rememberOpenFailure(fileKey, {
             fingerprint,
@@ -1216,6 +1263,21 @@ export function toolRepairExtension(
       issues,
       fingerprint,
     };
+    // Assumption 6 (edit only): same-fingerprint open failure with no
+    // successful `read` of the file in between → blind verbatim retry.
+    if (event.toolName === 'edit') {
+      const fileKey = editFileKey(input);
+      if (fileKey !== undefined) {
+        const readTs = lastReadTs.get(fileKey) ?? '';
+        if (
+          (openFailures.get(fileKey) ?? []).some(
+            (f) => f.fingerprint === fingerprint && f.ts > readTs,
+          )
+        ) {
+          record.retriedVerbatim = true;
+        }
+      }
+    }
     // Telemetry v2 (plan A4): emission tag on validation-class failures only
     // — the classifier returns `undefined` for non-`edit` tools, so other
     // tools' records stay untouched.
@@ -1242,7 +1304,7 @@ export function toolRepairExtension(
     };
   });
 
-  // Hook 3 (O5): prevention — two guideline lines in the system prompt,
+  // Hook 3 (O5): prevention — four guideline lines in the system prompt,
   // each with its own idempotency check (a prompt upgraded mid-session has
   // the old line but not the new one).
   pi.on('before_agent_start', (event) => {
@@ -1255,6 +1317,14 @@ export function toolRepairExtension(
     }
     if (!prompt.includes(READ_BEFORE_EDIT_LINE)) {
       prompt = `${prompt}\n\n${READ_BEFORE_EDIT_LINE}`;
+      changed = true;
+    }
+    if (!prompt.includes(TRUST_RESULT_LINE)) {
+      prompt = `${prompt}\n\n${TRUST_RESULT_LINE}`;
+      changed = true;
+    }
+    if (!prompt.includes(NO_BYPASS_LINE)) {
+      prompt = `${prompt}\n\n${NO_BYPASS_LINE}`;
       changed = true;
     }
     return changed ? { systemPrompt: prompt } : undefined;
