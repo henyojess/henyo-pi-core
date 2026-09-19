@@ -170,7 +170,9 @@ so it coexists with other repair layers:
   (ratio ≥ 0.8, within the 0.03 gap filter) gain a `candidates` report —
   top candidate line ranges and ratios — which replaces the plain hint,
   and not-found errors whose best match sits between 0.6 and 0.8 gain a
-  near-miss hint pointing at the nearest region. Not-unique errors gain
+  near-miss hint pointing at the nearest region. The plain not-found hint
+  also carries a prohibition: do not re-emit an oldText that has already
+  failed — it will fail again. Not-unique errors gain
   the exact occurrence line numbers. Overlap and no-op
   failures keep the plain one-line hint. `edit` shape-validation failures
   (both pi signatures: `Validation failed for tool "X"` and the older
@@ -178,12 +180,16 @@ so it coexists with other repair layers:
   "`path` goes at the top level, next to `edits`" line, and every other
   tool a generic schema hint. On `Tool X not found` (hallucinated tool
   name) the hint instead lists the available tool names.
-- **Prompt guideline** — two lines are appended to the system prompt (put
-  `path` at the top level next to `edits`, and read the file immediately
-  before `edit` so `edits[].oldText` is copied verbatim from a fresh read)
-  so models emit the correct shape up front; each line is idempotent —
+- **Prompt guideline** — four lines are appended to the system prompt: put
+  `path` at the top level next to `edits`; read the file immediately before
+  `edit` so `edits[].oldText` is copied verbatim from a fresh read; if an
+  `edit` or `write` call reports success, trust that result — do not re-read
+  the file to "verify" it because of stray characters in the transcript
+  echo of your own call (the tool result is authoritative; the echo is a
+  display artifact); and edit existing files only via the `edit` tool,
+  never bash `sed`/`awk` or a full-file `write`. Each line is idempotent —
   skipped when already present, so a mid-session prompt upgrade picks up
-  whichever one is missing.
+  whichever ones are missing.
 
 Active by default; no configuration needed. The edit-fallback stage is
 gated by the `editFallback` key (default `true`) — with it off (or with
@@ -193,7 +199,10 @@ behavior: no file reads, no rewrites, plain one-line coaching only.
 Extended 2026-09-02 after the session-failure analysis (77% content mismatch
 / ~15% structural for the served Qwen models). Extended 2026-09-04 with the
 edit-fallback stage (unique 1:1 whitespace-drift rewrite +
-candidate/duplicate coaching).
+candidate/duplicate coaching). Extended 2026-09-19 — trust-result +
+no-bypass prompt lines, anti-verbatim-retry coaching, `retriedVerbatim`
+telemetry (7-day audit: 28 verbatim retries, 163 multi-line checkbox
+failures, \r-phantom self-doubt after successful results).
 
 **Safety model:** the rewrite fires only when the built-in exact match
 would fail (so it never shadows a successful edit), only on a unique
@@ -214,7 +223,7 @@ sound.
 **Log file:** telemetry outcomes are appended as JSONL to
 `~/.pi/agent/tool-repair.jsonl` (non-`edit` successes are not logged — the
 `ok` denominator is edit-only). Record shape:
-`{ ts, tool, model, outcome, rules?, issues?, fingerprint, category?, emission?, recoveredBy?, afterMs? }`
+`{ ts, tool, model, outcome, rules?, issues?, fingerprint, category?, emission?, retriedVerbatim?, recoveredBy?, afterMs? }`
 — `outcome` is `fixed` (a repair rule or an edit-fallback rewrite
 applied), `ok` (denominator — every successful `edit` tool result),
 `applied` (an edit-fallback rewrite was confirmed by the
@@ -228,7 +237,11 @@ names). Content-mismatch `failed` records carry `category` (the original
 built-in error category) so an upgraded `issues` subcategory stays
 traceable to its origin category — `issues !== category` is the upgrade
 signal, and a `category` that doesn't match the `issues` prefix is the
-mislabel signal. Validation-class `failed` records may carry `emission`:
+mislabel signal. `failed` records may also carry `retriedVerbatim: true`
+— a failure with the same fingerprint is still open on the same file and
+no successful `read` of that file happened since it, i.e. the model
+re-emitted an already-failed attempt verbatim (file-scoped; failures
+without a resolvable path are not tracked). Validation-class `failed` records may carry `emission`:
 `truncated` (args cut off mid-payload — G3), `glued` (multiple object
 emissions concatenated into one args value — G5), or `shape-quirk` (any
 other unparseable shape) — so the truncation/glue gaps are measurable
