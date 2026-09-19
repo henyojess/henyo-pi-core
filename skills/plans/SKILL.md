@@ -32,6 +32,10 @@ Inheritance), do this before Step 1:
 3. Delete the source note `~/.pi/agent/notes/<source>.md`. The plan is now
    the sole record.
 
+If this plan contains a Baseline Pre-Check section, execute it before Step 1:
+run each command, paste results verbatim into the placeholders, and mark the
+checkboxes. No Step 1 work happens until the baseline is recorded.
+
 ### Execution Loop (per sub-step)
 1. Find the first unchecked `[ ]` sub-step in the current step.
 2. Do the work described in that sub-step.
@@ -142,7 +146,35 @@ Include this section when the plan modifies source code, tests, config, or any n
 
 **Scope boundary:** Do NOT update docs for purely refactoring changes that don't change behavior or public APIs.
 
-### 7. Steps
+### 7. Baseline Pre-Check (required)
+
+Every implementation plan carries this block immediately before Step 1. It prevents failures introduced by the plan's own steps from being mistaken for pre-existing ones. The plan contains the block with empty placeholders; the **executor** runs the commands at execution start, pastes results verbatim into the placeholders, and marks the checkboxes — no Step 1 work happens until the baseline is recorded.
+
+```
+## Baseline Pre-Check (record verbatim, before Step 1)
+
+- [ ] `git status --porcelain` — must be empty, or every listed file explicitly
+      acknowledged in this plan as intentionally dirty.
+      Output:
+      (paste verbatim, or "empty")
+- [ ] `<repo test script>` (e.g. `pnpm test` / `npm test`) — capture exact
+      pass/fail counts. Every failure individually identified (test name +
+      error) and labeled pre-existing here, BEFORE Step 1.
+      Output:
+      (paste summary + full failure list verbatim)
+- [ ] Lint, if the repo defines it (`eslint`/`biome`/lint script in
+      package.json). If none is defined, record "no lint defined."
+      Output:
+      (paste verbatim)
+
+Baseline rule for all later steps: a later step's test/lint run is compared
+only against this recorded output. A new failure — or a failure count that
+grows — is a regression to fix in the step that introduced it, not a
+"pre-existing" line to wave through. A remembered count is not a baseline;
+only the recorded output is.
+```
+
+### 8. Steps
 
 Each step is a self-contained unit. Mark checkboxes as you complete each sub-step (see Discipline section for process):
 
@@ -164,7 +196,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - [ ] Run `git add` and `git commit -m "[type](scope): [description]"`
 ```
 
-### 8. Checkpoints
+### 9. Checkpoints
 
 ```
 ## Checkpoints
@@ -174,13 +206,16 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 | 1 | [verification] | All green before proceeding |
 ```
 
-### 9. Final Verification
+### 10. Final Verification
 
 ```
 ## Final Verification
 
 - [ ] [primary verification] passes
 - [ ] [secondary check] passes
+- [ ] Full test suite re-run; failure list diffed against the Baseline
+      Pre-Check record — same pre-existing set, no new failures (never
+      compared against a remembered count)
 - [ ] No unintended changes
 - [ ] Git diff shows clean work
 ```
@@ -191,7 +226,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - [ ] Source note `~/.pi/agent/notes/<source>.md` is deleted (removed at execution start — the plan is the record; never "update the note" instead)
 ```
 
-### 10. Meta (optional)
+### 11. Meta (optional)
 
 ```
 ## Dependencies
@@ -201,7 +236,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 - Step 1: 30 min
 ```
 
-### 11. Source Note Inheritance (when a plan is spawned from a note)
+### 12. Source Note Inheritance (when a plan is spawned from a note)
 
 When a note in `~/.pi/agent/notes/` spawned the plan, the plan must carry the note's content so nothing is lost when the note is deleted:
 
@@ -241,7 +276,13 @@ Source: ~/.pi/agent/notes/<note>.md
     plan created — the plan's full absolute path (`~` expanded), at the very end, after
     the summary. The line is bare — no labels, no prose, no backticks. Multiple files in
     one reply → notes first, then plans.
-16. **Checkbox lines are unique.** Every checkbox line in a generated plan
+16. **Baseline before Step 1.** Every implementation plan includes the Baseline
+    Pre-Check section (git status + test suite + lint, if defined) with results
+    recorded verbatim before Step 1. Later steps compare failures only against
+    that recorded baseline — a new failure, or a failure count that grows, is a
+    regression to fix in the step that introduced it. A remembered count is
+    never a baseline.
+17. **Checkbox lines are unique.** Every checkbox line in a generated plan
     must be textually unique within the file (step ID or concrete content), so
     a single-line `oldText` is always sufficient.
 
@@ -262,6 +303,7 @@ Source: ~/.pi/agent/notes/<note>.md
 | Acceptance criteria requiring human judgment | Agent can't self-verify |
 | Missing doc updates for coding changes | Docs go stale, users can't follow the code |
 | "Update the note (status → Planned)" instead of deleting it | Notes are ephemeral — the plan supersedes them; a status field keeps a dead artifact alive |
+| Counting failures from memory ("5 pre-existing, unrelated") | A failure introduced by the plan's own step gets miscounted as pre-existing and ships (henyo-pi-web 4.2.0: a self-inflicted ENOENT was waved through as "pre-existing"). Diff the failure list against the recorded baseline, never against a remembered count |
 
 ---
 
@@ -283,7 +325,7 @@ Source: ~/.pi/agent/notes/<note>.md
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 11) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 12) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user
@@ -321,5 +363,6 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 23 | Out-of-plan dependency rule in embedded instructions | Template lacks the "deps beyond the plan's list are `[blocker]`s" line |
 | 24 | Plan generated from a note includes the Source Note Inheritance section with exhaustive mapping | A note spawned the plan but a finding/decision/next step has no inheritance row (re-read the note file to verify), or the note was not marked Superseded |
 | 25 | Source note delete is in Before You Start, gated on the mapping check | The delete instruction is missing, sits in Final Verification instead, or is not gated on re-reading the note and verifying the mapping |
+| 26 | Baseline Pre-Check section present before Step 1 (git status + test + lint) with verbatim result placeholders and the baseline-comparison rule | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
 
-If any row fails, edit the plan and re-check. Do not present until all 25 pass.
+If any row fails, edit the plan and re-check. Do not present until all 26 pass.
