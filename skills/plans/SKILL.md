@@ -40,6 +40,14 @@ Inheritance), do this before Step 1:
 4. Move to the next `[ ]` sub-step.
 5. When all sub-steps in a step are `[x]`, mark the step header's own checkbox `[x]`.
 
+### Updating this plan (checkbox surgery)
+- Tick = a single-line edit: `oldText` is exactly the current line, from a fresh
+  read. Never span other lines — they change with every tick.
+- Paste baseline output only into its own `Output:` placeholder line; never
+  re-wrap or edit neighboring lines.
+- Implementation notes go on the line below the checkbox (indented plain lines);
+  do not reformat or re-wrap surrounding lines.
+
 ### Discipline
 - Mark each checkbox **right after completing that sub-step**, not at the end of the step.
   - If the session is interrupted, the plan file reflects actual progress and work can resume without re-doing anything.
@@ -60,6 +68,9 @@ Inheritance), do this before Step 1:
   - Batching creates false progress — you haven't actually verified the work is done.
 - One sub-step at a time. It is better to do one correctly than five poorly.
   - Doing five poorly means five things to fix. Doing one correctly means one thing done.
+- Checkbox updates: use a **single-line** `edit`, where `oldText` is exactly the
+  current line (from a fresh read). Never include other checkbox lines in
+  `oldText` — they change with every tick, which makes multi-line blocks stale.
 ```
 ### 2. Goal (1 line)
 
@@ -124,9 +135,9 @@ Include this section when the plan modifies source code, tests, config, or any n
 
 ```
 ### 5.x Update Documentation
-- [ ] Update [file path]: [what changed]
-- [ ] Update [file path]: [what changed]
-- [ ] Verify docs build/compile without errors
+- [ ] 5.x.1 Update [file path]: [what changed]
+- [ ] 5.x.2 Update [file path]: [what changed]
+- [ ] 5.x.3 Verify docs build/compile without errors
 ```
 
 **Scope boundary:** Do NOT update docs for purely refactoring changes that don't change behavior or public APIs.
@@ -230,6 +241,9 @@ Source: ~/.pi/agent/notes/<note>.md
     plan created — the plan's full absolute path (`~` expanded), at the very end, after
     the summary. The line is bare — no labels, no prose, no backticks. Multiple files in
     one reply → notes first, then plans.
+16. **Checkbox lines are unique.** Every checkbox line in a generated plan
+    must be textually unique within the file (step ID or concrete content), so
+    a single-line `oldText` is always sufficient.
 
 ---
 
