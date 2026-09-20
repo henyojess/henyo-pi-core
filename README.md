@@ -31,7 +31,14 @@ henyo-pi-core/
 │   ├── ttft-tokps.ts     # Working line: TTFT + live/exact tok/s display (config-gated)
 │   ├── footer.ts         # Compact footer: name•model(level)•ctx%•path(branch)
 │   ├── settings-io.ts    # Shared settings.json path + read helper (tolerates missing/invalid file)
-│   ├── tool-repair.ts    # Standalone tool repair (event hooks: repair, coaching, prompt guideline)
+│   ├── tool-repair.ts    # Re-export shim (legacy path; no logic — see tool-repair/)
+│   ├── tool-repair/      # Standalone tool repair (event hooks: repair, coaching, prompt guideline)
+│   │   ├── index.ts        # Public API barrel
+│   │   ├── hooks.ts        # Extension wiring: message_end / tool_result / before_agent_start
+│   │   ├── rules.ts        # The five args-repair rules (hoist, stringified, salvage, garbled, incomplete)
+│   │   ├── fingerprint.ts  # Fingerprints + emission classification (edit-location, shape, sha12)
+│   │   ├── telemetry.ts    # Log records, rewrite→result correlation, content-error upgrade
+│   │   └── coach.ts        # Coaching + prompt-guideline constants
 │   ├── edit-fallback.ts  # Fuzzy/nearest-match edit fallback: pure matching + report core (no pi imports)
 │   ├── compaction-retry.ts # Compaction summary retry guard: strict plain-text prompt, up to 3 targeted retries
 │   └── commands/         # Custom slash commands
@@ -40,7 +47,10 @@ henyo-pi-core/
 │       └── henyo.ts      # /henyo: list or toggle all henyo features
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
-    ├── tool-repair.test.ts    # Tests for the standalone tool repair
+    ├── tool-repair/            # Module tests (mirror src/tool-repair/)
+    │   ├── hooks.test.ts       # Hook wiring: message_end / tool_result / before_agent_start + telemetry
+    │   ├── rules.test.ts       # The five args-repair rules
+    │   └── fingerprint.test.ts # Fingerprint + emission classification
     ├── tool-repair-edit-fallback.test.ts # Hook wiring: rewrite, pending telemetry, coaching, guards
     ├── edit-fallback.test.ts # Unit tests for the pure matching/candidate/duplicate core
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
