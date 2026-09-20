@@ -365,4 +365,34 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 25 | Source note delete is in Before You Start, gated on the mapping check | The delete instruction is missing, sits in Final Verification instead, or is not gated on re-reading the note and verifying the mapping |
 | 26 | Baseline Pre-Check section present before Step 1 (git status + test + lint) with verbatim result placeholders and the baseline-comparison rule | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
 
+### Review Flow (when the user asks to review a plan)
+
+Plan review resolves the Assumptions & Open Questions table — it is the decision phase; the plan itself was the async inspection pass. Two phases; no plan edits during Phase 1.
+
+**Definitions**
+- **Open item** — a decision not yet made (`[open]` row).
+- **Assumption** — a decision made without user confirmation (`[assumption]` row).
+
+**Phase 1 — Interactive Q&A (gather only, no plan edits)**
+1. State the review objective up front: what decision this review resolves and the
+   closure condition — every `[open]` row answered. One pass per item; once the
+   user answers, the item is settled and is not re-litigated.
+2. Surface the Assumptions & Open Questions rows one at a time:
+   `[open]` items first, then `[assumption]` rows; binding decisions and
+   blockers before trivial items. Trivial items may be batched with their
+   agent-read defaults.
+3. Each prompt: the item + minimal context to judge it + one clear question +
+   the agent's recommended default. Never paste walls of plan text.
+4. Record every answer in the reply (a review log), not in the plan file.
+
+**Phase 2 — Single consolidated update (after all answers are collected)**
+1. Apply every answer to the plan in one pass — do not interleave edits with
+   the Q&A.
+2. Update the Assumptions & Open Questions statuses: user-confirmed row →
+   `[decision]`; user-deferred row → `[assumption]`.
+3. Record each decision with its rationale next to the affected row or step;
+   note what was deferred.
+4. Re-run the Self-Review Checklist on the updated plan, then hand off the
+   plan path (Rule 15).
+
 If any row fails, edit the plan and re-check. Do not present until all 26 pass.
