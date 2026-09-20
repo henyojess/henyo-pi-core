@@ -303,6 +303,7 @@ Source: ~/.pi/agent/notes/<note>.md
 | Acceptance criteria requiring human judgment | Agent can't self-verify |
 | Missing doc updates for coding changes | Docs go stale, users can't follow the code |
 | "Update the note (status → Planned)" instead of deleting it | Notes are ephemeral — the plan supersedes them; a status field keeps a dead artifact alive |
+| Batching multiple review questions into one message | The user can't answer iteratively and the turn-by-turn decision trail collapses; each item gets its own turn, with the user's own multi-answer replies as the only allowed batching (observed 2026-09-20: agent front-loaded items 4–5 as "trivial" despite the one-at-a-time instruction) |
 | Counting failures from memory ("5 pre-existing, unrelated") | A failure introduced by the plan's own step gets miscounted as pre-existing and ships (henyo-pi-web 4.2.0: a self-inflicted ENOENT was waved through as "pre-existing"). Diff the failure list against the recorded baseline, never against a remembered count |
 | Editing the plan mid-review Q&A | Feedback gathered item-by-item applies as one coherent revision only after the full pass — interleaving edits churns the plan and loses the decision rationale (Review Flow: gather first, update once) |
 
