@@ -379,10 +379,13 @@ Plan review resolves the Assumptions & Open Questions table — it is the decisi
 1. State the review objective up front: what decision this review resolves and the
    closure condition — every `[open]` row answered. One pass per item; once the
    user answers, the item is settled and is not re-litigated.
-2. Surface the Assumptions & Open Questions rows one at a time:
-   `[open]` items first, then `[assumption]` rows; binding decisions and
-   blockers before trivial items. Trivial items may be batched with their
-   agent-read defaults.
+2. Surface the Assumptions & Open Questions rows **one per turn**: present a
+   single item, then **wait for the user's reply** before surfacing the next.
+   Order: `[open]` items first, then `[assumption]` rows; binding decisions
+   and blockers before trivial items. This applies to every item — no
+   agent-side batching, including of items the agent judges trivial.
+   The user MAY answer several items in one reply; treat that as settled and
+   continue with the remaining unanswered items. Never front-load.
 3. Each prompt: the item + minimal context to judge it + one clear question +
    the agent's recommended default. Never paste walls of plan text.
 4. Record every answer in the reply (a review log), not in the plan file.
