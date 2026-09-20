@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ttftTokpsExtension, type TtftTokpsOptions } from '../src/ttft-tokps.js';
+import { ttftTokpsExtension, DEFAULT_LOG_FILE, type TtftTokpsOptions } from '../src/ttft-tokps.js';
 
 // Mock @earendil-works/pi-coding-agent (ttft-tokps calls getAgentDir() at
 // factory time only when statePath is not injected — all scenarios below
@@ -131,6 +131,10 @@ function sampleScenario(env: ReturnType<typeof makeEnv>) {
 
 // ---------- trace logging: off by default, on + rotation + audit contract ----------
 describe('trace logging', () => {
+  it('default log file path resolves under os.tmpdir()', () => {
+    expect(DEFAULT_LOG_FILE).toBe(join(tmpdir(), 'ttft-debug.log'));
+  });
+
   it('off by default (explicit false AND omitted): no log file, no rotation artifacts', () => {
     for (const opts of [{ traceEnabled: false }, {}]) {
       const env = makeEnv(opts);

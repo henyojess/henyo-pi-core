@@ -284,7 +284,7 @@ live tok/s rate, and the token span, e.g.
 Gated by `ttftTokps` (default `true`).
 
 **Trace file:** with `trace: true`, every display decision is appended as
-JSONL to `/tmp/ttft-debug.log` — each line carries
+JSONL to `<os.tmpdir()>/ttft-debug.log` (default; override with `logFile`) — each line carries
 the event payload **and** the exact working message that was displayed, so
 live-vs-final estimate error is auditable straight from the log. Writes are
 size-rotated (`.1`, `.2`, `.3` backups by default — 10 MiB cap, 3 backups)

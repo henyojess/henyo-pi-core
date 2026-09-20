@@ -60,11 +60,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 /** Default trace log path (used when `traceEnabled` and no `logFile` given). */
-const DEFAULT_LOG_FILE = '/tmp/ttft-debug.log';
+export const DEFAULT_LOG_FILE = join(tmpdir(), 'ttft-debug.log');
 /** Default trace log size cap (10 MB) before rotation. */
 const DEFAULT_MAX_LOG_BYTES = 10 * 1024 * 1024;
 /** Default number of rotated backup files to keep (`.1`–`.N`). */
@@ -92,7 +93,7 @@ export interface TtftTokpsOptions {
   traceEnabled?: boolean;
   /** State file path. Default: <agentDir>/extensions/.ttft-tokps-state.json. */
   statePath?: string;
-  /** Trace log path. Default: /tmp/ttft-debug.log. */
+  /** Trace log path. Default: `<os.tmpdir()>/ttft-debug.log`. */
   logFile?: string;
   /** Rotate the trace log once it reaches this many bytes. Default 10 MB. */
   maxLogBytes?: number;
