@@ -304,6 +304,7 @@ Source: ~/.pi/agent/notes/<note>.md
 | Missing doc updates for coding changes | Docs go stale, users can't follow the code |
 | "Update the note (status → Planned)" instead of deleting it | Notes are ephemeral — the plan supersedes them; a status field keeps a dead artifact alive |
 | Counting failures from memory ("5 pre-existing, unrelated") | A failure introduced by the plan's own step gets miscounted as pre-existing and ships (henyo-pi-web 4.2.0: a self-inflicted ENOENT was waved through as "pre-existing"). Diff the failure list against the recorded baseline, never against a remembered count |
+| Editing the plan mid-review Q&A | Feedback gathered item-by-item applies as one coherent revision only after the full pass — interleaving edits churns the plan and loses the decision rationale (Review Flow: gather first, update once) |
 
 ---
 
@@ -328,7 +329,7 @@ Source: ~/.pi/agent/notes/<note>.md
 2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 12) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
-5. **Present for review** — show the plan to the user
+5. **Present for review** — show the plan to the user; if the user asks to review it, run the Review Flow below (two-phase: all feedback gathered before any plan edit)
 6. **Execute** — follow the plan, check off steps, commit after each one
 7. **Verify** — run final verification, confirm all acceptance criteria met
 
