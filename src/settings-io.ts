@@ -1,3 +1,4 @@
+/* global process */
 import { join } from 'node:path';
 import fs from 'node:fs';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
@@ -29,14 +30,23 @@ export function readSettingsFile(): Record<string, any> {
 }
 
 /**
- * Writes the whole settings.json. Silent-fail — a settings write must never
+ * Writes the whole settings.json atomically: write to a tmp file, then
+ * rename — a crash mid-write can't leave a truncated/corrupt settings.json
+ * (rename is atomic on POSIX). Silent-fail — a settings write must never
  * break a session. Callers are responsible for preserving keys this write
  * doesn't know about.
  */
 export function writeSettingsFile(data: Record<string, any>): void {
+  const tmpPath = `${SETTINGS_PATH}.tmp-${process.pid}`;
   try {
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpPath, SETTINGS_PATH);
   } catch {
+    try {
+      fs.unlinkSync(tmpPath); // best-effort tmp cleanup
+    } catch {
+      // ignore — tmp may not exist if the write itself failed
+    }
     // Silently fail — don't break sessions if write fails
   }
 }
