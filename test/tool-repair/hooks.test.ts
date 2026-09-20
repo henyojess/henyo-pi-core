@@ -8,16 +8,16 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   getAgentDir: () => '/must/not/be/used',
 }));
 
-import { toolRepairExtension, resolveToolRepair } from '../src/tool-repair.js';
+import { toolRepairExtension, resolveToolRepair } from '../../src/tool-repair/hooks.js';
 import {
   hoistEditPath,
   repairStringifiedEdits,
   salvageCorruptEdits,
   recoverGarbledPath,
   dropIncompleteEdits,
-} from '../src/tool-repair/rules.js';
-import { editLocationFingerprint } from '../src/tool-repair/fingerprint.js';
-import payloads from './fixtures/edit-failure-payloads.json' with { type: 'json' };
+} from '../../src/tool-repair/rules.js';
+import { editLocationFingerprint } from '../../src/tool-repair/fingerprint.js';
+import payloads from '../fixtures/edit-failure-payloads.json' with { type: 'json' };
 
 // ─── step-4 fixture helpers ─────────────────────────────────────────────
 
