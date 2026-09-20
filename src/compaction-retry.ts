@@ -22,8 +22,10 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent';
 
 const MAX_ATTEMPTS = 3;
-// ~0.8 x reserveTokens (21504) - same budget pi's default uses now
-const MAX_TOKENS = 17000;
+// 0.8 x reserveTokens (21504) as of pi 0.84.2 (verified 2026-09-20).
+// RE-VERIFY AFTER PI UPGRADES — if pi's default reserveTokens changes,
+// this budget must be re-derived.
+export const MAX_TOKENS = 17000;
 
 const PLAIN_TEXT_RULE =
   'Output plain markdown text only. Do NOT output tool calls, JSON tool blocks, or anything that looks like a tool invocation. Never continue the conversation.';

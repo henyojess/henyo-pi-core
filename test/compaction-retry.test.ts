@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { compactionRetryExtension } from '../src/compaction-retry.js';
+import { compactionRetryExtension, MAX_TOKENS } from '../src/compaction-retry.js';
 
 // Mock @earendil-works/pi-coding-agent (the ported module is the only
 // importer in this graph — no getAgentDir needed).
@@ -112,6 +112,14 @@ describe('compaction-retry (src/compaction-retry.ts)', () => {
     const stub = createStubPi();
     compactionRetryExtension(stub as any);
     expect(stub.handlers.has('session_before_compact')).toBe(true);
+  });
+
+  it('MAX_TOKENS tracks pi 0.84.2 default compaction budget (0.8 x reserveTokens 21504)', () => {
+    // 21504 is pi 0.84.2's default reserveTokens; MAX_TOKENS ≈ 0.8 x that
+    // (17000/21504 ≈ 0.79). Re-derive this pin when pi's default changes.
+    const ratio = MAX_TOKENS / 21504;
+    expect(ratio).toBeGreaterThanOrEqual(0.75);
+    expect(ratio).toBeLessThanOrEqual(0.85);
   });
 
   it('clean summary on attempt 1 → returns compaction result, complete called once', async () => {
