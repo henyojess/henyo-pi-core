@@ -87,6 +87,14 @@ const STALL_MS = 1500;
 const STALL_TICK_MS = 500;
 /** The `tok/s (final)` readout stays this long on the working line. */
 const FINAL_HOLD_MS = 5000;
+/** Below this span a wall-clock / token-span rate is too noisy to display. */
+const MIN_RATE_SPAN_MS = 200;
+/** Minimum streamed chars for a per-channel calibration sample. */
+const MIN_CALIB_CHARS = 100;
+/** Minimum raw estimate for a live-bias k-sample. */
+const MIN_BIAS_EST_TOKENS = 100;
+/** Periodic trace sampling cadence (every Nth delta). */
+const TRACE_SAMPLE_EVERY = 25;
 
 export interface TtftTokpsOptions {
   /** JSONL debug trace on/off. Default false — no log file is created at all. */
@@ -394,7 +402,7 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
       bias: round2(liveBias),
       deltaCount,
     };
-    if (deltaCount % 25 === 0) {
+    if (deltaCount % TRACE_SAMPLE_EVERY === 0) {
       log({ ev: 'sample', deltaCount, sinceFirstMs: t - firstTokenMs, displayed: lastLive });
     }
   });
@@ -421,11 +429,11 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
     // back to wall clock for that call.
     const largeEndLag = endLagMs !== null && endLagMs > LARGE_END_LAG_MS;
     const wallTps =
-      output !== undefined && output > 0 && streamMs !== null && streamMs > 200
+      output !== undefined && output > 0 && streamMs !== null && streamMs > MIN_RATE_SPAN_MS
         ? (output / (streamMs / 1000)).toFixed(2)
         : null;
     const tpsToLastDelta =
-      output !== undefined && output > 0 && tokenSpanMs !== null && tokenSpanMs > 200
+      output !== undefined && output > 0 && tokenSpanMs !== null && tokenSpanMs > MIN_RATE_SPAN_MS
         ? (output / (tokenSpanMs / 1000)).toFixed(2)
         : null;
     const finalTps = largeEndLag ? wallTps : (tpsToLastDelta ?? wallTps);
@@ -438,12 +446,12 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
     } else if (output !== undefined && output > 0) {
       const rest = output - reasoning; // text + tool tokens
       const updates: { ch: Channel; sample: number; tokens: number }[] = [];
-      if (reasoning > 0 && chars.think > 100) {
+      if (reasoning > 0 && chars.think > MIN_CALIB_CHARS) {
         updates.push({ ch: 'think', sample: chars.think / reasoning, tokens: reasoning });
       }
-      if (chars.text === 0 && chars.tool > 100 && rest > 0) {
+      if (chars.text === 0 && chars.tool > MIN_CALIB_CHARS && rest > 0) {
         updates.push({ ch: 'tool', sample: chars.tool / rest, tokens: rest });
-      } else if (chars.tool === 0 && chars.text > 100 && rest > 0) {
+      } else if (chars.tool === 0 && chars.text > MIN_CALIB_CHARS && rest > 0) {
         updates.push({ ch: 'text', sample: chars.text / rest, tokens: rest });
       }
       if (updates.length === 0) calibNotes.push('skipped:mixed-or-thin');
@@ -457,7 +465,7 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
       // Live-estimate correction k (display-level): EMA of exact/raw
       // estimate. Skipped when the live display already ran on exact
       // usage (rawEst is then meaningless) or on thin calls (noisy).
-      if (lastLive !== null && !lastLive.exact && lastLive.estTokens >= 100) {
+      if (lastLive !== null && !lastLive.exact && lastLive.estTokens >= MIN_BIAS_EST_TOKENS) {
         const kSample = Math.min(BIAS_MAX, Math.max(BIAS_MIN, output / lastLive.estTokens));
         liveBias = liveBias * (1 - BIAS_ALPHA) + kSample * BIAS_ALPHA;
       }
