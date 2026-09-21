@@ -333,3 +333,112 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
     expect(disposed).toBe(1);
   });
 });
+
+describe('footer v2 focus, no-theme, and edge paths', () => {
+  /** Build a component, capturing the branch-change callback and TUI spy. */
+  function build(
+    opts: {
+      theme?: any;
+      width?: number;
+      branch?: string | null;
+      statuses?: Map<string, string>;
+    } = {},
+  ) {
+    process.env.HOME = '/home/u';
+    let branchCb: (() => void) | null = null;
+    const tui = { requestRender: vi.fn() } as any;
+    const defaultTheme = { fg: (_c: string, s: string) => s };
+    const footerData = {
+      getGitBranch: () => (opts.branch === undefined ? 'main' : opts.branch),
+      onBranchChange: (cb: () => void) => {
+        branchCb = cb;
+        return () => {};
+      },
+      getExtensionStatuses: () => opts.statuses ?? new Map(),
+      getAvailableProviderCount: () => 1,
+    };
+    const ctx: any = {
+      model: { name: 'qwen3.8-27b', reasoning: true, compat: { supportsReasoningEffort: true } },
+      sessionManager: { getCwd: () => '/home/u/pi/proj', getSessionName: () => undefined },
+      getContextUsage: () => ({ tokens: 84000, percent: 42, contextWindow: 200000 }),
+    };
+    const comp: any = FooterFactory(
+      tui,
+      opts.theme === undefined ? defaultTheme : opts.theme,
+      footerData,
+      ctx,
+      () => 'xhigh',
+    );
+    return { comp, tui, branchCb };
+  }
+
+  it('focused getter returns the initial value and the setter round-trips', () => {
+    const { comp } = build({});
+    expect(comp.focused).toBe(false); // initial value
+    comp.focused = true;
+    expect(comp.focused).toBe(true);
+    comp.focused = false;
+    expect(comp.focused).toBe(false);
+  });
+
+  it('buildLine returns "" when no theme has been initialized', () => {
+    // Factory called with a null theme: init(null) leaves _theme unset.
+    // render() guards buildLine, so call buildLine directly to observe the
+    // no-theme early return.
+    const { comp } = build({ theme: null });
+    expect(comp.buildLine(100)).toBe('');
+    // and render() emits zero footer lines in this state
+    expect(comp.render(100)).toHaveLength(0);
+  });
+
+  it('status line is null-equivalent when a theme is absent, even with registered statuses', () => {
+    const statuses = new Map([['ext', 'busy']]);
+    const { comp } = build({ theme: null, statuses });
+    // buildStatusLine early-returns on missing theme → single line stays absent
+    expect(comp.buildStatusLine(100)).toBeNull();
+    expect(comp.render(100)).toHaveLength(0);
+  });
+
+  it('no-branch layout: grow-left loop breaks on first iteration at very narrow width', () => {
+    // Left block 'qwen3.8-27b(xhi)•42%/84k' = 25 chars; width 25 leaves 0 for cwd.
+    // Last segment 'proj' (4 chars) overflows → break on the first iteration,
+    // output ends with the truncated/last segment 'proj'.
+    const { comp } = build({ branch: null, theme: { fg: (_c: string, s: string) => s } });
+    const line = strip(comp.render(25)[0]);
+    expect(line).toBe('qwen3.8-27b(xhi)•42%/84k•proj');
+  });
+
+  it('branch present: ellipsis truncation (maxBranch > 0) keeps parens with ...)', () => {
+    // Branch 'feature/repo/long-name' → 24 chars with parens. At width 52 the
+    // grow-left loop breaks on the first iteration (4+1+24 > 27), cwd='proj' (4),
+    // available = 52 - 25 - 1 - 4 = 22 < 24 → maxBranch = 17 > 0 → '(<17>...)'
+    const { comp } = build({
+      branch: 'feature/repo/long-name',
+      theme: { fg: (_c: string, s: string) => s },
+    });
+    const line = strip(comp.render(52)[0]);
+    expect(line.endsWith('...)')).toBe(true);
+    expect(line).toContain('proj(');
+    expect(line).not.toContain('(feature/repo/long-name)');
+    // deterministic: same input → same output
+    expect(strip(comp.render(52)[0])).toBe(line);
+  });
+
+  it('branch present: collapses to (...) when available - 5 <= 0', () => {
+    // width 34 → available = 34 - 25 - 1 - 4 = 4 → maxBranch = -1 → '(...)'
+    const { comp } = build({
+      branch: 'feature/repo/long-name',
+      theme: { fg: (_c: string, s: string) => s },
+    });
+    const line = strip(comp.render(34)[0]);
+    expect(line.endsWith('proj(...)')).toBe(true);
+  });
+
+  it('branch-change event triggers requestRender exactly once', () => {
+    const { tui, branchCb } = build({});
+    const cb = branchCb as (() => void) | null;
+    expect(typeof cb).toBe('function');
+    if (cb) cb();
+    expect(tui.requestRender).toHaveBeenCalledTimes(1);
+  });
+});
