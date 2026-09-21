@@ -31,6 +31,10 @@ const FP_PREFIX_LEN = 120;
  * Normalize text for the location fingerprint: `\r\n`→`\n`, trim the whole,
  * collapse runs of whitespace within each line to a single space. CRLF /
  * whitespace variants of the same oldText then hash identically.
+ *
+ * See also the sibling normalizers in `edit-fallback.ts` (`normalizeToLF`,
+ * `normalizeForFuzzyMatch`, `normWs`/`normLine`/`normSingle`) — different
+ * purposes, intentionally NOT unified.
  */
 export function normalizeForFingerprint(text: string): string {
   return text

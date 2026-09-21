@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
 
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
-
-import { resolveEditPath } from '../../src/edit-fallback.js';
 import {
   normalizeForFingerprint,
   editLocationFingerprint,
@@ -197,27 +192,6 @@ describe('shapeDiagnostics', () => {
     expect(shapeDiagnostics('edit', 42)).toBe('not-an-object(number)');
     expect(shapeDiagnostics('edit', [1])).toBe('not-an-object(object)');
     expect(shapeDiagnostics('edit', undefined)).toBe('not-an-object(undefined)');
-  });
-});
-
-// ─── resolveEditPath variants ─────────────────────────────────────────
-
-describe('resolveEditPath', () => {
-  it('strips a leading @ and resolves relative against cwd', () => {
-    expect(resolveEditPath('@src/x.ts', '/data')).toBe('/data/src/x.ts');
-  });
-
-  it('bare ~ → homedir() exactly', () => {
-    expect(resolveEditPath('~', '/data')).toBe(homedir());
-  });
-
-  it('~/x/y → join(homedir(), "x/y")', () => {
-    expect(resolveEditPath('~/x/y', '/data')).toBe(join(homedir(), 'x/y'));
-  });
-
-  it('file:///tmp/x/y → /tmp/x/y via fileURLToPath', () => {
-    expect(resolveEditPath('file:///tmp/x/y', '/data')).toBe(fileURLToPath('file:///tmp/x/y'));
-    expect(resolveEditPath('file:///tmp/x/y', '/data')).toBe('/tmp/x/y');
   });
 });
 

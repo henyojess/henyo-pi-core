@@ -1,4 +1,7 @@
 import { Buffer } from 'node:buffer';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
   normalizeToLF,
@@ -17,6 +20,7 @@ import {
   listOccurrences,
   formatDuplicateReport,
   classifyEdit,
+  resolveEditPath,
 } from '../src/edit-fallback.js';
 
 // ─── built-in predicate port (2.1) ─────────────────────────────────────────
@@ -525,5 +529,26 @@ describe('defensive guards + edge paths', () => {
       class: 'none',
     });
     expect(classifyEdit('/f', 7 as unknown as string, 'old', 'new')).toEqual({ class: 'none' });
+  });
+});
+
+// ─── resolveEditPath variants ─────────────────────────────────────────
+
+describe('resolveEditPath', () => {
+  it('strips a leading @ and resolves relative against cwd', () => {
+    expect(resolveEditPath('@src/x.ts', '/data')).toBe('/data/src/x.ts');
+  });
+
+  it('bare ~ → homedir() exactly', () => {
+    expect(resolveEditPath('~', '/data')).toBe(homedir());
+  });
+
+  it('~/x/y → join(homedir(), "x/y")', () => {
+    expect(resolveEditPath('~/x/y', '/data')).toBe(join(homedir(), 'x/y'));
+  });
+
+  it('file:///tmp/x/y → /tmp/x/y via fileURLToPath', () => {
+    expect(resolveEditPath('file:///tmp/x/y', '/data')).toBe(fileURLToPath('file:///tmp/x/y'));
+    expect(resolveEditPath('file:///tmp/x/y', '/data')).toBe('/tmp/x/y');
   });
 });
