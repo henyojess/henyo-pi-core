@@ -5,7 +5,8 @@ import { getAgentDir } from '@earendil-works/pi-coding-agent';
 
 /**
  * Absolute path to settings.json in the pi agent config dir (honors PI_CODING_AGENT_DIR).
- * Module-level so tests can stub HOME before a dynamic import.
+ * Resolved once at import time; a mid-process `PI_CODING_AGENT_DIR` change is
+ * intentionally ignored (tests stub HOME before a dynamic import to get a fresh path).
  */
 export const SETTINGS_PATH = join(getAgentDir(), 'settings.json');
 

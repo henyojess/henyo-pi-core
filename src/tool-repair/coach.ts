@@ -47,5 +47,9 @@ export const CONTENT_ERROR_RULES: { re: RegExp; category: string; line: string }
   },
 ];
 
-/** Fallback for `getActiveTools()` when it throws (telemetry must not break a run). */
+/**
+ * Fallback for `getActiveTools()` when it throws (telemetry must not break a run).
+ * Keep this list in sync with pi's built-in tools when they change — stale text
+ * degrades the unknown-tool coaching message shown to the model.
+ */
 export const FALLBACK_TOOL_LIST = 'bash, read, edit, write, grep, find, ls';
