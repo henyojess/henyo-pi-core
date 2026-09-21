@@ -68,7 +68,11 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { getAgentDir } from '@earendil-works/pi-coding-agent';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ToolResultEvent,
+} from '@earendil-works/pi-coding-agent';
 import {
   COACHING_LINE,
   CONTENT_ERROR_RULES,
@@ -128,11 +132,18 @@ export function toolRepairExtension(
   pi: ExtensionAPI,
   opts: { enabled: boolean; logPath?: string; editFallbackEnabled?: boolean },
 ): void {
+  // Log file (and directory) is resolved once at registration: the path is
+  // constant for the extension's lifetime and appendLog runs on every edit
+  // event (per-event hot path).
+  const logFile = opts.logPath ?? join(getAgentDir(), 'tool-repair.jsonl');
+  try {
+    mkdirSync(dirname(logFile), { recursive: true });
+  } catch {
+    // Telemetry must never break a run.
+  }
   const appendLog = (record: LogRecord): void => {
     try {
-      const file = opts.logPath ?? join(getAgentDir(), 'tool-repair.jsonl');
-      mkdirSync(dirname(file), { recursive: true });
-      appendFileSync(file, JSON.stringify(record) + '\n');
+      appendFileSync(logFile, JSON.stringify(record) + '\n');
     } catch {
       // Telemetry must never break a run.
     }
@@ -260,6 +271,242 @@ export function toolRepairExtension(
     return { message: { ...message, content: newContent } };
   });
 
+  /**
+   * Record an `edit` failure against the recovery state and compute
+   * `retriedVerbatim` (A2 / assumption 6): true iff an open failure with the
+   * same fingerprint was recorded after the file's last successful `read`
+   * (ISO-8601 ts compare is lexicographically correct). `fileKey ===
+   * undefined` (no resolvable path) → no state pushed, false.
+   */
+  const recordEditFailure = (
+    fileKey: string | undefined,
+    fingerprint: string,
+    toolCallId: string,
+    ts: string,
+    issues: string,
+    model: string | undefined,
+  ): boolean => {
+    if (fileKey === undefined) return false;
+    const readTs = lastReadTs.get(fileKey) ?? '';
+    const retriedVerbatim = (openFailures.get(fileKey) ?? []).some(
+      (f) => f.fingerprint === fingerprint && f.ts > readTs,
+    );
+    rememberOpenFailure(fileKey, { fingerprint, toolCallId, ts, issues, model });
+    return retriedVerbatim;
+  };
+
+  /**
+   * Fuzzy-edit fallback correlation (plan step 3.2): a successful result
+   * consumes the pending rewrite records and logs `applied`; a failed call
+   * consumes them WITHOUT logging (the built-in apply is atomic — first
+   * failing edit throws before any write, so no partial state) and falls
+   * through to the coaching, which may be upgraded to the full
+   * candidate/duplicate report. Returns true when the event was fully
+   * handled (success + applied-logging).
+   */
+  const consumePendingRewrites = async (
+    event: ToolResultEvent,
+    ctx: ExtensionContext,
+  ): Promise<boolean> => {
+    if (!opts.editFallbackEnabled || event.toolName !== 'edit') return false;
+    const pending = pendingRewrites.get(event.toolCallId);
+    if (!pending) return false;
+    pendingRewrites.delete(event.toolCallId);
+    if (event.isError) return false; // failed call — fall through to the coaching
+    const timestamp = new Date().toISOString();
+    const fingerprint =
+      editLocationFingerprint(event.input) ?? shapeFingerprint('edit', event.input);
+    for (const p of pending) {
+      appendLog({
+        ts: timestamp,
+        tool: 'edit',
+        model: ctx.model?.id,
+        outcome: 'applied',
+        rules: ['whitespace-normalize-oldtext'],
+        fingerprint,
+        toolCallId: event.toolCallId,
+        editIndex: p.editIndex,
+        lineRange: p.lineRange,
+        fileLines: p.fileLines,
+        oldTextLines: p.oldTextLines,
+        sha12: p.sha12,
+      });
+    }
+    // Telemetry v2: recovery is already closed by the ok site above
+    // (which runs first) — called here too per plan spec; no-op.
+    const fileKey = editFileKey(event.input);
+    if (fileKey !== undefined) {
+      recoverFailures(fileKey, event.toolCallId, timestamp);
+    }
+    return true; // success — the result content is untouched
+  };
+
+  /**
+   * Unknown-tool coaching: appends the available tool list (never remapped —
+   * plan assumption 6). Returns the replacement result, or `undefined` when
+   * the event is not an unknown-tool error.
+   */
+  const coachUnknownTool = (
+    event: ToolResultEvent,
+    ctx: ExtensionContext,
+    originalText: string,
+  ): { content: { type: 'text'; text: string }[] } | undefined => {
+    if (!UNKNOWN_TOOL_SIGNATURE.test(originalText.split('\n')[0] ?? '')) return undefined;
+    let toolList: string;
+    try {
+      toolList = pi.getActiveTools().join(', ');
+    } catch {
+      toolList = FALLBACK_TOOL_LIST;
+    }
+    const input = event.input as unknown;
+    appendLog({
+      ts: new Date().toISOString(),
+      tool: event.toolName,
+      model: ctx.model?.id,
+      outcome: 'failed',
+      issues: 'unknown-tool',
+      fingerprint: shapeFingerprint(event.toolName, input),
+    });
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `${originalText}\n\nHenyo note: no such tool. Available tools: ${toolList} — re-emit the call with one of those.`,
+        },
+      ],
+    };
+  };
+
+  /**
+   * `edit` content-mismatch coaching: the dominant failure class for the
+   * served Qwen models. Coached with a targeted one-line hint; when
+   * `editFallbackEnabled` and a report qualifies, the hint is upgraded to the
+   * full candidate/duplicate report (assumption 11: nothing qualifies → the
+   * one-line hint stays). Telemetry records the category, not shape.
+   */
+  const coachEditContentError = async (
+    event: ToolResultEvent,
+    ctx: ExtensionContext,
+    originalText: string,
+  ): Promise<{ content: { type: 'text'; text: string }[] } | undefined> => {
+    if (event.toolName !== 'edit') return undefined;
+    const firstLine = originalText.split('\n')[0] ?? '';
+    const rule = CONTENT_ERROR_RULES.find((r) => r.re.test(firstLine));
+    if (!rule) return undefined;
+    const input = event.input as unknown;
+    // Upgrade the one-line hint to the full report when the feature is on
+    // and a report qualifies (assumption 11: nothing qualifies → the
+    // existing one-line hint stays).
+    let note = `Henyo note: ${rule.line}`;
+    let issues = rule.category;
+    if (
+      opts.editFallbackEnabled &&
+      (rule.category === 'content-not-found' || rule.category === 'content-not-unique')
+    ) {
+      const enhancement = await classifyContentError(
+        rule.category,
+        firstLine,
+        event.input,
+        ctx.cwd,
+      );
+      if (enhancement) {
+        note = enhancement.replace
+          ? `Henyo note: ${enhancement.extra}`
+          : `Henyo note: ${rule.line}\n${enhancement.extra}`;
+        issues = enhancement.issues;
+      }
+    }
+    const ts = new Date().toISOString();
+    const fingerprint = editLocationFingerprint(input) ?? shapeFingerprint('edit', input);
+    const fileKey = editFileKey(input);
+    // Assumption 6: verbatim retry = a same-fingerprint failure is open for
+    // this file and no successful `read` of it happened after that failure.
+    // No resolvable path → no tracking, no flag (the documented "no state
+    // pushed" no-leak behavior).
+    const retriedVerbatim = recordEditFailure(
+      fileKey,
+      fingerprint,
+      event.toolCallId,
+      ts,
+      issues,
+      ctx.model?.id,
+    );
+    appendLog({
+      ts,
+      tool: 'edit',
+      model: ctx.model?.id,
+      outcome: 'failed',
+      issues,
+      // Original category — `issues !== category` is the upgraded
+      // subcategory / mislabel signal from the log alone.
+      category: rule.category,
+      fingerprint,
+      ...(retriedVerbatim ? { retriedVerbatim: true } : {}),
+    });
+    return {
+      content: [{ type: 'text', text: `${originalText}\n\n${note}` }],
+    };
+  };
+
+  /**
+   * Validation-failure coaching: both pi error signatures (`Validation
+   * failed for tool "X"` and the older `Invalid input for tool "X"`). `edit`
+   * gets the specific line; every other tool gets the generic one. Returns
+   * `undefined` when neither signature matches.
+   */
+  const coachValidationFailure = (
+    event: ToolResultEvent,
+    ctx: ExtensionContext,
+    originalText: string,
+  ): { content: { type: 'text'; text: string }[] } | undefined => {
+    if (
+      !/Validation failed for tool "[a-z_]+"/.test(originalText) &&
+      !/Invalid input for tool "[a-z_]+"/.test(originalText)
+    ) {
+      return undefined;
+    }
+    const coachingLine = event.toolName === 'edit' ? COACHING_LINE : GENERIC_COACHING_LINE;
+    const input = event.input as unknown;
+    const ts = new Date().toISOString();
+    const issues = shapeDiagnostics(event.toolName, input);
+    const fingerprint =
+      event.toolName === 'edit'
+        ? (editLocationFingerprint(input) ?? shapeFingerprint(event.toolName, input))
+        : shapeFingerprint(event.toolName, input);
+    const record: LogRecord = {
+      ts,
+      tool: event.toolName,
+      model: ctx.model?.id,
+      outcome: 'failed',
+      issues,
+      fingerprint,
+    };
+    // Assumption 6 (edit only): same-fingerprint open failure with no
+    // successful `read` of the file in between → blind verbatim retry.
+    if (
+      event.toolName === 'edit' &&
+      recordEditFailure(
+        editFileKey(input),
+        fingerprint,
+        event.toolCallId,
+        ts,
+        issues,
+        ctx.model?.id,
+      )
+    ) {
+      record.retriedVerbatim = true;
+    }
+    // Telemetry v2 (plan A4): emission tag on validation-class failures only
+    // — the classifier returns `undefined` for non-`edit` tools, so other
+    // tools' records stay untouched.
+    const emission = classifyEmission(event.toolName, input);
+    if (emission) record.emission = emission;
+    appendLog(record);
+    return {
+      content: [{ type: 'text', text: `${originalText}\n\n${coachingLine}` }],
+    };
+  };
+
   // Hook 2 (O3): coaching — (a) unknown-tool errors get the available tool
   // list (never remapped — plan assumption 6); (b) validation failures on
   // any tool, both pi error signatures (`Validation failed for tool "X"`
@@ -301,47 +548,8 @@ export function toolRepairExtension(
       }
     }
 
-    // Fuzzy-edit fallback correlation (plan step 3.2): a successful result
-    // consumes the pending rewrite records and logs `applied`; a failed call
-    // consumes them WITHOUT logging (the built-in apply is atomic — first
-    // failing edit throws before any write, so no partial state) and falls
-    // through to the coaching below, which may be upgraded to the full
-    // candidate/duplicate report.
-    if (opts.editFallbackEnabled && event.toolName === 'edit') {
-      const pending = pendingRewrites.get(event.toolCallId);
-      if (pending) {
-        pendingRewrites.delete(event.toolCallId);
-        if (!event.isError) {
-          const timestamp = new Date().toISOString();
-          const fingerprint =
-            editLocationFingerprint(event.input) ?? shapeFingerprint('edit', event.input);
-          for (const p of pending) {
-            appendLog({
-              ts: timestamp,
-              tool: 'edit',
-              model: ctx.model?.id,
-              outcome: 'applied',
-              rules: ['whitespace-normalize-oldtext'],
-              fingerprint,
-              toolCallId: event.toolCallId,
-              editIndex: p.editIndex,
-              lineRange: p.lineRange,
-              fileLines: p.fileLines,
-              oldTextLines: p.oldTextLines,
-              sha12: p.sha12,
-            });
-          }
-          // Telemetry v2: recovery is already closed by the ok site above
-          // (which runs first) — called here too per plan spec; no-op.
-          const fileKey = editFileKey(event.input);
-          if (fileKey !== undefined) {
-            recoverFailures(fileKey, event.toolCallId, timestamp);
-          }
-          return undefined; // success — the result content is untouched
-        }
-        // failed call — fall through to the coaching below
-      }
-    }
+    // Fuzzy-edit fallback correlation (plan step 3.2).
+    if (await consumePendingRewrites(event, ctx)) return undefined;
 
     if (!event.isError) return undefined;
     const originalText = event.content
@@ -349,168 +557,13 @@ export function toolRepairExtension(
       .map((c) => c.text)
       .join('\n');
 
-    if (UNKNOWN_TOOL_SIGNATURE.test(originalText.split('\n')[0] ?? '')) {
-      let toolList: string;
-      try {
-        toolList = pi.getActiveTools().join(', ');
-      } catch {
-        toolList = FALLBACK_TOOL_LIST;
-      }
-      const input = event.input as unknown;
-      appendLog({
-        ts: new Date().toISOString(),
-        tool: event.toolName,
-        model: ctx.model?.id,
-        outcome: 'failed',
-        issues: 'unknown-tool',
-        fingerprint: shapeFingerprint(event.toolName, input),
-      });
+    const unknownTool = coachUnknownTool(event, ctx, originalText);
+    if (unknownTool) return unknownTool;
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `${originalText}\n\nHenyo note: no such tool. Available tools: ${toolList} — re-emit the call with one of those.`,
-          },
-        ],
-      };
-    }
+    const contentError = await coachEditContentError(event, ctx, originalText);
+    if (contentError) return contentError;
 
-    // Content-mismatch errors (edit only — the signatures are edit-specific):
-    // the dominant failure class for the served Qwen models. Coached with a
-    // targeted one-line hint; telemetry records the category, not shape.
-    if (event.toolName === 'edit') {
-      const firstLine = originalText.split('\n')[0] ?? '';
-      const rule = CONTENT_ERROR_RULES.find((r) => r.re.test(firstLine));
-      if (rule) {
-        const input = event.input as unknown;
-        // Upgrade the one-line hint to the full report when the feature is
-        // on and a report qualifies (assumption 11: nothing qualifies → the
-        // existing one-line hint stays).
-        let note = `Henyo note: ${rule.line}`;
-        let issues = rule.category;
-        if (
-          opts.editFallbackEnabled &&
-          (rule.category === 'content-not-found' || rule.category === 'content-not-unique')
-        ) {
-          const enhancement = await classifyContentError(
-            rule.category,
-            firstLine,
-            event.input,
-            ctx.cwd,
-          );
-          if (enhancement) {
-            note = enhancement.replace
-              ? `Henyo note: ${enhancement.extra}`
-              : `Henyo note: ${rule.line}\n${enhancement.extra}`;
-            issues = enhancement.issues;
-          }
-        }
-        const ts = new Date().toISOString();
-        const fingerprint = editLocationFingerprint(input) ?? shapeFingerprint('edit', input);
-        // Telemetry v2: track the failure for recovery (per-file, A2).
-        const fileKey = editFileKey(input);
-        // Assumption 6: verbatim retry = a same-fingerprint failure is open
-        // for this file and no successful `read` of it happened after that
-        // failure (ISO-8601 ts compare is lexicographically correct).
-        // File-scoped only: no resolvable path → no tracking, no flag
-        // (matches the documented "no state pushed" no-leak behavior).
-        const readTs = fileKey !== undefined ? (lastReadTs.get(fileKey) ?? '') : '';
-        const retriedVerbatim =
-          fileKey !== undefined &&
-          (openFailures.get(fileKey) ?? []).some(
-            (f) => f.fingerprint === fingerprint && f.ts > readTs,
-          );
-        appendLog({
-          ts,
-          tool: 'edit',
-          model: ctx.model?.id,
-          outcome: 'failed',
-          issues,
-          // Original category — `issues !== category` is the upgraded
-          // subcategory / mislabel signal from the log alone.
-          category: rule.category,
-          fingerprint,
-          ...(retriedVerbatim ? { retriedVerbatim: true } : {}),
-        });
-        if (fileKey !== undefined) {
-          rememberOpenFailure(fileKey, {
-            fingerprint,
-            toolCallId: event.toolCallId,
-            ts,
-            issues,
-            model: ctx.model?.id,
-          });
-        }
-
-        return {
-          content: [{ type: 'text', text: `${originalText}\n\n${note}` }],
-        };
-      }
-    }
-
-    if (
-      !/Validation failed for tool "[a-z_]+"/.test(originalText) &&
-      !/Invalid input for tool "[a-z_]+"/.test(originalText)
-    ) {
-      return undefined;
-    }
-
-    const coachingLine = event.toolName === 'edit' ? COACHING_LINE : GENERIC_COACHING_LINE;
-    const input = event.input as unknown;
-    const ts = new Date().toISOString();
-    const issues = shapeDiagnostics(event.toolName, input);
-    const fingerprint =
-      event.toolName === 'edit'
-        ? (editLocationFingerprint(input) ?? shapeFingerprint(event.toolName, input))
-        : shapeFingerprint(event.toolName, input);
-    const record: LogRecord = {
-      ts,
-      tool: event.toolName,
-      model: ctx.model?.id,
-      outcome: 'failed',
-      issues,
-      fingerprint,
-    };
-    // Assumption 6 (edit only): same-fingerprint open failure with no
-    // successful `read` of the file in between → blind verbatim retry.
-    if (event.toolName === 'edit') {
-      const fileKey = editFileKey(input);
-      if (fileKey !== undefined) {
-        const readTs = lastReadTs.get(fileKey) ?? '';
-        if (
-          (openFailures.get(fileKey) ?? []).some(
-            (f) => f.fingerprint === fingerprint && f.ts > readTs,
-          )
-        ) {
-          record.retriedVerbatim = true;
-        }
-      }
-    }
-    // Telemetry v2 (plan A4): emission tag on validation-class failures only
-    // — the classifier returns `undefined` for non-`edit` tools, so other
-    // tools' records stay untouched.
-    const emission = classifyEmission(event.toolName, input);
-    if (emission) record.emission = emission;
-    appendLog(record);
-    // Telemetry v2: track the failure for recovery (edit only — the ok /
-    // applied sites only fire for edit successes).
-    if (event.toolName === 'edit') {
-      const fileKey = editFileKey(input);
-      if (fileKey !== undefined) {
-        rememberOpenFailure(fileKey, {
-          fingerprint,
-          toolCallId: event.toolCallId,
-          ts,
-          issues,
-          model: ctx.model?.id,
-        });
-      }
-    }
-
-    return {
-      content: [{ type: 'text', text: `${originalText}\n\n${coachingLine}` }],
-    };
+    return coachValidationFailure(event, ctx, originalText);
   });
 
   // Hook 3 (O5): prevention — four guideline lines in the system prompt,
