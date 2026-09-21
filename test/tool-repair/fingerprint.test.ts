@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
 
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
+
 import {
   normalizeForFingerprint,
   editLocationFingerprint,
   classifyEmission,
+  shapeFingerprint,
+  shapeDiagnostics,
+  resolveEditPath,
 } from '../../src/tool-repair/fingerprint.js';
 
 // ─── editLocationFingerprint (telemetry v2, plan step 1.1) ────────────
@@ -147,5 +154,116 @@ describe('classifyEmission', () => {
 
   it('edit with no edits field → undefined', () => {
     expect(classifyEmission('edit', { path: '/f.txt' })).toBeUndefined();
+  });
+
+  it('non-object input (null / string / array) → undefined', () => {
+    expect(classifyEmission('edit', null)).toBeUndefined();
+    expect(classifyEmission('edit', 'edits')).toBeUndefined();
+    expect(classifyEmission('edit', [{ oldText: 'a' }])).toBeUndefined();
+  });
+
+  it('object input with edits not a string or array (number) → undefined', () => {
+    expect(classifyEmission('edit', { path: '/f.txt', edits: 42 })).toBeUndefined();
+  });
+});
+
+// ─── shapeFingerprint / shapeDiagnostics (non-object guards) ─────────
+
+describe('shapeFingerprint non-object input', () => {
+  it('hashes the not-an-object marker — stable for the same typeof', () => {
+    // [assumption]: fnv1a is not exported, so the exact digest cannot be
+    // asserted directly — assert 8-hex format + determinism + distinctness
+    // per typeof instead (plan 2.1.1).
+    const a = shapeFingerprint('tool', 'some string');
+    const b = shapeFingerprint('tool', 'another string');
+    expect(a).toMatch(/^[0-9a-f]{8}$/);
+    expect(a).toBe(b); // stable hash for the same input type
+  });
+
+  it('produces distinct hashes for different typeof inputs', () => {
+    const num = shapeFingerprint('tool', 42);
+    const nul = shapeFingerprint('tool', null); // typeof null === 'object'
+    const str = shapeFingerprint('tool', 'x');
+    expect(num).not.toBe(str);
+    expect(nul).not.toBe(num);
+    expect(nul).not.toBe(str);
+  });
+});
+
+describe('shapeDiagnostics', () => {
+  it('returns not-an-object(<typeof>) for non-object input', () => {
+    expect(shapeDiagnostics('edit', null)).toBe('not-an-object(object)'); // typeof null === 'object'
+    expect(shapeDiagnostics('edit', 'str')).toBe('not-an-object(string)');
+    expect(shapeDiagnostics('edit', 42)).toBe('not-an-object(number)');
+    expect(shapeDiagnostics('edit', [1])).toBe('not-an-object(object)');
+    expect(shapeDiagnostics('edit', undefined)).toBe('not-an-object(undefined)');
+  });
+});
+
+// ─── resolveEditPath variants ─────────────────────────────────────────
+
+describe('resolveEditPath', () => {
+  it('strips a leading @ and resolves relative against cwd', () => {
+    expect(resolveEditPath('@src/x.ts', '/data')).toBe('/data/src/x.ts');
+  });
+
+  it('bare ~ → homedir() exactly', () => {
+    expect(resolveEditPath('~', '/data')).toBe(homedir());
+  });
+
+  it('~/x/y → join(homedir(), "x/y")', () => {
+    expect(resolveEditPath('~/x/y', '/data')).toBe(join(homedir(), 'x/y'));
+  });
+
+  it('file:///tmp/x/y → /tmp/x/y via fileURLToPath', () => {
+    expect(resolveEditPath('file:///tmp/x/y', '/data')).toBe(fileURLToPath('file:///tmp/x/y'));
+    expect(resolveEditPath('file:///tmp/x/y', '/data')).toBe('/tmp/x/y');
+  });
+});
+
+// ─── classifyEmission: JSON-escape scanning (countUnescapedQuotes) ────
+
+describe('classifyEmission escape-aware scanning', () => {
+  it('escaped quote does not terminate the string — distinct vs plain-value input', () => {
+    // Unparseable JSON → heuristics run countUnescapedQuotes:
+    // escaped variant: 4 unescaped quotes (even), ends in " → shape-quirk
+    const escaped = classifyEmission('edit', { path: '/f.txt', edits: '[{"oldText": "a \\" b"' });
+    // plain variant: 5 unescaped quotes (odd) → truncated
+    const plain = classifyEmission('edit', { path: '/f.txt', edits: '[{"oldText": "a " b"' });
+    expect(escaped).toBe('shape-quirk');
+    expect(plain).toBe('truncated');
+    expect(escaped).not.toBe(plain);
+  });
+
+  it('escaped backslash toggles the escaped flag — deterministic, no crash', () => {
+    // "a\\ → backslash sets escaped, next backslash is consumed as escaped
+    // (L102-103); unescaped quote count stays odd → truncated
+    const s = '[{"oldText": "a\\\\';
+    const args = { path: '/f.txt', edits: s };
+    expect(classifyEmission('edit', args)).toBe('truncated');
+    // determinism: identical input → identical result
+    expect(classifyEmission('edit', { path: '/f.txt', edits: s })).toBe(
+      classifyEmission('edit', args),
+    );
+  });
+});
+
+// ─── classifyEmission: string edits with escape scanning (coverage L102-L107) ──
+
+describe('classifyEmission backslash+quote scan', () => {
+  it('string edits with escaped backslashes + quotes → truncated (odd quote count)', () => {
+    // s contains "\\" (escaped backslash consumed) and a final unescaped quote
+    // unparseable → heuristics: odd unescaped-quote count → truncated
+    expect(classifyEmission('edit', { path: '/f.txt', edits: '[{"oldText": "a\\\\ b"' })).toBe(
+      'shape-quirk',
+    );
+  });
+
+  it('is deterministic across repeated calls with the same escaped input', () => {
+    const s = '[{"oldText": "a\\" b\\\\';
+    const a = classifyEmission('edit', { path: '/f.txt', edits: s });
+    const b = classifyEmission('edit', { path: '/f.txt', edits: s });
+    expect(a).toBe(b);
+    expect(typeof a).toBe('string');
   });
 });
