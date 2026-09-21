@@ -565,3 +565,121 @@ describe('scenario D: stall hold (harness D-stall)', () => {
     }
   });
 });
+
+// ---------- legacy/corrupt state + defensive guards ----------
+
+describe('legacy state + defensive guards', () => {
+  it('v1 legacy state file falls back to seed ratios and bias=1 (L130/L145)', () => {
+    const env = makeEnv({ traceEnabled: true });
+    // Pre-seed a legacy v1 state file with out-of-range values that v2 must ignore.
+    writeFileSync(
+      env.statePath,
+      JSON.stringify({ v: 1, ratios: { 'test/m': { think: 99, text: 99, tool: 99 } }, savedAt: 0 }),
+    );
+    beginCall(env); // before_provider_request → loadRatios/loadBias
+    const lines = readLogLines(env.logFile);
+    const bpr = lines.find((l) => l.ev === 'before_provider_request');
+    expect(bpr).toBeDefined();
+    expect(bpr!.ratios).toEqual({ think: 3.62, text: 2.64, tool: 2.63 }); // SEED_RATIOS, not the v1 values
+    expect(bpr!.bias).toBe(1); // loadBias fallback
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('corrupt state file falls back to seeds without throwing (L130/L145 catch)', () => {
+    const env = makeEnv({ traceEnabled: true });
+    writeFileSync(env.statePath, 'this is not json{{{');
+    expect(() => beginCall(env)).not.toThrow();
+    const lines = readLogLines(env.logFile);
+    const bpr = lines.find((l) => l.ev === 'before_provider_request');
+    expect(bpr!.ratios).toEqual({ think: 3.62, text: 2.64, tool: 2.63 });
+    expect(bpr!.bias).toBe(1);
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('tickStall early-returns when activeCtx is null (L281)', async () => {
+    const env = makeEnv({});
+    // Deliberately skip agent_start → activeCtx stays null, but the stall
+    // timer is created by the delta handler and will fire within 500ms.
+    beginCallNoAgentStart(env);
+    delta(env, 'text_delta', 40, 2000);
+    const msgsBefore = env.msgs.length;
+    await new Promise((r) => setTimeout(r, 700)); // let a real 500ms tick fire
+    expect(env.msgs.length).toBe(msgsBefore); // no stall message written
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('tickStall early-returns inside the stall window (L282)', async () => {
+    const env = makeEnv({});
+    beginCall(env);
+    delta(env, 'text_delta', 40, 2000);
+    const msgsBefore = env.msgs.length;
+    // fakeNow unchanged → now() - lastDeltaMs = 0 < STALL_MS(1500) → L282 return
+    await new Promise((r) => setTimeout(r, 700)); // first 500ms tick fires inside the window
+    expect(env.msgs.length).toBe(msgsBefore);
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('message_update with a non-delta event type returns early, touching no state (L336)', () => {
+    const env = makeEnv({ traceEnabled: true });
+    beginCall(env);
+    const msgsBefore = env.msgs.length;
+    fakeNow = 3000;
+    env.stub.handlers['message_update'](
+      { assistantMessageEvent: { type: 'message_start', delta: 'x'.repeat(50) } },
+      env.ctx,
+    );
+    // No working message from the guard, no first_token logged
+    expect(env.msgs.length).toBe(msgsBefore);
+    expect(readLogLines(env.logFile).some((l) => l.ev === 'first_token')).toBe(false);
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('non-assistant message_end logs and returns without calibration (L404-405)', () => {
+    const env = makeEnv({ traceEnabled: true });
+    beginCall(env);
+    delta(env, 'text_delta', 40, 2000);
+    fakeNow = 3000;
+    env.stub.handlers['message_end'](
+      { message: { role: 'user', stopReason: 'stop', usage: { output: 50 } } },
+      env.ctx,
+    );
+    const lines = readLogLines(env.logFile);
+    const me = lines.find((l) => l.ev === 'message_end');
+    expect(me).toBeDefined();
+    expect(me!.role).toBe('user');
+    // No calibration path ran → no state file was written
+    expect(existsSync(env.statePath)).toBe(false);
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('aborted and errored message_end skip calibration with calib notes (L437)', () => {
+    for (const stopReason of ['aborted', 'error']) {
+      const env = makeEnv({ traceEnabled: true });
+      beginCall(env);
+      for (let i = 0; i < 5; i++) delta(env, 'text_delta', 40, 2000 + i * 100);
+      endCall(env, 5000, { output: 500, reasoning: 0 }, stopReason);
+      const lines = readLogLines(env.logFile);
+      const me = lines.filter((l) => l.ev === 'message_end').pop();
+      expect(me).toBeDefined();
+      expect(me!.stopReason).toBe(stopReason);
+      expect(me!.calib).toContain(`skipped:stop=${stopReason}`);
+      // No calibration → saveModelState not called → state file never written
+      expect(existsSync(env.statePath)).toBe(false);
+      cleanup(env);
+      rmSync(env.dir, { recursive: true, force: true });
+    }
+  });
+});
+
+/** Like beginCall but without agent_start — leaves activeCtx null. */
+function beginCallNoAgentStart(env: ReturnType<typeof makeEnv>, t = 1000) {
+  fakeNow = t;
+  env.stub.handlers['before_provider_request']({}, env.ctx);
+  env.stub.handlers['message_start']({ message: { role: 'assistant' } }, env.ctx);
+}
