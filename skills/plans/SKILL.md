@@ -41,12 +41,15 @@ checkboxes. No Step 1 work happens until the baseline is recorded.
 2. Do the work described in that sub-step.
 3. **Immediately** mark it `[x]` in the plan file, adding implementation notes — prefix
    assumptions and deviations with `[assumption]:` / `[deviation]:`.
+   The tick is part of completing the sub-step, not bookkeeping that happens afterward.
 4. Move to the next `[ ]` sub-step.
 5. When all sub-steps in a step are `[x]`, mark the step header's own checkbox `[x]`.
 
 ### Updating this plan (checkbox surgery)
-- Tick = a single-line edit: `oldText` is exactly the current line, from a fresh
-  read. Never span other lines — they change with every tick.
+- Tick = a single-line edit: `oldText` is exactly the current line. Read the plan
+  before the first tick of a step; subsequent ticks in that step reuse the known
+  text (your own ticks only changed lines you ticked). Never span other lines —
+  they change with every tick.
 - Paste baseline output only into its own `Output:` placeholder line; never
   re-wrap or edit neighboring lines.
 - Implementation notes go on the line below the checkbox (indented plain lines);
@@ -118,9 +121,9 @@ Statuses:
 
 One row per thing being changed. Problem and Fix must be specific.
 
-### 6. Documentation Update (when coding changes)
+### 6. Documentation Update step (when coding changes)
 
-Include this section when the plan modifies source code, tests, config, or any non-doc file.
+Include this as a **step** within the Steps section (its own numbered `### N.x` with a commit) when the plan modifies source code, tests, config, or any non-doc file.
 
 **When to update:**
 - The plan modifies source code files
@@ -184,6 +187,7 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 **Acceptance:** [measurable criteria]
 
 **Scope:** [what NOT to do]
+**Tick:** each `### N.x` sub-step is complete only when its line is `[x]` — mark it immediately after doing the work, before the next sub-step. Batch-marking at step end is false progress.
 
 ### N.x [Sub-task]
 - [ ] [action] — do the work
@@ -228,10 +232,9 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 
 ### 11. Meta (optional)
 
-```
-## Dependencies
-- No new external dependencies
+Free-form section for anything that doesn't fit elsewhere (estimated effort, links, risk notes). Must NOT duplicate sections that already have their own numbered heading — e.g. do not repeat a `## Dependencies` header here; use the section 3 Dependencies list.
 
+```
 ## Estimated Effort
 - Step 1: 30 min
 ```
@@ -303,9 +306,10 @@ Source: ~/.pi/agent/notes/<note>.md
 | Acceptance criteria requiring human judgment | Agent can't self-verify |
 | Missing doc updates for coding changes | Docs go stale, users can't follow the code |
 | "Update the note (status → Planned)" instead of deleting it | Notes are ephemeral — the plan supersedes them; a status field keeps a dead artifact alive |
-| Batching multiple review questions into one message | The user can't answer iteratively and the turn-by-turn decision trail collapses; each item gets its own turn, with the user's own multi-answer replies as the only allowed batching (observed 2026-09-20: agent front-loaded items 4–5 as "trivial" despite the one-at-a-time instruction) |
+| Batching multiple review questions into one message | The user can't answer iteratively and the turn-by-turn decision trail collapses; each item gets its own turn, with the user's own multi-answer replies as the only allowed batching (observed: agent front-loaded items as "trivial" despite the one-at-a-time instruction) |
 | Counting failures from memory ("5 pre-existing, unrelated") | A failure introduced by the plan's own step gets miscounted as pre-existing and ships (henyo-pi-web 4.2.0: a self-inflicted ENOENT was waved through as "pre-existing"). Diff the failure list against the recorded baseline, never against a remembered count |
 | Editing the plan mid-review Q&A | Feedback gathered item-by-item applies as one coherent revision only after the full pass — interleaving edits churns the plan and loses the decision rationale (Review Flow: gather first, update once) |
+| Batch-marking a step's sub-steps at step end | An interrupt loses all progress and `[assumption]`/`[deviation]` logs vanish into one end-of-step blob; the plan no longer reflects actual state. Tick each sub-step immediately after doing it |
 
 ---
 
@@ -354,11 +358,11 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 12 | No duplicate sections | Same section appears twice |
 | 13 | Every ambiguity surfaced in Assumptions & Open Questions | Ambiguity silently baked into a step |
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
-| 15 | Plan tells agent to be deliberate | Missing discipline reminder ("do not rush", "be deliberate") |
+| 15 | Plan tells agent to be deliberate | Missing discipline reminder ("One sub-step at a time — discipline over momentum") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
 | 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
 | 18 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
-| 19 | Plan saved to correct location | Plan was written to `~/.pi/agent/plans/`, not `/tmp` |
+| 19 | Plan saved to correct location | Plan was written to `/tmp` or another transient location instead of `~/.pi/agent/plans/` |
 | 20 | Plan documents assumption logging | Discipline section lacks the `[assumption]`/`[deviation]` prefix convention |
 | 21 | Assumptions & Open Questions section present | Ambiguities hidden in prose/steps instead of the table |
 | 22 | Unattended rule in embedded instructions | Template still says "if told to proceed without asking" |
@@ -366,6 +370,10 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 24 | Plan generated from a note includes the Source Note Inheritance section with exhaustive mapping | A note spawned the plan but a finding/decision/next step has no inheritance row (re-read the note file to verify), or the note was not marked Superseded |
 | 25 | Source note delete is in Before You Start, gated on the mapping check | The delete instruction is missing, sits in Final Verification instead, or is not gated on re-reading the note and verifying the mapping |
 | 26 | Baseline Pre-Check section present before Step 1 (git status + test + lint) with verbatim result placeholders and the baseline-comparison rule | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
+| 27 | Every step header includes a **Tick:** one-liner reminding the executor to mark each sub-step `[x]` immediately | Any step lacks the per-step tick reminder |
+| 28 | Goal section present with a single-line purpose + why-it-matters | Missing or multi-line |
+| 29 | Checkpoints table present with at least one row | Missing (at least one gate required) |
+| 30 | Final Verification section present with baseline-diff check | Missing |
 
 ### Review Flow (when the user asks to review a plan)
 
@@ -400,4 +408,4 @@ Plan review resolves the Assumptions & Open Questions table — it is the decisi
 4. Re-run the Self-Review Checklist on the updated plan, then hand off the
    plan path (Rule 15).
 
-If any row fails, edit the plan and re-check. Do not present until all 26 pass.
+If any row fails, edit the plan and re-check. Do not present until all 30 pass.
