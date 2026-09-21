@@ -1,7 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { describe, it, expect } from 'vitest';
 import {
-  version,
   normalizeToLF,
   stripBom,
   normalizeForFuzzyMatch,
@@ -19,15 +18,6 @@ import {
   formatDuplicateReport,
   classifyEdit,
 } from '../src/edit-fallback.js';
-
-// ─── scaffold ──────────────────────────────────────────────────────────────
-
-describe('scaffold', () => {
-  it('exports a semver version string', () => {
-    expect(version).toBeTypeOf('string');
-    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
-  });
-});
 
 // ─── built-in predicate port (2.1) ─────────────────────────────────────────
 

@@ -32,8 +32,6 @@ import { Buffer } from 'node:buffer';
 
 import { createTwoFilesPatch, FILE_HEADERS_ONLY } from 'diff';
 
-export const version = '0.1.0';
-
 /** Files larger than this (UTF-8 bytes) get no rewrite and no candidate scan (plan assumption 10). */
 const SIZE_GUARD_BYTES = 1024 * 1024;
 
@@ -310,13 +308,8 @@ export function lineRatio(a: string[], b: string[]): number {
         bestJ--;
         bestSize++;
       }
-      while (
-        bestI + bestSize < ahi &&
-        bestJ + bestSize < bhi &&
-        a[bestI + bestSize] === b[bestJ + bestSize]
-      ) {
-        bestSize++;
-      }
+      // No forward extension: the DP invariant already guarantees
+      // (bestI, bestSize) ends the maximal matching run.
     }
     return bestSize === 0 ? null : { a: bestI, b: bestJ, size: bestSize };
   };
