@@ -50,7 +50,8 @@ henyo-pi-core/
     ├── tool-repair/            # Module tests (mirror src/tool-repair/)
     │   ├── hooks.test.ts       # Hook wiring: message_end / tool_result / before_agent_start + telemetry
     │   ├── rules.test.ts       # The five args-repair rules
-    │   └── fingerprint.test.ts # Fingerprint + emission classification
+    │   ├── fingerprint.test.ts # Fingerprint + emission classification
+    │   └── telemetry.test.ts   # Telemetry: rememberRewrite cap, applyEditFallback guards, classifyContentError null paths
     ├── tool-repair-edit-fallback.test.ts # Hook wiring: rewrite, pending telemetry, coaching, guards
     ├── edit-fallback.test.ts # Unit tests for the pure matching/candidate/duplicate core
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
