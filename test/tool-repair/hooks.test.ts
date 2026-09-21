@@ -1421,3 +1421,107 @@ describe('message_end telemetry for the step-4 rules', () => {
     expect(log[0].rules).toEqual(['drop-incomplete-edits']);
   });
 });
+
+// ─── defensive guard paths (plan step 6) ───────────────────────────────
+
+describe('toolRepairExtension guard paths', () => {
+  let tmp: string;
+  let logPath: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'tool-repair-guard-'));
+    logPath = join(tmp, 'tool-repair.jsonl');
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  const okEditEvent = (input: unknown, toolCallId = 'call-ok') => ({
+    type: 'tool_result',
+    toolCallId,
+    toolName: 'edit',
+    input,
+    content: [{ type: 'text', text: 'OK' }],
+    isError: false,
+  });
+
+  it('successful edit with array input → ok record logged, editFileKey guard returns undefined (L159)', async () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath });
+
+    // `event.input` is an array → editFileKey's type guard early-returns undefined;
+    // fingerprints fall back to shapeFingerprint's not-an-object branch.
+    const result = await handlers['tool_result'](okEditEvent(['not', 'an', 'object']), ctx);
+    expect(result).toBeUndefined();
+    const log = readLog(logPath);
+    expect(log).toHaveLength(1);
+    expect(log[0].outcome).toBe('ok');
+  });
+
+  it('FIFO cap: 9 open failures on one file → oldest dropped, 8 recovered (L168)', async () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath });
+
+    const input = { path: '/dir/cap.txt', edits: [{ oldText: 'x', newText: 'y' }] };
+    for (let i = 1; i <= 9; i++) {
+      await handlers['tool_result'](
+        {
+          type: 'tool_result',
+          toolCallId: `call-f${i}`,
+          toolName: 'edit',
+          input,
+          content: [
+            {
+              type: 'text',
+              text: 'Could not find the exact text in /dir/cap.txt. The old text must match exactly including all whitespace and newlines.',
+            },
+          ],
+          isError: true,
+        },
+        ctx,
+      );
+    }
+    await handlers['tool_result'](okEditEvent(input, 'call-ok'), ctx);
+
+    const recovered = readLog(logPath).filter((r) => r.outcome === 'recovered');
+    expect(recovered).toHaveLength(8); // OPEN_FAILURES_CAP = 8 → call-f1 evicted
+    expect(recovered.map((r) => r.toolCallId)).toEqual([
+      'call-f2',
+      'call-f3',
+      'call-f4',
+      'call-f5',
+      'call-f6',
+      'call-f7',
+      'call-f8',
+      'call-f9',
+    ]);
+  });
+
+  it('message_end with non-array content → undefined, no log (L208)', async () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: true, logPath });
+
+    const result = await handlers['message_end'](
+      {
+        type: 'message_end',
+        message: { role: 'assistant', content: 'plain string content' },
+      },
+      ctx,
+    );
+    expect(result).toBeUndefined();
+    expect(readLog(logPath)).toHaveLength(0);
+  });
+
+  it('tool_result while disabled → no-op, no log (L269)', async () => {
+    const { api, handlers } = makeMockPi();
+    toolRepairExtension(api, { enabled: false, logPath });
+
+    const result = await handlers['tool_result'](
+      okEditEvent({ path: '/dir/d.txt', edits: [{ oldText: 'x', newText: 'y' }] }),
+      ctx,
+    );
+    expect(result).toBeUndefined();
+    expect(readLog(logPath)).toHaveLength(0);
+  });
+});

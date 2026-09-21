@@ -215,6 +215,23 @@ describe('compaction-retry (src/compaction-retry.ts)', () => {
     expect(msg).toContain('last error: boom');
   });
 
+  it('attempt throws while signal aborts mid-attempt → silent return inside catch, no retry, no notify (L140)', async () => {
+    const { run, complete, ui, signal } = makeHandler();
+    // Abort DURING the attempt: the handler's pre-loop check already passed
+    // (aborted was false when the loop started); the catch sees aborted=true
+    // and returns without the "attempt errored" warning and without retrying.
+    complete.mockImplementation(async () => {
+      signal.aborted = true;
+      throw new Error('aborted mid-flight');
+    });
+    const result = await run();
+    expect(result).toBeUndefined();
+    expect(complete).toHaveBeenCalledTimes(1);
+    // No "attempt errored" warning, no retry: only the pre-attempt info notice.
+    expect(ui.notify.mock.calls.every(([, lvl]) => lvl === 'info')).toBe(true);
+    expect(ui.notify.mock.calls.some(([m]) => String(m).includes('errored'))).toBe(false);
+  });
+
   it('signal.aborted before the loop → no complete calls, returns undefined', async () => {
     const { run, complete } = makeHandler({ aborted: true });
     const result = await run();

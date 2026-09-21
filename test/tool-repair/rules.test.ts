@@ -190,6 +190,28 @@ describe('salvageCorruptEdits', () => {
     expect(salvageCorruptEdits(input)).toBe(false);
   });
 
+  it('returns false when the repaired payload parses to an empty array (array-guard, L190)', () => {
+    const input = {
+      path: '/f.txt',
+      // cuts to `[` → depth 1, no open string → closer appended → `[]` → empty
+      edits: '[' + THIN_OPEN,
+    };
+    const before = structuredClone(input);
+    expect(salvageCorruptEdits(input)).toBe(false);
+    expect(input).toEqual(before); // untouched — not a corruption we can fix
+  });
+
+  it('returns false when the repaired payload parses to a non-array (array-guard, L190)', () => {
+    const input = {
+      path: '/f.txt',
+      // cuts to `123` → parses to a number → !Array.isArray → L190
+      edits: '123' + THIN_OPEN,
+    };
+    const before = structuredClone(input);
+    expect(salvageCorruptEdits(input)).toBe(false);
+    expect(input).toEqual(before);
+  });
+
   it('returns false when the tail is not inside an open string/array and the parse fails', () => {
     const input = {
       path: '/f.txt',
