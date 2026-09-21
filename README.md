@@ -52,7 +52,12 @@ henyo-pi-core/
     │   ├── rules.test.ts       # The five args-repair rules
     │   ├── fingerprint.test.ts # Fingerprint + emission classification
     │   └── telemetry.test.ts   # Telemetry: rememberRewrite cap, applyEditFallback guards, classifyContentError null paths
-    ├── tool-repair-edit-fallback.test.ts # Hook wiring: rewrite, pending telemetry, coaching, guards
+    └── tool-repair/
+        ├── edit-fallback-hooks.test.ts   # Hook wiring: rewrite, pending telemetry, coaching, guards
+        ├── fingerprint.test.ts
+        ├── hooks.test.ts
+        ├── rules.test.ts
+        └── telemetry.test.ts
     ├── edit-fallback.test.ts # Unit tests for the pure matching/candidate/duplicate core
     ├── index.test.ts     # Entry-point tests: settings fill-write, footer attach, re-render
     ├── load-henyo-settings.test.ts # henyo settings block: merge, fill writes, steady state

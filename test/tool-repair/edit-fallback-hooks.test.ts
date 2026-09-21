@@ -16,7 +16,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   getAgentDir: () => '/must/not/be/used',
 }));
 
-import { toolRepairExtension } from '../src/tool-repair.js';
+import { toolRepairExtension } from '../../src/tool-repair/hooks.js';
 
 // ─── harness (same pattern as tool-repair.test.ts) ──────────────────────
 
