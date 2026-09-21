@@ -75,6 +75,22 @@ function createTempSessionFile(target: string): string {
   return sessionFile;
 }
 
+function cleanupTempSession(sessionFile: string, target: string): void {
+  try {
+    unlinkSync(sessionFile);
+    const sessionDir = getSessionDirForCwd(target);
+    try {
+      if (readdirSync(sessionDir).length === 0) {
+        rmdirSync(sessionDir);
+      }
+    } catch {
+      // Directory may already be gone or no longer empty; ignore
+    }
+  } catch {
+    // File may already be gone; ignore
+  }
+}
+
 export default function (pi: _ExtensionAPI) {
   pi.registerCommand('cwd', {
     description: 'Switch to another project directory (new session in target dir)',
@@ -114,20 +130,7 @@ export default function (pi: _ExtensionAPI) {
           // If the user already sent a message, pi persisted to the file and
           // it should be kept.
           if (isSessionEmpty(sessionFile)) {
-            try {
-              unlinkSync(sessionFile);
-              // Clean up the empty session directory if no other files exist
-              const sessionDir = getSessionDirForCwd(target);
-              try {
-                if (readdirSync(sessionDir).length === 0) {
-                  rmdirSync(sessionDir);
-                }
-              } catch {
-                // Directory may already be gone or no longer empty; ignore
-              }
-            } catch {
-              // File may already be gone; ignore
-            }
+            cleanupTempSession(sessionFile, target);
           }
           if (newCtx.hasUI) newCtx.ui.notify(`Now in: ${target}`, 'info');
         },
@@ -135,20 +138,7 @@ export default function (pi: _ExtensionAPI) {
 
       if (result.cancelled) {
         // Clean up the temp file if the switch was cancelled
-        try {
-          unlinkSync(sessionFile);
-          // Also clean up the empty session directory
-          const sessionDir = getSessionDirForCwd(target);
-          try {
-            if (readdirSync(sessionDir).length === 0) {
-              rmdirSync(sessionDir);
-            }
-          } catch {
-            // Directory may already be gone or no longer empty; ignore
-          }
-        } catch {
-          // File may already be gone; ignore
-        }
+        cleanupTempSession(sessionFile, target);
         if (ctx.hasUI) ctx.ui.notify('Session switch cancelled', 'info');
       }
     },
