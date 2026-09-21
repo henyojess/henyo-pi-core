@@ -459,7 +459,7 @@ pnpm run lint:fix           # Auto-fix ESLint issues
 pnpm run format             # Check Prettier formatting
 pnpm run format:fix         # Auto-format with Prettier
 pnpm run build              # TypeScript type-check build
-pnpm run test:coverage      # Run tests with coverage report (80% thresholds)
+pnpm run test:coverage      # Run tests with coverage report (90% thresholds)
 ```
 
 ### Architecture
@@ -472,7 +472,7 @@ The extension follows a factory pattern — `src/index.ts` exports a default fun
 
 ### Testing
 
-Tests use Vitest with mocked pi-coding-agent internals. Each test file covers its corresponding command handler, including edge cases for error conditions and cancellation scenarios. Coverage thresholds are set at 80%.
+Tests use Vitest with mocked pi-coding-agent internals. Each test file covers its corresponding command handler, including edge cases for error conditions and cancellation scenarios. Coverage thresholds are set at 90%.
 
 ## API Reference
 
