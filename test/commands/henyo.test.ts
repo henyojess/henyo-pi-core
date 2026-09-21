@@ -345,4 +345,30 @@ describe('/henyo command', () => {
     expect(s.henyo.skills).toEqual({});
     expect(s.henyo.footer).toBe(false);
   });
+
+  // ── defensive no-match guards ───────────────────────────────────────
+  it('completions token 1: prefix matching no key or shorthand → null (L110)', () => {
+    const { opts } = register();
+    expect(opts.getArgumentCompletions('zzz')).toBeNull();
+  });
+
+  it('completions token 2: valid key but value prefix matching nothing → null (L124)', () => {
+    const { opts } = register();
+    // 'q' is not a prefix of on/off/true/false/enable/disable.
+    expect(opts.getArgumentCompletions('footer q')).toBeNull();
+  });
+
+  it('picker selection with unknown key → returns silently, settings unchanged (L180)', async () => {
+    const before = readFileSync(settingsFile, 'utf-8');
+    const { opts, applyFooter } = register();
+    const ctx = makeCtx({
+      ui: { notify: vi.fn(), select: vi.fn(async () => 'not-a-real-key: on') },
+    });
+    await opts.handler('', ctx);
+    // resolveKey('not-a-real-key') → undefined → early return: no write, no reload, no toast
+    expect(readFileSync(settingsFile, 'utf-8')).toBe(before);
+    expect(ctx.reload).not.toHaveBeenCalled();
+    expect(applyFooter).not.toHaveBeenCalled();
+    expect(ctx.ui.notify).not.toHaveBeenCalled();
+  });
 });

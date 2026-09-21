@@ -281,4 +281,31 @@ describe('cwd command', () => {
 
     expect(ctx.ui.notify).toHaveBeenCalledWith('Path not found: ../nonexistent-dir-xyz', 'error');
   });
+
+  it('withSession where the session file vanished → isSessionEmpty catch → false, no crash (L44)', async () => {
+    cwdCommand(createMockPi() as any);
+    expect(capturedCommand).not.toBeNull();
+
+    const targetDir = join(tmpdir(), `cwd-vanished-${Date.now()}`);
+    mkdirSync(targetDir, { recursive: true });
+
+    const ctx = {
+      cwd: targetDir,
+      hasUI: true,
+      ui: { notify: vi.fn() },
+      switchSession: vi.fn((path: string, opts?: { withSession?: Function }) => {
+        rmSync(path, { force: true }); // simulate the file being gone before withSession
+        if (opts?.withSession) {
+          opts.withSession({ hasUI: true, ui: ctx.ui, cwd: targetDir });
+        }
+        return Promise.resolve({ cancelled: false });
+      }),
+    };
+
+    // Must not throw: isSessionEmpty hits its catch (ENOENT → false) and the
+    // empty-file cleanup is simply skipped; the switch still notifies.
+    await expect(capturedCommand!.opts.handler(targetDir, ctx as any)).resolves.toBeUndefined();
+    expect(ctx.ui.notify).toHaveBeenCalledWith(`Now in: ${targetDir}`, 'info');
+    rmSync(targetDir, { recursive: true, force: true });
+  });
 });
