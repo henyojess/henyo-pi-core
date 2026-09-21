@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import { classifyEdit, normalizeToLF, splitLinesWithEndings } from '../edit-fallback.js';
 import {
-  editLocationFingerprint,
+  classifyEdit,
+  normalizeToLF,
   resolveEditPath,
-  sha12,
-  shapeFingerprint,
-} from './fingerprint.js';
+  splitLinesWithEndings,
+} from '../edit-fallback.js';
+import { editLocationFingerprint, sha12, shapeFingerprint } from './fingerprint.js';
 
 export interface LogRecord {
   ts: string;

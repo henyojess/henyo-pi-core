@@ -29,6 +29,9 @@
  */
 
 import { Buffer } from 'node:buffer';
+import { homedir } from 'node:os';
+import { isAbsolute, join, resolve as resolveNodePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { createTwoFilesPatch, FILE_HEADERS_ONLY } from 'diff';
 
@@ -127,6 +130,43 @@ export function countOccurrences(content: string, oldText: string): number {
 export function builtinWouldMatch(content: string, oldText: string): boolean {
   const { text } = stripBom(content);
   return fuzzyFindText(normalizeToLF(text), normalizeToLF(oldText)).found;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Path resolution (moved from fingerprint.ts — it serves the edit-fallback
+// and classifyContentError paths, not the fingerprint pipeline)
+// ────────────────────────────────────────────────────────────────────────────
+
+/** Unicode-space variants — the built-in path resolution maps them to plain spaces. */
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+
+/**
+ * Resolve an `edit` tool `path` the way the built-in does (pi
+ * `resolveToCwd` = `resolvePath(path, cwd, {normalizeUnicodeSpaces: true,
+ * stripAtPrefix: true})`): unicode spaces → plain, strip a leading `@`,
+ * `~` → home dir, `file://` URL → path, absolute kept, relative resolved
+ * against `cwd`.
+ *
+ * [assumption]: the built-in's win32 MSYS/Cygwin/WSL drive conversion is
+ * omitted — on those platforms a shell-style path stays unreadable here, so
+ * the rewrite simply does not fire and the built-in's own resolution handles
+ * the call (byte-identical fallback to today's behavior).
+ */
+export function resolveEditPath(filePath: string, cwd: string): string {
+  let p = filePath.replace(UNICODE_SPACES, ' ');
+  if (p.startsWith('@')) {
+    p = p.slice(1);
+  }
+  if (p === '~') {
+    return homedir();
+  }
+  if (p.startsWith('~/')) {
+    return join(homedir(), p.slice(2));
+  }
+  if (/^file:\/\//.test(p)) {
+    return fileURLToPath(p);
+  }
+  return isAbsolute(p) ? p : resolveNodePath(cwd, p);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

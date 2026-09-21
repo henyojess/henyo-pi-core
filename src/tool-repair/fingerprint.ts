@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
-import { homedir } from 'node:os';
-import { basename, isAbsolute, join, resolve as resolveNodePath } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename } from 'node:path';
 
 /** FNV-1a 32-bit hash (same algorithm as the old telemetry fingerprint). */
 function fnv1a(text: string): string {
@@ -187,38 +185,6 @@ export function shapeDiagnostics(_tool: string, input: unknown): string {
     issues += `;edits=${editsType}`;
   }
   return issues;
-}
-
-/** Unicode-space variants — the built-in path resolution maps them to plain spaces. */
-const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
-
-/**
- * Resolve an `edit` tool `path` the way the built-in does (pi
- * `resolveToCwd` = `resolvePath(path, cwd, {normalizeUnicodeSpaces: true,
- * stripAtPrefix: true})`): unicode spaces → plain, strip a leading `@`,
- * `~` → home dir, `file://` URL → path, absolute kept, relative resolved
- * against `cwd`.
- *
- * [assumption]: the built-in's win32 MSYS/Cygwin/WSL drive conversion is
- * omitted — on those platforms a shell-style path stays unreadable here, so
- * the rewrite simply does not fire and the built-in's own resolution handles
- * the call (byte-identical fallback to today's behavior).
- */
-export function resolveEditPath(filePath: string, cwd: string): string {
-  let p = filePath.replace(UNICODE_SPACES, ' ');
-  if (p.startsWith('@')) {
-    p = p.slice(1);
-  }
-  if (p === '~') {
-    return homedir();
-  }
-  if (p.startsWith('~/')) {
-    return join(homedir(), p.slice(2));
-  }
-  if (/^file:\/\//.test(p)) {
-    return fileURLToPath(p);
-  }
-  return isAbsolute(p) ? p : resolveNodePath(cwd, p);
 }
 
 /** First 12 hex chars of SHA-256 — argument values never reach the log. */

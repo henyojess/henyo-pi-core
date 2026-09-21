@@ -4,13 +4,13 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 
+import { resolveEditPath } from '../../src/edit-fallback.js';
 import {
   normalizeForFingerprint,
   editLocationFingerprint,
   classifyEmission,
   shapeFingerprint,
   shapeDiagnostics,
-  resolveEditPath,
 } from '../../src/tool-repair/fingerprint.js';
 
 // ─── editLocationFingerprint (telemetry v2, plan step 1.1) ────────────
