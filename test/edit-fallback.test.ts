@@ -492,3 +492,48 @@ describe('classifyEdit', () => {
     expect(r.lineRange).toEqual({ startLine: 2491, endLine: 2510 });
   });
 });
+
+// ─── defensive guards + edge paths (plan step 5) ────────────────────────
+
+describe('defensive guards + edge paths', () => {
+  it('resolveRewrite: non-string args → null (L228 type guard)', () => {
+    expect(resolveRewrite(null as unknown as string, 'a', 'b')).toBeNull();
+    expect(resolveRewrite('a\n', 42 as unknown as string, 'b')).toBeNull();
+    expect(resolveRewrite('a\n', 'b', 7 as unknown as string)).toBeNull();
+  });
+
+  it('resolveRewrite: oldText spanning more lines than the file → null (L251)', () => {
+    // builtinWouldMatch is false (no match), rawLines.length === fileLines.length
+    // (3 = 3), but oldLines has 5 lines > 3 → the m-guard returns null.
+    expect(resolveRewrite('one\ntwo\nthree\n', 'one\ntwo\nthree\nfour\nfive\n', 'z')).toBeNull();
+  });
+
+  it('lineRatio: repeated line in b exercises the b2j dedupe append (L284)', () => {
+    // 'x' appears twice in b → the second hit takes the `positions.push(j)` branch.
+    // difflib: LCS size 1, total 4 → 2*1/4 = 0.5 (correct-DP value).
+    expect(lineRatio(['x'], ['x', 'y', 'x'])).toBeCloseTo(0.5, 12);
+  });
+
+  it('lineRatio: input that exercises the difflib tail backward extension (L309-311)', () => {
+    // The DP finds the match ['C','A','C'] at a[2],b[1]; the preceding
+    // a[1]=B === b[0]=B extends it one step left via the tail loop.
+    // (Found by exhaustive search; the forward extension loop below never
+    // fires — see plan blocker note.)
+    expect(lineRatio(['A', 'B', 'C', 'A', 'C', 'B'], ['B', 'C', 'A', 'C', 'B', 'A'])).toBeCloseTo(
+      5 / 6,
+      12,
+    );
+  });
+
+  it('listOccurrences: empty oldLines and short file → [] (L549)', () => {
+    expect(listOccurrences(['a', 'b', 'c'], [])).toEqual([]);
+    expect(listOccurrences(['a'], ['a', 'b', 'c'])).toEqual([]);
+  });
+
+  it('classifyEdit: non-string args → { class: "none" } (L658 type guard)', () => {
+    expect(classifyEdit('/f', 'content', 42 as unknown as string, 'new')).toEqual({
+      class: 'none',
+    });
+    expect(classifyEdit('/f', 7 as unknown as string, 'old', 'new')).toEqual({ class: 'none' });
+  });
+});
