@@ -272,7 +272,7 @@ Source: ~/.pi/agent/notes/<note>.md
 9. **Inventory comes before steps.** Agent knows what it's working on before reading instructions.
 10. **Verify before claiming.** Every step ends with a verification command.
 11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
-12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory.
+12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory. The file is named <goal-slug>.md — the kebab-case slug of the Goal (defined in the Workflow, step 2).
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
 14. **Source notes are inherited, then die.** If a note in `~/.pi/agent/notes/` spawned the plan, the plan must include a Source Note Inheritance section mapping every finding/decision/context item/next step to a plan location, and the note is marked `Status: Superseded` with `Superseded by: <plan path>` at generation. The note is deleted as the first action of execution — after review, before Step 1 — gated on re-reading the note file and verifying the mapping. Never "update the note" instead.
 15. **Handoff path.** After creating a plan file, the reply must end with one line per
@@ -331,7 +331,7 @@ Source: ~/.pi/agent/notes/<note>.md
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<name>.md` (expand `~` to the absolute home path). If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 12) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<goal-slug>.md` (expand `~` to the absolute home path), where <goal-slug> is the kebab-case slug of the Goal line (lowercase words joined by hyphens), e.g. the Goal "Fix auth token expiry" → fix-auth-token-expiry.md. If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 12) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user; if the user asks to review it, run the Review Flow below (two-phase: all feedback gathered before any plan edit)
