@@ -346,7 +346,7 @@ After writing the plan, run through this checklist. Fix any failures before pres
 |---|-------|-----------|
 | 1 | Every action is a checkbox `- [ ]` | Prose paragraphs describe what to do |
 | 2 | Each step has its own commit | Multiple steps share one commit |
-| 3 | Acceptance criteria have numbers | Criteria say "works" or "passes" without counts |
+| 3 | Acceptance criteria have numbers | Criteria say "works" or "passes" without counts (acceptance lines only; the Verify sub-steps — "Test suite passes" / "Static checks pass" — are exempt, no counts required there) |
 | 4 | Every step has scope boundaries | Any step lacks "Do NOT..." |
 | 5 | Dependencies are listed before steps | Dependencies appear after steps or not at all |
 | 6 | No diagrams or visuals | ASCII art, flowcharts, or images |
