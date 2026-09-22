@@ -1,7 +1,7 @@
 ## How to Use This Plan
 
 > **Execution Discipline — read before starting.**
-> Mark each checkbox **immediately after completing that sub-step**, not at the end. Do not batch-mark. Each `[x]` is a record, not a pre-commitment. One sub-step at a time — discipline over momentum.
+> Mark each checkbox **immediately after completing that action**, not at the end. Do not batch-mark. Each `[x]` is a record, not a pre-commitment. One action at a time — discipline over momentum.
 
 ## Before You Start
 
@@ -18,14 +18,14 @@ If this plan contains a Baseline Pre-Check section, execute it before Step 1:
 run each command, paste results verbatim into the placeholders, and mark the
 checkboxes. No Step 1 work happens until the baseline is recorded.
 
-### Execution Loop (per sub-step)
-1. Find the first unchecked `[ ]` sub-step in the current step.
-2. Do the work described in that sub-step.
+### Execution Loop (per action)
+1. Find the first unchecked `[ ]` action in the current step.
+2. Do the work described in that action.
 3. **Immediately** mark it `[x]` in the plan file, adding implementation notes — prefix
    assumptions and deviations with `[assumption]:` / `[deviation]:`.
-   The tick is part of completing the sub-step, not bookkeeping that happens afterward.
-4. Move to the next `[ ]` sub-step.
-5. When all sub-steps in a step are `[x]`, mark the step header's own checkbox `[x]`.
+   The tick is part of completing the action, not bookkeeping that happens afterward.
+4. Move to the next `[ ]` action.
+5. When all actions in a step are `[x]`, mark the step header's own checkbox `[x]`.
 
 ### Updating this plan (checkbox surgery)
 - Tick = a single-line edit: `oldText` is exactly the current line. Read the plan
@@ -38,7 +38,7 @@ checkboxes. No Step 1 work happens until the baseline is recorded.
   do not reformat or re-wrap surrounding lines.
 
 ### Discipline
-- Mark each checkbox **right after completing that sub-step**, not at the end of the step.
+- Mark each checkbox **right after completing that action**, not at the end of the step.
   - If the session is interrupted, the plan file reflects actual progress and work can resume without re-doing anything.
 - Add implementation details alongside the marked sub-step. Prefix assumptions and
   deviations with `[assumption]:` / `[deviation]:` so they stay greppable after an
@@ -55,7 +55,7 @@ checkboxes. No Step 1 work happens until the baseline is recorded.
   doesn't list is a `[blocker]` — log it and continue independent work.
 - Do not batch-mark checkboxes. Each `[x]` is a record, not a pre-commitment.
   - Batching creates false progress — you haven't actually verified the work is done.
-- One sub-step at a time. It is better to do one correctly than five poorly.
+- One action at a time. It is better to do one correctly than five poorly.
   - Doing five poorly means five things to fix. Doing one correctly means one thing done.
 - Checkbox updates: use a **single-line** `edit`, where `oldText` is exactly the
   current line (from a fresh read). Never include other checkbox lines in

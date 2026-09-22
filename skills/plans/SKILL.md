@@ -13,14 +13,14 @@ Every plan has these sections:
 
 ### 1. How to Use This Plan (required)
 
-Every plan must begin with a `## How to Use This Plan` section embedded **verbatim** from `skills/plans/templates/how-to-use.md` (read that file; paste its full content into the plan unchanged — do not paraphrase or trim).
+Every plan must begin with a `## How to Use This Plan` section embedded **verbatim** from `templates/how-to-use.md` (read that file; paste its full content into the plan unchanged — do not paraphrase or trim).
 
 **Must-contain:**
 - Execution Discipline blockquote banner
 - `Before You Start` (incl. source-note re-read + delete, and baseline pre-check execution when present)
-- `Execution Loop (per sub-step)` (tick immediately after each sub-step)
+- `Execution Loop (per action)` (tick immediately after each action)
 - `Updating this plan (checkbox surgery)` (single-line `edit`, unique `oldText`)
-- `Discipline` (tick right after the sub-step; `[assumption]:`/`[deviation]:` prefixes; unattended default — recoverable → `[assumption]`, no-valid-path → `[blocker]`; deps-only-what-plan-lists; no batch-marking; one sub-step at a time; single-line checkbox edits)
+- `Discipline` (tick right after the sub-step; `[assumption]:`/`[deviation]:` prefixes; unattended default — recoverable → `[assumption]`, no-valid-path → `[blocker]`; deps-only-what-plan-lists; no batch-marking; one action at a time; single-line checkbox edits)
 ### 2. Goal (1 line)
 
 ```
@@ -62,16 +62,29 @@ Statuses:
 |---|------|---------------|---------|-----|
 
 One row per thing being changed. Problem and Fix must be specific.
+Granularity: one row per *logical unit of change* (e.g. "auth middleware"
+spanning 3 files = 1 row), not per file. Use the "Item" column for the logical
+unit name; add file paths in the "Fix" column.
+
+Slice shape: prefer *tracer-bullet vertical slices* — one row is a narrow but
+complete end-to-end path through the relevant layers (e.g. data → logic → UI →
+test), not a horizontal layer slice (all data first, then all logic, then all
+UI). Each slice must be independently verifiable on its own. Wide refactors are
+the exception — see "Wide refactors" in section 8.
 
 ### 6. Documentation Update step (when coding changes)
 
 Include this as a **step** within the Steps section (its own numbered `### N.x` with a commit) when the plan modifies source code, tests, config, or any non-doc file.
 
 **When to update:**
-- The plan modifies source code files
-- The plan adds or changes tests
-- The plan modifies configuration files
-- The plan changes behavior or public APIs
+- The plan modifies source code that changes observable behavior or public APIs
+- The plan adds or changes user-facing functionality
+- The plan changes configuration that affects setup or usage
+
+**When to skip:**
+- Pure refactors with no behavior/API change
+- Version bumps, lockfile updates, CI config tweaks
+- Internal test-only changes
 
 **What to update:**
 - README.md — usage, setup, or feature changes
@@ -121,7 +134,7 @@ only the recorded output is.
 
 ### 8. Steps
 
-Each step is a self-contained unit. Mark checkboxes as you complete each sub-step (see Discipline section for process):
+Each step is a self-contained unit: a flat list of numbered actions, with no sub-task level between the step header and its actions. Number actions `N.1`, `N.2`, ... in order, so every checkbox line is unique by construction (Rule 17). The number of actions is whatever the step needs — the template below shows the common shape, not a fixed count. Mark checkboxes as you complete each action (see Discipline section for process):
 
 ```
 ## - [ ] Step N: [What] → [Result]
@@ -129,18 +142,38 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 **Acceptance:** [measurable criteria]
 
 **Scope:** [what NOT to do]
-**Tick:** each `### N.x` sub-step is complete only when its line is `[x]` — mark it immediately after doing the work, before the next sub-step. Batch-marking at step end is false progress.
+**Tick:** each action line is complete only when its line is `[x]` — mark it immediately after doing the work, before the next action. Batch-marking at step end is false progress.
 
-### N.x [Sub-task]
-- [ ] [action] — do the work
+### Actions
 
-### N.x Verify
-- [ ] Test suite passes (dynamic verification)
-- [ ] Static checks pass — type-check, lint, or project-equivalent (structural verification)
+- [ ] N.1 [work action] — do the work
+- [ ] N.2 [work action] — do the work   (repeat: one action per unit of work
+      the step actually needs; numbering stays sequential, N.3, N.4, ...)
+- [ ] N.k Verify: test suite passes (dynamic verification)
+- [ ] N.k+1 Verify: type-check, lint, or project-equivalent clean
+      (structural verification)
+- [ ] N.k+2 Verify against the real artifact — run the behavior and inspect
+      the diff, when this environment can execute it. Green tests and clean
+      lint are proxies, not proof. If it can't run here (no docker, app
+      server, database, or dependent services available), log
+      `[assumption]: behavior not executed in this environment` and treat
+      tests + lint as the verification.
+- [ ] N.k+3 Commit: run `git add -A` and `git commit -m "[type](scope): [description]"`
+      ↳ Don't forget to tick the action line you just finished, and the step
+        header if all actions are completed.
 
-### N.y Commit
-- [ ] Run `git add` and `git commit -m "[type](scope): [description]"`
+**On verification failure:** Fix within the same step. If the fix differs from
+what the step described, log `[deviation]:` + what you did instead. Re-run the
+failed check. Only log `[blocker]` if the failure makes subsequent steps
+impossible (not merely "my test is red").
 ```
+
+**Wide refactors (exception to vertical slicing):** A single mechanical change
+(rename a column, retype a shared symbol) whose blast radius spans the whole
+codebase can't land green as one slice. Don't force it into a step — sequence
+it expand–contract: (1) add the new form beside the old, (2) migrate call sites
+in batches sized by blast radius (one commit each, old form still valid so
+stays green), (3) delete the old form once no caller remains.
 
 ### 9. Checkpoints
 
@@ -169,7 +202,8 @@ Each step is a self-contained unit. Mark checkboxes as you complete each sub-ste
 **When a note in `~/.pi/agent/notes/` spawned the plan**, the note is deleted at the start of execution (Before You Start), gated on the inheritance mapping check. Final Verification must include a residual confirmation:
 
 ```
-- [ ] Source note `~/.pi/agent/notes/<source>.md` is deleted (removed at execution start — the plan is the record; never "update the note" instead)
+- [ ] Confirm source note `~/.pi/agent/notes/<source>.md` no longer exists
+      (deleted at execution start — the plan is the record; never "update the note" instead)
 ```
 
 ### 11. Meta (optional)
@@ -217,10 +251,10 @@ Source: ~/.pi/agent/notes/<note>.md
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory. The file is named <goal-slug>.md — the kebab-case slug of the Goal (defined in the Workflow, step 2).
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
 14. **Source notes are inherited, then die.** If a note in `~/.pi/agent/notes/` spawned the plan, the plan must include a Source Note Inheritance section mapping every finding/decision/context item/next step to a plan location, and the note is marked `Status: Superseded` with `Superseded by: <plan path>` at generation. The note is deleted as the first action of execution — after review, before Step 1 — gated on re-reading the note file and verifying the mapping. Never "update the note" instead.
-15. **Handoff path.** After creating a plan file, the reply must end with one line per
-    plan created — the plan's full absolute path (`~` expanded), at the very end, after
-    the summary. The line is bare — no labels, no prose, no backticks. Multiple files in
-    one reply → notes first, then plans.
+15. **Handoff path.** After creating a plan file, the last line of the reply must be the
+    plan's absolute path (expand `~`), on its own line. A short label prefix (e.g. "Plan:")
+    is acceptable; surrounding prose is not. Multiple plans → one path per line,
+    plans after notes.
 16. **Baseline before Step 1.** Every implementation plan includes the Baseline
     Pre-Check section (git status + test suite + lint, if defined) with results
     recorded verbatim before Step 1. Later steps compare failures only against
@@ -228,8 +262,8 @@ Source: ~/.pi/agent/notes/<note>.md
     regression to fix in the step that introduced it. A remembered count is
     never a baseline.
 17. **Checkbox lines are unique.** Every checkbox line in a generated plan
-    must be textually unique within the file (step ID or concrete content), so
-    a single-line `oldText` is always sufficient.
+    must be textually unique within the file — numbering actions `N.x` makes
+    this hold by construction — so a single-line `oldText` is always sufficient.
 
 ---
 
@@ -286,36 +320,37 @@ After writing the plan, run through this checklist. Fix any failures before pres
 
 | # | Check | Fix If... |
 |---|-------|-----------|
-| 1 | Every action is a checkbox `- [ ]` | Prose paragraphs describe what to do |
-| 2 | Each step has its own commit | Multiple steps share one commit |
-| 3 | Acceptance criteria have numbers | Criteria say "works" or "passes" without counts (acceptance lines only; the Verify sub-steps — "Test suite passes" / "Static checks pass" — are exempt, no counts required there) |
-| 4 | Every step has scope boundaries | Any step lacks "Do NOT..." |
-| 5 | Dependencies are listed before steps | Dependencies appear after steps or not at all |
-| 6 | No diagrams or visuals | ASCII art, flowcharts, or images |
-| 7 | No arbitrary thresholds | Line counts used as rules, not observations |
-| 8 | Steps are self-contained | A step depends on another without stating it |
-| 9 | Inventory comes before steps | Steps appear before the inventory table |
-| 10 | Every step ends with verification | Any step lacks a verify + commit subsection |
+| 1 | Rule 1 — checkboxes not prose | Prose paragraphs describe what to do |
+| 2 | Rule 2 — one step, one commit | Multiple steps share one commit |
+| 3 | Rule 3 — measurable acceptance | Criteria say "works" or "passes" without counts (acceptance lines only; the Verify sub-steps — "Test suite passes" / "Static checks pass" — are exempt, no counts required there) |
+| 4 | Rule 4 — scope boundaries | Any step lacks "Do NOT..." |
+| 5 | Rule 5 — dependencies explicit | Dependencies appear after steps or not at all |
+| 6 | Rule 6 — no diagrams | ASCII art, flowcharts, or images |
+| 7 | Rule 7 — no arbitrary thresholds | Line counts used as rules, not observations |
+| 8 | Rule 8 — steps self-contained | A step depends on another without stating it |
+| 9 | Rule 9 — inventory before steps | Steps appear before the inventory table |
+| 10 | Rule 10 — verify before claiming | Any step lacks verify + commit actions |
 | 11 | Undefined terms are defined | Words like "large", "better" appear without context |
 | 12 | No duplicate sections | Same section appears twice |
 | 13 | Every ambiguity surfaced in Assumptions & Open Questions | Ambiguity silently baked into a step |
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
-| 15 | Plan tells agent to be deliberate | Missing discipline reminder ("One sub-step at a time — discipline over momentum") |
+| 15 | Plan tells agent to be deliberate | Missing discipline reminder ("One action at a time — discipline over momentum") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
 | 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
-| 18 | Documentation updates included when coding changes exist | Plan modifies code but has no doc update step |
-| 19 | Plan saved to correct location | Plan was written to `/tmp` or another transient location instead of `~/.pi/agent/plans/` |
+| 18 | Rule 11 — documentation follows code | Plan modifies code but has no doc update step |
+| 19 | Rule 12 — never use /tmp | Plan was written to `/tmp` or another transient location instead of `~/.pi/agent/plans/` |
 | 20 | Plan documents assumption logging | Discipline section lacks the `[assumption]`/`[deviation]` prefix convention |
 | 21 | Assumptions & Open Questions section present | Ambiguities hidden in prose/steps instead of the table |
 | 22 | Unattended rule in embedded instructions | Template still says "if told to proceed without asking" |
 | 23 | Out-of-plan dependency rule in embedded instructions | Template lacks the "deps beyond the plan's list are `[blocker]`s" line |
 | 24 | Plan generated from a note includes the Source Note Inheritance section with exhaustive mapping | A note spawned the plan but a finding/decision/next step has no inheritance row (re-read the note file to verify), or the note was not marked Superseded |
 | 25 | Source note delete is in Before You Start, gated on the mapping check | The delete instruction is missing, sits in Final Verification instead, or is not gated on re-reading the note and verifying the mapping |
-| 26 | Baseline Pre-Check section present before Step 1 (git status + test + lint) with verbatim result placeholders and the baseline-comparison rule | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
-| 27 | Every step header includes a **Tick:** one-liner reminding the executor to mark each sub-step `[x]` immediately | Any step lacks the per-step tick reminder |
+| 26 | Rule 16 — baseline before Step 1 | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
+| 27 | Every step header includes a **Tick:** one-liner reminding the executor to mark each action `[x]` immediately, and a `### Actions` heading separates the metadata from the action list | Any step lacks the per-step tick reminder or the `### Actions` heading |
 | 28 | Goal section present with a single-line purpose + why-it-matters | Missing or multi-line |
 | 29 | Checkpoints table present with at least one row | Missing (at least one gate required) |
 | 30 | Final Verification section present with baseline-diff check | Missing |
+| 31 | Rule 17 — checkbox lines unique | Two lines are identical → single-line edit becomes ambiguous |
 
 ### Review Flow (when the user asks to review a plan)
 
@@ -350,4 +385,4 @@ Plan review resolves the Assumptions & Open Questions table — it is the decisi
 4. Re-run the Self-Review Checklist on the updated plan, then hand off the
    plan path (Rule 15).
 
-If any row fails, edit the plan and re-check. Do not present until all 30 pass.
+If any row fails, edit the plan and re-check. Do not present until all 31 pass.
