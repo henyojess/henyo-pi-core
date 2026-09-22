@@ -354,7 +354,7 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 8 | Steps are self-contained | A step depends on another without stating it |
 | 9 | Inventory comes before steps | Steps appear before the inventory table |
 | 10 | Every step ends with verification | Any step lacks a verify + commit subsection |
-| 11 | Undefined terms are defined | Words like "large", "better", "fix" appear without context |
+| 11 | Undefined terms are defined | Words like "large", "better" appear without context |
 | 12 | No duplicate sections | Same section appears twice |
 | 13 | Every ambiguity surfaced in Assumptions & Open Questions | Ambiguity silently baked into a step |
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
