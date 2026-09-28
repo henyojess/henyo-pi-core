@@ -16,11 +16,12 @@ Every plan has these sections:
 Every plan must begin with a `## How to Use This Plan` section embedded **verbatim** from `templates/how-to-use.md` (read that file; paste its full content into the plan unchanged — do not paraphrase or trim).
 
 **Must-contain:**
-- Execution Discipline blockquote banner
-- `Before You Start` (incl. source-note re-read + delete, and baseline pre-check execution when present)
-- `Execution Loop (per action)` (tick immediately after each action)
-- `Updating this plan (checkbox surgery)` (single-line `edit`, unique `oldText`)
-- `Discipline` (tick right after the sub-step; `[assumption]:`/`[deviation]:` prefixes; unattended default — recoverable → `[assumption]`, no-valid-path → `[blocker]`; deps-only-what-plan-lists; no batch-marking; one action at a time; single-line checkbox edits)
+- `The shape of a plan` (step/action/box-state definitions; tool-agnostic completion check)
+- Execution Discipline blockquote banner (after the shape block — discipline lands once the reader knows the structure)
+- `Before You Start` (read the plan in full; first-reply statement of understanding + commitment before any tool call)
+- `Execution Loop` (step-outer, action-inner; tick immediately after each action; covers Final Verification after the last step)
+- `Editing the plan file` (smallest-safe-unit edits; single-line `oldText`)
+- `Discipline` (unattended default — recoverable → `[assumption]`, no-valid-path incl. unlisted dependency → `[blocker]`; note format with `[assumption]:`/`[deviation]:` prefixes)
 ### 2. Goal (1 line)
 
 ```
@@ -104,26 +105,41 @@ Include this as a **step** within the Steps section (its own numbered `### N.x` 
 
 **Scope boundary:** Do NOT update docs for purely refactoring changes that don't change behavior or public APIs.
 
-### 7. Baseline Pre-Check (required)
+### 7. Baseline Pre-Check (required — as Step 1)
 
-Every implementation plan carries this block immediately before Step 1. It prevents failures introduced by the plan's own steps from being mistaken for pre-existing ones. The plan contains the block with empty placeholders; the **executor** runs the commands at execution start, pastes results verbatim into the placeholders, and marks the checkboxes — no Step 1 work happens until the baseline is recorded.
+Every implementation plan carries the Baseline Pre-Check **as Step 1** — a commit-exempt step (its final action is `Commit: none`). It prevents failures introduced by the plan's own steps from being mistaken for pre-existing ones. The plan contains the step with empty `Output:` placeholders; the **executor** runs the commands as Step 1's actions, pastes results verbatim, and ticks each action — no Step 2 work happens until the baseline is recorded.
 
 ```
-## Baseline Pre-Check (record verbatim, before Step 1)
+## - [ ] Step 1: Record baseline (git status + test + lint, verbatim)
 
-- [ ] `git status --porcelain` — must be empty, or every listed file explicitly
-      acknowledged in this plan as intentionally dirty.
+**Acceptance:** all three `Output:` placeholders below are filled with
+verbatim output from this session; `git status --porcelain` is empty or
+every listed file is acknowledged in this step as intentionally dirty;
+every test failure is individually identified (test name + error) and
+labeled pre-existing.
+
+**Scope:** Do NOT fix, adjust, or "clean up" anything in this step — record
+only.
+**Tick:** each action line is complete only when its line is `[x]` — mark it
+immediately after doing the work, before the next action. Batch-marking at
+step end is false progress.
+
+### Actions
+
+- [ ] 1.1 `git status --porcelain`
       Output:
       (paste verbatim, or "empty")
-- [ ] `<repo test script>` (e.g. `pnpm test` / `npm test`) — capture exact
-      pass/fail counts. Every failure individually identified (test name +
-      error) and labeled pre-existing here, BEFORE Step 1.
+- [ ] 1.2 `<repo test script>` (e.g. `pnpm test` / `npm test`) — capture exact
+      pass/fail counts; every failure individually identified (test name +
+      error) and labeled pre-existing
       Output:
       (paste summary + full failure list verbatim)
-- [ ] Lint, if the repo defines it (`eslint`/`biome`/lint script in
+- [ ] 1.3 Lint, if the repo defines it (`eslint`/`biome`/lint script in
       package.json). If none is defined, record "no lint defined."
       Output:
       (paste verbatim)
+- [ ] 1.4 Commit: none — baseline step records only; the tick + pasted output
+      is the record.
 
 Baseline rule for all later steps: a later step's test/lint run is compared
 only against this recorded output. A new failure — or a failure count that
@@ -134,7 +150,7 @@ only the recorded output is.
 
 ### 8. Steps
 
-Each step is a self-contained unit: a flat list of numbered actions, with no sub-task level between the step header and its actions. Number actions `N.1`, `N.2`, ... in order, so every checkbox line is unique by construction (Rule 17). The number of actions is whatever the step needs — the template below shows the common shape, not a fixed count. Mark checkboxes as you complete each action (see Discipline section for process):
+Implementation plans start with the Baseline Pre-Check as Step 1 (section 7) — the only commit-exempt step; every other step ends in exactly one commit. Each step is a self-contained unit: a flat list of numbered actions, with no sub-task level between the step header and its actions. Number actions `N.1`, `N.2`, ... in order, so every checkbox line is unique by construction (Rule 17). The number of actions is whatever the step needs — the template below shows the common shape, not a fixed count. Mark checkboxes as you complete each action (see Discipline section for process):
 
 ```
 ## - [ ] Step N: [What] → [Result]
@@ -187,6 +203,13 @@ stays green), (3) delete the old form once no caller remains.
 
 ### 10. Final Verification
 
+Every plan ends with a `## Final Verification` section that re-verifies the Goal
+from scratch on the final tree. It carries **plan-level** checks only (full-suite
+baseline diff, repo-wide state, commit structure); per-step checks live in the
+steps and are not repeated here. Its boxes are executed and ticked by the
+Execution Loop (item 7) — Final Verification is a section, not a step, and
+produces no commit.
+
 ```
 ## Final Verification
 
@@ -199,11 +222,11 @@ stays green), (3) delete the old form once no caller remains.
 - [ ] Git diff shows clean work
 ```
 
-**When a note in `~/.pi/agent/notes/` spawned the plan**, the note is deleted at the start of execution (Before You Start), gated on the inheritance mapping check. Final Verification must include a residual confirmation:
+**When a note in `~/.pi/agent/notes/` spawned the plan**, the note file is deleted at plan generation (Rule 14). Final Verification must include a residual confirmation (guards against a failed delete):
 
 ```
 - [ ] Confirm source note `~/.pi/agent/notes/<source>.md` no longer exists
-      (deleted at execution start — the plan is the record; never "update the note" instead)
+      (deleted at plan generation — the plan is the record; never "update the note" instead)
 ```
 
 ### 11. Meta (optional)
@@ -230,15 +253,14 @@ Source: ~/.pi/agent/notes/<note>.md
 ```
 
 - **Exhaustive:** every entry in the note's Context, Notes (findings/decisions), and Next Steps needs a row — mapped to a concrete plan location, or explicitly "retained here" for background-only content. Nothing is dropped silently.
-- **Gated delete:** the note is deleted only after the executor re-reads the note file and confirms every row maps (see Before You Start). Delete-at-execution-start, not at generation, not at completion.
-- **Supersede at generation:** when creating the plan, set the note's `Status: Superseded` and add `Superseded by: <plan path>` — the note is visibly dead even before deletion runs.
+- **Deleted at generation:** build the mapping, re-read the note file, confirm every item has a row — then delete the note. The plan is the sole record from that point on; there is no later delete step.
 
 ---
 
 ## Rules
 
 1. **Checkboxes, not prose.** Every action is `- [ ]`. No paragraphs describing what to do.
-2. **One step, one commit.** Never batch commits across steps.
+2. **At most one commit per step.** Never batch commits across steps. The baseline step (Step 1) is the one zero-commit step; every other step ends in exactly one commit.
 3. **Acceptance criteria are measurable.** Numbers, not vibes.
 4. **Scope boundaries prevent creep.** State what NOT to do.
 5. **Dependencies are explicit.** List them before the steps.
@@ -250,17 +272,18 @@ Source: ~/.pi/agent/notes/<note>.md
 11. **Documentation follows code.** If a plan modifies source files, include a Documentation Update step listing every doc that needs changes.
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory. The file is named <goal-slug>.md — the kebab-case slug of the Goal (defined in the Workflow, step 2).
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
-14. **Source notes are inherited, then die.** If a note in `~/.pi/agent/notes/` spawned the plan, the plan must include a Source Note Inheritance section mapping every finding/decision/context item/next step to a plan location, and the note is marked `Status: Superseded` with `Superseded by: <plan path>` at generation. The note is deleted as the first action of execution — after review, before Step 1 — gated on re-reading the note file and verifying the mapping. Never "update the note" instead.
+14. **Source notes are inherited, then die.** If a note in `~/.pi/agent/notes/` spawned the plan, the plan must include a Source Note Inheritance section mapping every finding/decision/context item/next step to a plan location. The note file is deleted at generation — after the mapping is built and verified exhaustive against the note (re-read it; every item must have a row). From that point the plan is the sole record. Never "update the note" instead.
 15. **Handoff path.** After creating a plan file, the last line of the reply must be the
     plan's absolute path (expand `~`), on its own line. A short label prefix (e.g. "Plan:")
     is acceptable; surrounding prose is not. Multiple plans → one path per line,
     plans after notes.
-16. **Baseline before Step 1.** Every implementation plan includes the Baseline
-    Pre-Check section (git status + test suite + lint, if defined) with results
-    recorded verbatim before Step 1. Later steps compare failures only against
-    that recorded baseline — a new failure, or a failure count that grows, is a
-    regression to fix in the step that introduced it. A remembered count is
-    never a baseline.
+16. **Baseline as Step 1.** Every implementation plan includes the Baseline
+    Pre-Check as Step 1 — a commit-exempt step (git status + test suite +
+    lint, if defined) with results recorded verbatim in its `Output:`
+    placeholders before any other step's work begins. Later steps compare
+    failures only against that recorded baseline — a new failure, or a
+    failure count that grows, is a regression to fix in the step that
+    introduced it. A remembered count is never a baseline.
 17. **Checkbox lines are unique.** Every checkbox line in a generated plan
     must be textually unique within the file — numbering actions `N.x` makes
     this hold by construction — so a single-line `oldText` is always sufficient.
@@ -307,7 +330,7 @@ Source: ~/.pi/agent/notes/<note>.md
 ### Workflow in pi
 
 1. **Read the codebase** — understand current state before writing the plan
-2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<goal-slug>.md` (expand `~` to the absolute home path), where <goal-slug> is the kebab-case slug of the Goal line (lowercase words joined by hyphens), e.g. the Goal "Fix auth token expiry" → fix-auth-token-expiry.md. If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 12) and the note is marked `Status: Superseded` with the plan path at generation (rule 14).
+2. **Write the plan** — use the structure above, save to `~/.pi/agent/plans/<goal-slug>.md` (expand `~` to the absolute home path), where <goal-slug> is the kebab-case slug of the Goal line (lowercase words joined by hyphens), e.g. the Goal "Fix auth token expiry" → fix-auth-token-expiry.md. If a note in `~/.pi/agent/notes/` spawned this plan, the plan must include the Source Note Inheritance section (section 12) and the note file is deleted at generation after the mapping is verified (rule 14).
 3. **Self-review** — check the plan against every rule and anti-pattern below
 4. **Fix issues** — edit the plan until all checks pass
 5. **Present for review** — show the plan to the user; if the user asks to review it, run the Review Flow below (two-phase: all feedback gathered before any plan edit)
@@ -321,7 +344,7 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | # | Check | Fix If... |
 |---|-------|-----------|
 | 1 | Rule 1 — checkboxes not prose | Prose paragraphs describe what to do |
-| 2 | Rule 2 — one step, one commit | Multiple steps share one commit |
+| 2 | Rule 2 — at most one commit per step | Multiple steps share one commit, or a step batches more than one commit |
 | 3 | Rule 3 — measurable acceptance | Criteria say "works" or "passes" without counts (acceptance lines only; the Verify sub-steps — "Test suite passes" / "Static checks pass" — are exempt, no counts required there) |
 | 4 | Rule 4 — scope boundaries | Any step lacks "Do NOT..." |
 | 5 | Rule 5 — dependencies explicit | Dependencies appear after steps or not at all |
@@ -336,20 +359,20 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 14 | Plan instructs agent to mark checkboxes | Missing "How to Use This Plan" section |
 | 15 | Plan tells agent to be deliberate | Missing discipline reminder ("One action at a time — discipline over momentum") |
 | 16 | Plan instructs agent to add implementation notes | Missing from discipline section |
-| 17 | Plan has prominent discipline banner at top | Missing "Execution Discipline" blockquote |
+| 17 | Plan has prominent discipline banner after the shape block | Missing "Execution Discipline" blockquote, or placed before the shape block |
 | 18 | Rule 11 — documentation follows code | Plan modifies code but has no doc update step |
 | 19 | Rule 12 — never use /tmp | Plan was written to `/tmp` or another transient location instead of `~/.pi/agent/plans/` |
 | 20 | Plan documents assumption logging | Discipline section lacks the `[assumption]`/`[deviation]` prefix convention |
 | 21 | Assumptions & Open Questions section present | Ambiguities hidden in prose/steps instead of the table |
 | 22 | Unattended rule in embedded instructions | Template still says "if told to proceed without asking" |
 | 23 | Out-of-plan dependency rule in embedded instructions | Template lacks the "deps beyond the plan's list are `[blocker]`s" line |
-| 24 | Plan generated from a note includes the Source Note Inheritance section with exhaustive mapping | A note spawned the plan but a finding/decision/next step has no inheritance row (re-read the note file to verify), or the note was not marked Superseded |
-| 25 | Source note delete is in Before You Start, gated on the mapping check | The delete instruction is missing, sits in Final Verification instead, or is not gated on re-reading the note and verifying the mapping |
-| 26 | Rule 16 — baseline before Step 1 | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
+| 24 | Plan generated from a note includes the Source Note Inheritance section with exhaustive mapping | A note spawned the plan but a finding/decision/next step has no inheritance row (verify against the note file before deleting it) |
+| 25 | Note file deleted at generation (Rule 14) | Note file still exists after plan generation, or the mapping was not verified against the note before deletion |
+| 26 | Rule 16 — baseline as Step 1 (commit-exempt) | Missing, or a later step could compare failures against a remembered count instead of the recorded baseline |
 | 27 | Every step header includes a **Tick:** one-liner reminding the executor to mark each action `[x]` immediately, and a `### Actions` heading separates the metadata from the action list | Any step lacks the per-step tick reminder or the `### Actions` heading |
 | 28 | Goal section present with a single-line purpose + why-it-matters | Missing or multi-line |
 | 29 | Checkpoints table present with at least one row | Missing (at least one gate required) |
-| 30 | Final Verification section present with baseline-diff check | Missing |
+| 30 | Final Verification section present with baseline-diff check | Missing, or it repeats checks that already exist in a step's actions |
 | 31 | Rule 17 — checkbox lines unique | Two lines are identical → single-line edit becomes ambiguous |
 
 ### Review Flow (when the user asks to review a plan)
