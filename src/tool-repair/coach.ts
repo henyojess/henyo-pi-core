@@ -8,7 +8,7 @@ export const READ_BEFORE_EDIT_LINE =
   'If you have not read the file this turn (or it may have changed since your last read), read it immediately before calling edit, and copy edits[].oldText verbatim from that fresh read.';
 
 export const TRUST_RESULT_LINE =
-  'If an `edit` or `write` call reports success, trust that result — do not re-read the file to verify its integrity because of stray characters (e.g. `\\r`) in the transcript echo of your own call. The tool result is authoritative; that echo is a display artifact.';
+  'If an `edit` or `write` call reports success, trust that result — do not re-read the file to verify its integrity because of stray characters in the transcript echo of your own call. The tool result is authoritative; that echo is a display artifact.';
 
 export const NO_BYPASS_LINE =
   'Edit existing files only with the `edit` tool — never via `sed`/`awk`/`echo` in bash, and never via `write` re-emitting the whole file.';
