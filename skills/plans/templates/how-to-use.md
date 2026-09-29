@@ -45,7 +45,8 @@ Then, in your first reply — before any tool call — state:
 7. When every step header is checked, run `## Final Verification`: execute
    each check in order, tick its box **immediately** after the check passes.
    A failing check is a regression: find the step that introduced it, fix
-   there, log `[deviation]:`, then re-run the check.
+   there, log `[deviation]:` if the fix changes anything the plan did not
+   describe, then re-run the check.
 
 ### Editing the plan file
 The plan changes on every tick, so keep every edit to the smallest safe unit.
@@ -61,7 +62,9 @@ The plan changes on every tick, so keep every edit to the smallest safe unit.
   with every tick, which makes multi-line blocks stale.
 
 ### Discipline
-- **Unattended by default** — do not ask clarifying questions.
+- **Unattended by default** — do not ask clarifying questions during
+  execution. Plan review is the exception: the Review Flow is interactive by
+  design and runs before execution starts.
   - Ambiguity with several valid paths → pick the best, log
     `[assumption]: ...` on the action's note line, and continue.
   - No valid path (missing prerequisite, breakage that blocks later steps,
