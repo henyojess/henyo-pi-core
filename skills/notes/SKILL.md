@@ -1,6 +1,6 @@
 ---
 name: notes
-description: Use when capturing transient information that doesn't belong in code or documentation yet. Manage ephemeral working notes for tracking context, decisions, and next steps during development. Notes are stored in ~/.pi/agent/notes/ and deleted once a plan exists.
+description: Captures transient working notes - context, findings, decisions, blockers, and next steps that don't belong in code or docs yet. Use when the user asks to write down, remember, or keep track of something, or when exploration surfaces information to record for later. Stored in ~/.pi/agent/notes/ as one lowercase-slug file per topic. Not for work with a defined execution goal.
 ---
 
 # Notes Workflow
@@ -14,7 +14,7 @@ Every note file follows this structure:
 ```markdown
 # Title
 
-**Status:** Open / In Progress / Completed / Superseded
+**Status:** Open / In Progress / Completed
 **Date:** YYYY-MM-DD (from `date +%F` — see Rules)
 
 ## Goal
@@ -35,17 +35,16 @@ Key observations, findings, or decisions. Use lists and tables.
 
 - **Dates are checked, never guessed:** the current date is NOT in your context — model-recalled dates are fabricated. Run `date +%F` and use its output for the `**Date:**` field (and any other date you write in the note).
 - **Lowercase-slug filenames:** e.g., `fix-auth-timeout.md`, not `Fix Auth Timeout.md`
-- **Notes are ephemeral:** Delete once an implementation plan exists in `~/.pi/agent/plans/` — the plan is the record
-  - **Note spawned the plan:** the plan carries a Source Note Inheritance section that maps every note finding/decision/next step into plan locations (plans skill, rule 14) — nothing may be lost. At plan generation, mark the note `Status: Superseded` and add `Superseded by: <plan path>`. The executor then re-reads the note, verifies every inheritance row maps, and deletes the note as the first action of execution — after review, before Step 1, never later.
-  - **Plan already exists (discovered later):** delete the note now — but only after verifying the plan carries the note's findings (inheritance section or equivalent); if it doesn't, fold them into the plan first.
-  - **Conflict rule:** if a plan instructs *updating* a note (e.g., status → Planned) instead of deleting it, log `[deviation]: plan says update note; notes skill mandates delete` next to that step and still delete the note at execution start (or immediately if execution has already begun).
+- **Notes are ephemeral:** the only deletion path is when the note spawns a plan — delete it at plan generation, once the plan's Source Note Inheritance section maps every note finding/decision/next step into a plan location and the mapping is verified exhaustive against the note (re-read the note; every item needs a row). From that point the plan is the sole record — nothing may be lost.
+
 - **Location:** `~/.pi/agent/notes/` (global agent dir; `~` = user home — expand to absolute, never rebase onto cwd)
 - **One note per file:** Each note addresses a single topic or problem
-- **Handoff path:** when you create a note, the reply must end with one line
-  per note created — the note's full absolute path (`~` expanded to the home path),
-  after the summary — so the user can copy the exact file to hand a new session.
+- **Handoff path:** when you create a note, the reply includes one line per note
+  created — the note's full absolute path (`~` expanded to the home path), after the
+  summary — so the user can copy the exact file to hand a new session.
   - The line is bare — no labels, no prose, no backticks.
-  - Multiple files in one reply → notes first, then plans.
+  - Multiple files in one reply → note lines first, then the plan path (the plan
+    path is the last line).
 
 ## When to Use This Skill
 

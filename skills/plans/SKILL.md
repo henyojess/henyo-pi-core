@@ -1,6 +1,6 @@
 ---
 name: plans
-description: Use when a plan is requested, a task involves multiple steps or file changes, steps have interdependencies, or verification is required. Generate structured, executable plans with measurable acceptance criteria, scope boundaries, and per-step verification. ALWAYS use when the user explicitly asks for a plan. When a task is multi-step or complex, default to using this skill rather than skipping it.
+description: Generates structured, executable plans - numbered steps with measurable acceptance criteria, scope boundaries, and per-step verification. Use when the user asks for a plan, or when a task involves multiple steps, file changes, interdependencies, or a verification gate - even when the user doesn't explicitly ask; on any multi-step or complex task, default to a plan rather than skipping it. Not for single-step tasks - just do them.
 ---
 
 # Plan Generation
@@ -285,10 +285,10 @@ Source: ~/.pi/agent/notes/<note>.md
 12. **Never use /tmp.** Plans must be saved to `~/.pi/agent/plans/` — never to `/tmp` or any other transient directory. The file is named <goal-slug>.md — the kebab-case slug of the Goal (defined in the Workflow, step 2).
 13. **Never guess dates.** The current date is not in your context — model-recalled dates are fabricated. Before embedding any date in a plan, run `date +%F` and use its output.
 14. **Source notes are inherited, then die.** If a note in `~/.pi/agent/notes/` spawned the plan, the plan must include a Source Note Inheritance section mapping every finding/decision/context item/next step to a plan location. The note file is deleted at generation — after the mapping is built and verified exhaustive against the note (re-read it; every item must have a row). From that point the plan is the sole record. Never "update the note" instead.
-15. **Handoff path.** After creating a plan file, the last line of the reply must be the
-    plan's absolute path (expand `~`), on its own line. A short label prefix (e.g. "Plan:")
-    is acceptable; surrounding prose is not. Multiple paths → one per line:
-    plan paths first, then paths of any notes created in the same reply
+15. **Handoff path.** After creating a plan file, the reply ends with bare handoff
+    lines — one per file, no labels, no prose, no backticks — so the user can copy the
+    exact path. Multiple files → note lines first, then the plan path (the plan's
+    absolute path, `~` expanded, is the last line).
     (a source note that spawned a plan is deleted at generation per Rule 14
     and is never listed).
 16. **Baseline as Step 1.** As specified in §7: commit-exempt step, results
