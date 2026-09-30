@@ -83,7 +83,7 @@ Implementation plans start with the Baseline Pre-Check as Step 1 (section 7) —
 **Acceptance:** [measurable criteria]
 
 **Scope:** [what NOT to do]
-**Tick:** each action line is complete only when its line is `[x]` — mark it immediately after doing the work, before the next action. Batch-marking at step end is false progress.
+**Tick:** each action line is complete only when its line is `[x]` — mark it immediately after doing the work, before the next action. Batch-marking at step end is false progress. One checkbox transition per plan-file edit call — the step header always gets its own call.
 
 ### Actions
 
@@ -100,8 +100,11 @@ Implementation plans start with the Baseline Pre-Check as Step 1 (section 7) —
       `[assumption]: behavior not executed in this environment` and treat
       tests + lint as the verification.
 - [ ] N.k+3 Commit: run `git add -A` and `git commit -m "[type](scope): [description]"`
-      ↳ Don't forget to tick the action line you just finished, and the step
-        header if all actions are completed.
+      ↳ Tick this action only after the commit result lands - quote the
+        7-character commit hash from the result in the tick's note line.
+        Then, in a separate plan-file edit call (no call carries both an
+        action tick and the header tick), tick the step header - and only
+        once all of the step's actions are `[x]`.
 
 **On verification failure:** Fix within the same step. Log `[deviation]:` +
 what you did instead whenever the fix changes anything the step's actions
@@ -133,7 +136,8 @@ labeled pre-existing.
 only.
 **Tick:** each action line is complete only when its line is `[x]` — mark it
 immediately after doing the work, before the next action. Batch-marking at
-step end is false progress.
+step end is false progress. One checkbox transition per plan-file edit call
+— the step header always gets its own call.
 
 ### Actions
 
@@ -223,6 +227,12 @@ produces no commit.
 ```
 ## Final Verification
 
+- [ ] Record integrity (data-based, not self-report): run
+      plan-record-lint on this plan file (tooling/plan-record-lint.mjs if
+      available, else an equivalent line-level check with `[assumption]:`
+      logged) — exit 0: no line holds two checkboxes, every [x] action has
+      a note line, no pending/TODO/will markers, commit notes carry 7-char
+      hashes
 - [ ] [primary verification] passes
 - [ ] [secondary check] passes
 - [ ] Full test suite re-run; failure list diffed against the Baseline
@@ -323,6 +333,8 @@ Source: ~/.pi/agent/notes/<note>.md
 | Counting failures from memory ("5 pre-existing, unrelated") | A failure introduced by the plan's own step gets miscounted as pre-existing and ships (henyo-pi-web 4.2.0: a self-inflicted ENOENT was waved through as "pre-existing"). Diff the failure list against the recorded baseline, never against a remembered count |
 | Editing the plan mid-review Q&A | Feedback gathered item-by-item applies as one coherent revision only after the full pass — interleaving edits churns the plan and loses the decision rationale (Review Flow: gather first, update once) |
 | Batch-marking a step's sub-steps at step end | An interrupt loses all progress and `[assumption]`/`[deviation]` logs vanish into one end-of-step blob; the plan no longer reflects actual state. Tick each sub-step immediately after doing it |
+| Ticking an action in the same message as the command that produces its evidence (e.g. `git commit`) | The evidence event must precede the tick message; the commit hash in the note proves the ordering (the hash cannot be quoted before the commit result lands) |
+| Trusting self-report for process claims | Record integrity is checked against the plan file (P4), never memory (class-7 failure: a retrospective claimed real-time ticking while the transcript showed 12 batch calls) |
 
 ---
 
