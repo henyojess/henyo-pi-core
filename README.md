@@ -45,6 +45,8 @@ henyo-pi-core/
 │       ├── cwd.ts        # /cwd: switch project directory (new session in target dir)
 │       ├── newp.ts       # /newp: start a new session with an initial prompt
 │       └── henyo.ts      # /henyo: list or toggle all henyo features
+├── tooling/              # Dependency-free maintenance scripts (not shipped with the npm package)
+│   └── plan-record-lint.mjs # P4: line-level plan-record linter (R1-R4 checkbox/note/hash checks)
 └── test/
     ├── footer.test.ts    # Unit tests for footer layout and status line
     ├── tool-repair/            # Module tests (mirror src/tool-repair/)
