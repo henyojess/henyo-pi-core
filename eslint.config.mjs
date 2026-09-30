@@ -62,6 +62,17 @@ export default [
     },
   },
   {
+    // Node globals for the dependency-free maintenance scripts in tooling/
+    // (plain .mjs CLIs: no pi imports, run under Node).
+    files: ['tooling/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+      },
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "coverage/", "*.config.*"],
   },
 ];
