@@ -284,15 +284,18 @@ live tok/s rate, and the token span, e.g.
 - **Live rate** — estimated tokens (delta character count ÷ learned
   per-model chars-per-token ratio) ÷ elapsed seconds. When the provider
   reports `usage.output` mid-stream the rate becomes exact (same `≈` readout,
-  usage-based); at `message_end` the line ends with a final readout
-  (`· NN.NN tok/s (final)`), computed from usage when a token span is
-  available, otherwise from the last delta time
+  usage-based); at `message_end` the working line is restored immediately —
+  the exact per-call rate stays in the `trace` log
 - **Stall handling** — no delta of any kind for 1.5 s → the line holds its
   last readout and appends `…`; generation resuming or the message ending
   restores the normal readout
-- **Final hold** — the final readout is held for 5 s before the default
-  `Working...` line is restored; a new LLM call cancels the hold and takes
-  over the line
+- **Turn summary toast** — at `agent_end` a single `info` toast reports the
+  aggregated turn stats: first-call TTFT, total output tokens, tok/s over
+  the sum of per-call generation spans (tool execution and gaps excluded),
+  turn wall clock, and LLM call count, e.g.
+  `TTFT 1.00s · 42.10 tok/s · 643 tok · 18.72s (4 calls)`. The rate is
+  omitted when the summed span is below 200 ms; aborted/errored calls are
+  excluded; non-TUI modes (no UI) get no toast
 - **Calibration** — per-model chars-per-token ratios (think/text/tool)
   are learned online (EMA on in-range samples) and persisted to
   `~/.pi/agent/extensions/.ttft-tokps-state.json`; a neutral bias
@@ -358,7 +361,7 @@ All henyo-pi-core features can be individually enabled or disabled via a `henyo`
 | `editFallback` | `boolean` | `true` | Fuzzy/nearest-match edit fallback: unique 1:1 whitespace-drift rewrite + candidate/duplicate coaching on content-mismatch errors |
 | `footer` | `boolean` | `true` | Render compact footer (`name•model(level)•ctx%•path(branch)` + conditional status line) |
 | `agentsMd` | `boolean` | `true` | Copy `SAMPLE_GLOBAL_AGENTS.md` to `~/.pi/agent/AGENTS.md` on first session (if it does not already exist) |
-| `ttftTokps` | `boolean` | `true` | Working line with TTFT + tok/s (live estimate, exact when usage is reported, final readout) |
+| `ttftTokps` | `boolean` | `true` | Working line with TTFT + live tok/s during streaming; `info` toast with TTFT, tok/s, tokens, and wall clock at turn end |
 | `trace` | `boolean` | `false` | JSONL trace of every ttftTokps display decision (incl. the exact displayed string), size-rotated |
 | `compactionRetry` | `boolean` | `false` | Compaction summary retry guard: strict plain-text prompt + up to 3 targeted retries; falls back to pi's default compaction |
 | `skills.<name>` | `boolean` | `true` | Enable/disable individual bundled skills |

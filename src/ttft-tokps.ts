@@ -2,7 +2,8 @@
  * TTFT + tok/s on the Working line — v2 (ported from the standalone
  * `ttft-tokps` extension; display logic verbatim).
  *
- * Live tok/s while streaming + final exact tok/s at message_end + TTFT.
+ * Live tok/s while streaming + TTFT, and a turn summary toast (TTFT,
+ * tok/s, total tokens, wall clock, call count) at agent_end.
  * When `traceEnabled`, logs to `logFile` (JSONL) so
  * live-estimate-vs-final error stays measurable; off by default.
  *
@@ -32,9 +33,11 @@
  *   - Rates shown to 2 decimals (like TTFT) — the fraction moves every
  *     delta, so the number visibly ticks while streaming.
  *   - Stall hold: no delta of any kind for 1500ms → hold last rate + `…`.
- *   - Final hold: the `tok/s (final)` readout stays on the working line for
- *     FINAL_HOLD_MS (5s), then the default line is restored; a new LLM call
- *     (before_provider_request) cancels the hold immediately.
+ *   - Turn summary: at agent_end, a single info toast shows the aggregated
+ *     turn stats — first-call TTFT, total output tokens, tok/s over the sum
+ *     of per-call generation spans (tool execution excluded), turn wall
+ *     clock, and call count, e.g. `TTFT 1.00s · 42.10 tok/s · 643 tok ·
+ *     18.72s (4 calls)`.
  *
  * Timing anchors (per LLM call):
  *   before_provider_request -> request sent  (TTFT start)
@@ -47,8 +50,9 @@
  * bias:{modelKey|__default__:k}} in statePath — survives /reload and
  * restarts.
  *
- * NOTE: agent_start fires once per user prompt (agent loop), NOT per LLM
- * call — turns repeat per LLM call. State is reset on message_start.
+ * NOTE: agent_start/agent_end fire once per user prompt (agent loop), NOT
+ * per LLM call — turns repeat per LLM call. Per-call state is reset on
+ * message_start; turn aggregates reset on agent_start.
  */
 
 import {
@@ -85,8 +89,6 @@ const BIAS_MAX = 2.0;
 /** No delta of any kind for this long = stall → hold last rate + `…`. */
 const STALL_MS = 1500;
 const STALL_TICK_MS = 500;
-/** The `tok/s (final)` readout stays this long on the working line. */
-const FINAL_HOLD_MS = 5000;
 /** Below this span a wall-clock / token-span rate is too noisy to display. */
 const MIN_RATE_SPAN_MS = 200;
 /** Minimum streamed chars for a per-channel calibration sample. */
@@ -247,11 +249,23 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
   let exactOutput: number | null = null;
   /** Stall detector (created on first delta, cleared at message_end). */
   let stallTimer: ReturnType<typeof setInterval> | null = null;
-  /** Final readout hold (set at message_end, cancelled by a new LLM call). */
-  let finalClearTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Bumped per LLM call — guards the final-hold timer. */
-  let callSeq = 0;
-  let activeCtx: { ui: { setWorkingMessage: (msg: string | undefined) => void } } | null = null;
+  let activeCtx: {
+    ui: {
+      setWorkingMessage: (msg: string | undefined) => void;
+      notify?: (msg: string, kind?: 'info' | 'warning' | 'error') => void;
+    };
+    hasUI?: boolean;
+  } | null = null;
+  /**
+   * Turn aggregates (agent_start → agent_end): summed output tokens +
+   * generation spans across the turn's LLM calls, first-call TTFT, call
+   * count. Fed to the agent_end toast.
+   */
+  let turnStartMs = 0;
+  let turnTokens = 0;
+  let turnSpanMs = 0;
+  let turnTTFTms: number | null = null;
+  let turnCalls = 0;
   let lastLoggedUsage: string | null = null; // server-reported usage (JSON), logged on change
   let lastLive: {
     tps: string;
@@ -278,12 +292,6 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
       stallTimer = null;
     }
   }
-  function clearFinal(): void {
-    if (finalClearTimer !== null) {
-      clearTimeout(finalClearTimer);
-      finalClearTimer = null;
-    }
-  }
   /** No delta of any kind for STALL_MS → hold last rate + `…` (invisible work). */
   function tickStall(): void {
     if (lastDeltaMs === null || activeCtx === null) return;
@@ -294,6 +302,11 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
 
   pi.on('agent_start', (_event, ctx) => {
     activeCtx = ctx;
+    turnStartMs = now();
+    turnTokens = 0;
+    turnSpanMs = 0;
+    turnTTFTms = null;
+    turnCalls = 0;
     log({ ev: 'agent_start' });
     ctx.ui.setWorkingMessage('Working...');
   });
@@ -303,8 +316,6 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
   });
 
   pi.on('before_provider_request', (_event, ctx) => {
-    callSeq += 1;
-    clearFinal(); // the new call takes over the working line
     ctx.ui.setWorkingMessage(undefined);
     requestStartMs = now();
     modelKey = `${ctx.model?.provider ?? '?'}/${ctx.model?.id ?? '?'}`;
@@ -492,34 +503,53 @@ export function ttftTokpsExtension(pi: ExtensionAPI, opts: TtftTokpsOptions = {}
       ratios: { think: round2(ratios.think), text: round2(ratios.text), tool: round2(ratios.tool) },
       bias: round2(liveBias),
     });
-    if (finalTps !== null && firstTokenMs !== null && anchorMs()) {
-      ctx.ui.setWorkingMessage(
-        `Working... TTFT ${fmtSeconds(firstTokenMs - anchorMs())} · ${finalTps} tok/s (final)`,
-      );
-      // Hold the readout so it is actually visible, then restore the
-      // default line — unless a new LLM call starts first (its
-      // before_provider_request already cancelled the timer).
-      const seq = callSeq;
-      clearFinal();
-      finalClearTimer = setTimeout(() => {
-        finalClearTimer = null;
-        if (callSeq === seq) activeCtx?.ui.setWorkingMessage(undefined);
-      }, FINAL_HOLD_MS);
-    } else {
-      clearFinal();
-      ctx.ui.setWorkingMessage(undefined); // no readout — restore now
+    // Turn aggregation: valid completed calls contribute their exact
+    // output tokens and the true generation span (falls back to the
+    // wall-clock span on large endLag — the same rule finalTps used).
+    // "Completed" = pi's normal-completion stop reasons (the stream `done`
+    // set): a tool-terminated call is `toolUse`, NOT `stop` — counting only
+    // `stop` would drop every multi-step call and report "(1 call)".
+    const completed =
+      stopReason === 'stop' ||
+      stopReason === 'length' ||
+      stopReason === 'toolUse' ||
+      stopReason === 'deferred';
+    if (completed && output !== undefined && output > 0) {
+      const spanMs = largeEndLag ? streamMs : (tokenSpanMs ?? streamMs);
+      if (spanMs !== null && spanMs > 0) turnSpanMs += spanMs;
+      turnTokens += output;
+      turnCalls += 1;
+      if (turnTTFTms === null && firstTokenMs !== null && anchorMs()) {
+        turnTTFTms = firstTokenMs - anchorMs();
+      }
     }
+    ctx.ui.setWorkingMessage(undefined); // turn summary arrives at agent_end instead
   });
 
   pi.on('agent_end', (_event, _ctx) => {
     clearStall();
-    clearFinal();
-    log({ ev: 'agent_end' });
+    const wallMs = turnStartMs > 0 ? now() - turnStartMs : null;
+    const turnTps =
+      turnTokens > 0 && turnSpanMs > MIN_RATE_SPAN_MS
+        ? (turnTokens / (turnSpanMs / 1000)).toFixed(2)
+        : null;
+    const toast =
+      turnCalls === 0 || wallMs === null || wallMs < 0
+        ? null
+        : `TTFT ${turnTTFTms !== null ? fmtSeconds(turnTTFTms) : '--'} · ${
+            turnTps !== null ? `${turnTps} tok/s · ` : ''
+          }${turnTokens} tok · ${fmtSeconds(wallMs)} (${turnCalls} call${turnCalls === 1 ? '' : 's'})`;
+    log({
+      ev: 'agent_end',
+      turn: { wallMs, tps: turnTps, tokens: turnTokens, ttftMs: turnTTFTms, calls: turnCalls },
+    });
+    if (toast !== null && activeCtx?.hasUI && activeCtx.ui.notify) {
+      activeCtx.ui.notify(toast, 'info');
+    }
   });
 
   pi.on('session_shutdown', (_event, _ctx) => {
     clearStall();
-    clearFinal();
     log({ ev: 'session_shutdown' });
   });
 }

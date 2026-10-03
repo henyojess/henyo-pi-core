@@ -51,6 +51,7 @@ function makeEnv(opts: Partial<TtftTokpsOptions> = {}) {
   const statePath = join(dir, 'state.json');
   const logFile = join(dir, 'debug.log');
   const msgs: (string | undefined)[] = [];
+  const toasts: { msg: string; kind: string }[] = [];
   const stub = createStubPi();
   ttftTokpsExtension(stub as any, {
     statePath,
@@ -59,11 +60,15 @@ function makeEnv(opts: Partial<TtftTokpsOptions> = {}) {
   });
   const ctx = {
     model: { provider: 'test', id: 'm' },
-    ui: { setWorkingMessage: (m: string | undefined) => msgs.push(m) },
+    hasUI: true,
+    ui: {
+      setWorkingMessage: (m: string | undefined) => msgs.push(m),
+      notify: (m: string, kind: string = 'info') => toasts.push({ msg: m, kind }),
+    },
   };
   const strMsgs = (from: number) =>
     msgs.slice(from).filter((m): m is string => typeof m === 'string');
-  return { dir, statePath, logFile, stub, ctx, msgs, strMsgs };
+  return { dir, statePath, logFile, stub, ctx, msgs, toasts, strMsgs };
 }
 
 /** Harness `beginCall` (fresh fake time origin 1000 — 0 would read as "no anchor"). */
@@ -104,7 +109,13 @@ function endCall(
   env.stub.handlers['message_end']({ message: { role: 'assistant', stopReason, usage } }, env.ctx);
 }
 
-/** Cleanup path the extension provides: clears stall + final-hold timers. */
+/** End the agent turn (agent_end) at fake time `t` → the summary toast path. */
+function turnEnd(env: ReturnType<typeof makeEnv>, t: number) {
+  fakeNow = t;
+  env.stub.handlers['agent_end']({}, env.ctx);
+}
+
+/** Cleanup path the extension provides: clears the stall timer. */
 function cleanup(env: ReturnType<typeof makeEnv>) {
   env.stub.handlers['agent_end']({}, env.ctx);
   env.stub.handlers['session_shutdown']({}, env.ctx);
@@ -166,6 +177,7 @@ describe('trace logging', () => {
       'first_token',
       'sample',
       'message_end',
+      'agent_end',
     ]) {
       expect(evs.has(ev)).toBe(true); // ≥ 1 line per fired event
     }
@@ -229,7 +241,8 @@ describe('trace logging', () => {
     expect(statSync(env.logFile).size).toBeLessThan(4096 + 1024);
     // Total lines across the 3 files ≈ lines written: init + agent_start +
     // before_provider_request + message_start + first_token (5) + 40 samples
-    // + message_end (1) = 46 (turn_start is not fired in this scenario).
+    // + message_end (1) + agent_end (1) = 47 (turn_start is not fired in
+    // this scenario).
     // Lines are lost only when a rotation overwrites the oldest backup:
     // the 3 files form a sliding window of ~2×(cap/avg line) lines
     // (measured: 30 of 46 for this workload). The range below distinguishes
@@ -239,7 +252,7 @@ describe('trace logging', () => {
       readLogLines(`${env.logFile}.1`).length +
       readLogLines(`${env.logFile}.2`).length;
     expect(total).toBeGreaterThanOrEqual(25);
-    expect(total).toBeLessThanOrEqual(46);
+    expect(total).toBeLessThanOrEqual(47);
     rmSync(env.dir, { recursive: true, force: true });
   });
 
@@ -247,7 +260,11 @@ describe('trace logging', () => {
     const env = makeEnv();
     // alpha/one: text-heavy, k gate passed (est ≥ 100) → bias moves off 1.0.
     beginCall(env);
-    const ctxA = { model: { provider: 'alpha', id: 'one' }, ui: { setWorkingMessage: () => {} } };
+    const ctxA = {
+      model: { provider: 'alpha', id: 'one' },
+      hasUI: true,
+      ui: { setWorkingMessage: () => {} },
+    };
     fakeNow = 1000;
     env.stub.handlers['agent_start']({}, ctxA);
     env.stub.handlers['before_provider_request']({}, ctxA);
@@ -271,7 +288,11 @@ describe('trace logging', () => {
       ctxA,
     );
     // beta/two: tool-only, thin (below k gate) → bias stays neutral 1.0.
-    const ctxB = { model: { provider: 'beta', id: 'two' }, ui: { setWorkingMessage: () => {} } };
+    const ctxB = {
+      model: { provider: 'beta', id: 'two' },
+      hasUI: true,
+      ui: { setWorkingMessage: () => {} },
+    };
     fakeNow = 10000;
     env.stub.handlers['agent_start']({}, ctxB);
     env.stub.handlers['before_provider_request']({}, ctxB);
@@ -329,7 +350,7 @@ describe('trace logging', () => {
       sampleScenario(env);
     }).not.toThrow();
     // Display worked end-to-end despite every log write failing.
-    expect(env.strMsgs(0).some((m) => m.includes('tok/s (final)'))).toBe(true);
+    expect(env.toasts.some((t) => t.msg.includes('tok/s'))).toBe(true);
     rmSync(dir, { recursive: true, force: true });
   });
 });
@@ -346,7 +367,7 @@ afterAll(() => {
 // Expected values copied from ~/.pi/agent/.ttft-tokps-harness.mjs (A-final,
 // A-calib, A-bias).
 describe('scenario A: tool-dominated call (harness A-final / A-calib / A-bias)', () => {
-  it('A-final: tool span dominates → final `39.67 tok/s (final)` + `TTFT 1.00s`', () => {
+  it('A-final: tool span dominates → turn toast `39.67 tok/s` + `TTFT 1.00s`', () => {
     const env = makeEnv();
     const msgsA0 = env.msgs.length;
     beginCall(env);
@@ -356,12 +377,101 @@ describe('scenario A: tool-dominated call (harness A-final / A-calib / A-bias)',
     delta(env, 'thinking_delta', 50, 3000);
     for (const t of [4000, 5000, 5500, 6000, 7000, 8000]) delta(env, 'toolcall_delta', 90, t); // tool 540 chars, last delta t=8000
     endCall(env, 8100, { output: 238, reasoning: 50 });
-    // span 6.0s (2000→8000), 238/6 = 39.667 → 39.67. If toolcall_delta were
-    // ignored: span 1.0s → 238.00 — the assertion catches that regression.
-    const finalA = env.strMsgs(msgsA0).find((m) => m.includes('tok/s (final)'));
-    expect(finalA).toBeDefined();
-    expect(finalA).toContain('39.67 tok/s (final)');
-    expect(finalA).toContain('TTFT 1.00s');
+    // Working line is restored immediately at message_end — no final hold.
+    expect(env.msgs.at(-1)).toBe(undefined);
+    expect(env.strMsgs(msgsA0).some((m) => m.includes('tok/s (final)'))).toBe(false);
+    // Turn summary toast: span 6.0s (2000→8000), 238/6 = 39.667 → 39.67.
+    // If toolcall_delta were ignored the span would be 1.0s → 238.00.
+    turnEnd(env, 8100);
+    expect(env.toasts).toHaveLength(1);
+    expect(env.toasts[0].kind).toBe('info');
+    expect(env.toasts[0].msg).toBe('TTFT 1.00s · 39.67 tok/s · 238 tok · 7.10s (1 call)');
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('turn toast: two calls aggregate (tokens + spans summed, wall clock from agent_start)', () => {
+    const env = makeEnv();
+    beginCall(env, 1000); // agent_start t=1000
+    // Call 1: text 500 chars t=2000–3000, output 300 (span 1.0s)
+    for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 3100, { output: 300, reasoning: 0 });
+    // Call 2 (same agent loop, new LLM call): t=6000–9000, output 500 (span 3.0s)
+    fakeNow = 6000;
+    env.stub.handlers['before_provider_request']({}, env.ctx);
+    env.stub.handlers['message_start']({ message: { role: 'assistant' } }, env.ctx);
+    for (const t of [6000, 7000, 9000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 9100, { output: 500, reasoning: 0 });
+    // Aggregation: 800 tok over 4.0s generation (tool/gap time excluded) →
+    // 200.00 tok/s; wall clock 15.00s (agent_start→agent_end); TTFT = first call.
+    turnEnd(env, 16000);
+    expect(env.toasts).toHaveLength(1);
+    expect(env.toasts[0].kind).toBe('info');
+    expect(env.toasts[0].msg).toBe('TTFT 1.00s · 200.00 tok/s · 800 tok · 15.00s (2 calls)');
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('turn toast: tool-terminated calls (stopReason toolUse) aggregate too', () => {
+    const env = makeEnv();
+    beginCall(env, 1000); // agent_start t=1000
+    // Call 1: tool call → stopReason `toolUse` (NOT `stop`), output 100, span 1.0s
+    for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 3100, { output: 100, reasoning: 0 }, 'toolUse');
+    // Call 2: final answer (plain `stop`), output 200, span 2.0s
+    fakeNow = 6000;
+    env.stub.handlers['before_provider_request']({}, env.ctx);
+    env.stub.handlers['message_start']({ message: { role: 'assistant' } }, env.ctx);
+    for (const t of [6000, 7000, 8000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 8100, { output: 200, reasoning: 0 }, 'stop');
+    // 300 tok over 1.0s + 2.0s = 3.0s generation → 100.00 tok/s; both calls count.
+    // (Regression: counting only `stop` gave '200 tok · (1 call)' instead.)
+    turnEnd(env, 12000);
+    expect(env.toasts).toHaveLength(1);
+    expect(env.toasts[0].msg).toBe('TTFT 1.00s · 100.00 tok/s · 300 tok · 11.00s (2 calls)');
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('turn toast: generation span < 200 ms → rate omitted', () => {
+    const env = makeEnv();
+    beginCall(env, 1000);
+    delta(env, 'text_delta', 30, 2000);
+    delta(env, 'text_delta', 30, 2010); // span 10 ms < MIN_RATE_SPAN_MS (200)
+    endCall(env, 2050, { output: 100, reasoning: 0 });
+    turnEnd(env, 4000);
+    expect(env.toasts).toHaveLength(1);
+    expect(env.toasts[0].msg).toBe('TTFT 1.00s · 100 tok · 3.00s (1 call)');
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('turn toast: all calls aborted → no toast (partial usage never counted)', () => {
+    const env = makeEnv();
+    beginCall(env, 1000);
+    delta(env, 'text_delta', 30, 2000);
+    endCall(env, 3000, { output: 50, reasoning: 0 }, 'aborted');
+    turnEnd(env, 4000);
+    expect(env.toasts).toHaveLength(0);
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
+  });
+
+  it('turn toast: hasUI false (non-TUI mode) → no toast', () => {
+    const env = makeEnv();
+    const noUi = {
+      model: { provider: 'test', id: 'm' },
+      hasUI: false,
+      ui: { setWorkingMessage: () => {} },
+    };
+    fakeNow = 1000;
+    env.stub.handlers['agent_start']({}, noUi);
+    env.stub.handlers['before_provider_request']({}, noUi);
+    env.stub.handlers['message_start']({ message: { role: 'assistant' } }, noUi);
+    for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 3100, { output: 100, reasoning: 0 });
+    turnEnd(env, 4000);
+    expect(env.toasts).toHaveLength(0);
     cleanup(env);
     rmSync(env.dir, { recursive: true, force: true });
   });
@@ -512,57 +622,44 @@ describe('scenario D: stall hold (harness D-stall)', () => {
     rmSync(env.dir, { recursive: true, force: true });
   });
 
-  it('final hold: `tok/s (final)` readout restored to default after 5 s', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
-    try {
-      const env = makeEnv();
-      const msgs0 = env.msgs.length;
-      const undefCount = () => env.msgs.filter((m) => m === undefined).length;
-      beginCall(env); // before_provider_request resets the working line (undefined write)
-      const base = undefCount();
-      for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
-      endCall(env, 3100, { output: 100, reasoning: 0 }); // span 1.1s → 90.91 tok/s (final)
-      const finalMsg = env.strMsgs(msgs0).find((m) => m.includes('tok/s (final)'));
-      expect(finalMsg).toBeDefined();
-      expect(undefCount()).toBe(base); // hold pending, not yet restored
-      vi.advanceTimersByTime(5001);
-      // The 5 s final-hold timer restores the default line (undefined write).
-      expect(undefCount()).toBe(base + 1);
-      cleanup(env);
-      rmSync(env.dir, { recursive: true, force: true });
-    } finally {
-      vi.useRealTimers();
-    }
+  it('message_end restores the working line immediately (no hold, no timer)', () => {
+    const env = makeEnv();
+    const msgs0 = env.msgs.length;
+    beginCall(env);
+    for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 3100, { output: 100, reasoning: 0 });
+    // The very last working-line write is the reset (undefined) — the
+    // summary moved to the agent_end toast, so nothing is held on the line.
+    // (Two undefined writes: the before_provider_request reset + message_end.)
+    const after = env.msgs.slice(msgs0);
+    expect(after.at(-1)).toBe(undefined);
+    expect(after.filter((m) => m === undefined).length).toBe(2);
+    // …and the toast only fires at agent_end, not at message_end.
+    expect(env.toasts).toHaveLength(0);
+    turnEnd(env, 4000);
+    expect(env.toasts).toHaveLength(1);
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
   });
 
-  it('final hold: a new LLM call cancels the 5 s restore before it fires', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
-    try {
-      const env = makeEnv();
-      const msgs0 = env.msgs.length;
-      const undefCount = () => env.msgs.filter((m) => m === undefined).length;
-      beginCall(env);
-      const base = undefCount();
-      for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
-      endCall(env, 3100, { output: 100, reasoning: 0 });
-      expect(env.strMsgs(msgs0).some((m) => m.includes('tok/s (final)'))).toBe(true);
-      expect(undefCount()).toBe(base);
-      // Hold is pending…
-      vi.advanceTimersByTime(2000);
-      expect(undefCount()).toBe(base);
-      // …until the next call takes over the working line (its own reset write,
-      // and it cancels the pending final-hold timer).
-      fakeNow = 4000;
-      env.stub.handlers['before_provider_request']({}, env.ctx);
-      const afterNewCall = undefCount();
-      expect(afterNewCall).toBe(base + 1);
-      vi.advanceTimersByTime(5000);
-      expect(undefCount()).toBe(afterNewCall); // cancelled — no restore write
-      cleanup(env);
-      rmSync(env.dir, { recursive: true, force: true });
-    } finally {
-      vi.useRealTimers();
-    }
+  it('second LLM call: working line re-armed, aggregates keep accumulating in one turn', () => {
+    const env = makeEnv();
+    beginCall(env);
+    for (const t of [2000, 2500, 3000]) delta(env, 'text_delta', 30, t);
+    endCall(env, 3100, { output: 100, reasoning: 0 });
+    // Next call of the same agent loop takes over the working line.
+    fakeNow = 4000;
+    env.stub.handlers['before_provider_request']({}, env.ctx);
+    env.stub.handlers['message_start']({ message: { role: 'assistant' } }, env.ctx);
+    delta(env, 'text_delta', 30, 5000);
+    delta(env, 'text_delta', 30, 5100);
+    endCall(env, 5200, { output: 100, reasoning: 0 });
+    turnEnd(env, 6000);
+    // One toast for the whole turn: 200 tok over spans 1.0s + 0.1s → 181.82 tok/s.
+    expect(env.toasts).toHaveLength(1);
+    expect(env.toasts[0].msg).toBe('TTFT 1.00s · 181.82 tok/s · 200 tok · 5.00s (2 calls)');
+    cleanup(env);
+    rmSync(env.dir, { recursive: true, force: true });
   });
 });
 
