@@ -332,6 +332,25 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
     expect(line.startsWith('qwen3.8-27b(med)')).toBe(true);
   });
 
+  it('shows (high) — not (hig) — for a distinct thinkingLevelMap model at level high', () => {
+    const line = strip(
+      render({
+        level: 'high',
+        reasoning: true,
+        supportsReasoningEffort: false,
+        thinkingLevelMap: {
+          off: 'off',
+          minimal: null,
+          low: 'low',
+          medium: 'medium',
+          high: 'high',
+          xhigh: null,
+        },
+      })[0],
+    );
+    expect(line.startsWith('qwen3.8-27b(high)')).toBe(true);
+  });
+
   it('shows (off) for a distinct thinkingLevelMap model when level is off', () => {
     const line = strip(
       render({

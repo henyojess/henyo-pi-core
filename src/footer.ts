@@ -19,6 +19,21 @@ import type {
  * Truncation: when space is tight, pwd and branch are truncated from the right,
  *   name/model/context stay visible on the left.
  */
+/**
+ * Display abbreviations for thinking levels. A fixed lookup instead of a
+ * fixed-width `slice(0, 3)` so 4-letter levels like "high" aren't mangled to
+ * "hig". Unknown levels fall back to `level.slice(0, 3)`.
+ */
+const THINKING_LEVEL_ABBR: Record<string, string> = {
+  off: 'off',
+  minimal: 'min',
+  low: 'low',
+  medium: 'med',
+  high: 'high',
+  xhigh: 'xhi',
+  max: 'max',
+};
+
 class FooterComponent implements Component {
   private _focused = false;
   private _theme: Theme | null = null;
@@ -128,7 +143,7 @@ class FooterComponent implements Component {
     if (modelCtx?.reasoning) {
       if (this.hasDistinctThinkingLevels(modelCtx, compat)) {
         // Level-supported model: always show the level
-        modelStr = modelBase + '(' + level.slice(0, 3) + ')';
+        modelStr = modelBase + '(' + (THINKING_LEVEL_ABBR[level] ?? level.slice(0, 3)) + ')';
       } else {
         // No-level model: always show (off) or (on)
         const levelSuffix = level === 'off' ? 'off' : 'on';
