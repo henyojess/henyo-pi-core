@@ -77,7 +77,7 @@ describe('footer v2 line 1', () => {
 
   it('renders a name• prefix (bright) when a name is set', () => {
     const line = strip(render({ level: 'xhigh', name: 'myproj' })[0]);
-    expect(line).toBe('myproj•qwen3.8-27b(xhi)•42%/84k•/~/pi/proj(main)');
+    expect(line).toBe('myproj•qwen3.8-27b(xhi)•42%/84k•~/pi/proj(main)');
 
     // Explicit color check: name is bright ('text'), model is dim
     const themed = render({ level: 'xhigh', name: 'myproj' }, 100, {
@@ -110,7 +110,7 @@ describe('footer v2 line 1', () => {
 
   it('joins all segments with • and has no space-adjacent separators', () => {
     const line = strip(render({ level: 'xhigh', name: 'myproj' })[0]);
-    expect(line).toBe('myproj•qwen3.8-27b(xhi)•42%/84k•/~/pi/proj(main)');
+    expect(line).toBe('myproj•qwen3.8-27b(xhi)•42%/84k•~/pi/proj(main)');
     expect(line.includes('• ')).toBe(false);
     expect(line.includes(' •')).toBe(false);
   });

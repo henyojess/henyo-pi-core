@@ -186,7 +186,9 @@ class FooterComponent implements Component {
     const cwdStyled = (cwdIdx: number): string => {
       const segments = cwdParts.slice(cwdIdx);
       if (segments.length <= 1) return theme.fg('text', segments[0] || '/');
-      const prefix = (cwdIdx === 0 ? '/' : '') + segments.slice(0, -1).join('/') + '/';
+      // No leading '/' when the path starts with '~' (HOME was replaced pre-split)
+      const prefix =
+        (cwdIdx === 0 && cwdParts[0] === '~' ? '' : '/') + segments.slice(0, -1).join('/') + '/';
       const last = segments[segments.length - 1];
       return theme.fg('dim', prefix) + theme.fg('text', last);
     };

@@ -77,7 +77,7 @@ henyo-pi-core/
 
 A compact footer renders one packed line:
 ```
-myproj•qwen3.8-27b(xhi)•42%/84k•/~/pi/proj(main)
+myproj•qwen3.8-27b(xhi)•42%/84k•~/pi/proj(main)
 ```
 
 - Session name (bright) is prepended as `name•` only when the session has a name; it is never truncated
