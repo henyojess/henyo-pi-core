@@ -15,6 +15,10 @@ interface CtxOpts {
   name?: string | undefined;
   model?: string;
   reasoning?: boolean;
+  /** Override the compat flag independently of `reasoning` (default: follows `reasoning`). */
+  supportsReasoningEffort?: boolean;
+  /** Optional model.thinkingLevelMap (distinct levels shown by name when >1 non-null value). */
+  thinkingLevelMap?: Partial<Record<string, string | null>>;
   level: string;
   usage?: { tokens: number | null; percent: number | null; contextWindow: number };
 }
@@ -24,7 +28,10 @@ function makeCtx(opts: CtxOpts): any {
     model: {
       name: opts.model ?? 'qwen3.8-27b',
       reasoning: opts.reasoning ?? true,
-      compat: { supportsReasoningEffort: opts.reasoning ?? true },
+      compat: {
+        supportsReasoningEffort: opts.supportsReasoningEffort ?? opts.reasoning ?? true,
+      },
+      ...(opts.thinkingLevelMap ? { thinkingLevelMap: opts.thinkingLevelMap } : {}),
     },
     // Note: the component reads the level via the 5th factory arg (getter);
     // this fn is kept for harness fidelity to ExtensionContext.
@@ -302,6 +309,68 @@ describe('footer v2 branch coverage (usage, no-branch, dispose)', () => {
     );
     const line = strip(comp.render(100)[0]);
     expect(line).toContain('qwen3.6-35b-a3b(on)');
+  });
+
+  it('shows the named level for a distinct thinkingLevelMap (no reasoning_effort transport)', () => {
+    // Mirrors pi's llama.cpp / qwen-chat-template models: reasoning=true,
+    // supportsReasoningEffort=false, thinkingLevelMap with nulls + distinct strings.
+    const line = strip(
+      render({
+        level: 'medium',
+        reasoning: true,
+        supportsReasoningEffort: false,
+        thinkingLevelMap: {
+          off: 'off',
+          minimal: null,
+          low: null,
+          medium: 'medium',
+          high: null,
+          xhigh: null,
+        },
+      })[0],
+    );
+    expect(line.startsWith('qwen3.8-27b(med)')).toBe(true);
+  });
+
+  it('shows (off) for a distinct thinkingLevelMap model when level is off', () => {
+    const line = strip(
+      render({
+        level: 'off',
+        reasoning: true,
+        supportsReasoningEffort: false,
+        thinkingLevelMap: {
+          off: 'off',
+          minimal: null,
+          low: null,
+          medium: 'medium',
+          high: null,
+          xhigh: null,
+        },
+      })[0],
+    );
+    expect(line.startsWith('qwen3.8-27b(off)')).toBe(true);
+  });
+
+  it('falls back to (on)/(off) when the thinkingLevelMap collapses to a single value', () => {
+    const map: Partial<Record<string, string | null>> = { off: 'off', low: 'off', high: 'off' };
+    const high = strip(
+      render({
+        level: 'high',
+        reasoning: true,
+        supportsReasoningEffort: false,
+        thinkingLevelMap: map,
+      })[0],
+    );
+    const off = strip(
+      render({
+        level: 'off',
+        reasoning: true,
+        supportsReasoningEffort: false,
+        thinkingLevelMap: map,
+      })[0],
+    );
+    expect(high.startsWith('qwen3.8-27b(on)')).toBe(true);
+    expect(off.startsWith('qwen3.8-27b(off)')).toBe(true);
   });
 
   it('dispose() calls the branch unsubscribe once and is safe to call twice', () => {

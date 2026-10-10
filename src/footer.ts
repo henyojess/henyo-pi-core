@@ -82,6 +82,27 @@ class FooterComponent implements Component {
   }
 
   /**
+   * True when the model exposes multiple distinct thinking levels worth showing
+   * by name. Covers the `supportsReasoningEffort` transport (top-level
+   * `reasoning_effort`) and custom `chat-template` models that declare distinct
+   * level values via `thinkingLevelMap`. A pure on/off model (no map, or a map
+   * collapsing to a single value) returns false.
+   */
+  private hasDistinctThinkingLevels(
+    model: { thinkingLevelMap?: Partial<Record<string, string | null>> } | undefined,
+    compat: { supportsReasoningEffort?: boolean } | undefined,
+  ): boolean {
+    if (compat?.supportsReasoningEffort) return true;
+    const map = model?.thinkingLevelMap;
+    if (!map) return false;
+    const values = new Set<string>();
+    for (const v of Object.values(map)) {
+      if (typeof v === 'string') values.add(v);
+    }
+    return values.size > 1;
+  }
+
+  /**
    * Build the rendered footer line.
    * Layout: name•model(level)•context%•pwd(branch) — `•` separators, no padding between segments.
    * Model is left-aligned (always visible). Cwd and branch flow immediately after model/context.
@@ -105,7 +126,7 @@ class FooterComponent implements Component {
     const compat = modelCtx?.compat as { supportsReasoningEffort?: boolean } | undefined;
     let modelStr = modelBase;
     if (modelCtx?.reasoning) {
-      if (compat?.supportsReasoningEffort) {
+      if (this.hasDistinctThinkingLevels(modelCtx, compat)) {
         // Level-supported model: always show the level
         modelStr = modelBase + '(' + level.slice(0, 3) + ')';
       } else {
