@@ -57,6 +57,12 @@ Then, in your first reply — before any tool call — state:
    A failing check is a regression: find the step that introduced it, fix
    there, log `[deviation]:` if the fix changes anything the plan did not
    describe, then re-run the check.
+   **Close-out order:** when the last step's commit (e.g. a vault RECORD
+   commit) is itself the evidence for Final Verification boxes (working-tree
+   clean, unchecked count, record integrity), run those boxes only after
+   that commit lands and quote its 7-char hash in the ticks. If the ticks
+   themselves need a record, make exactly one follow-up record commit, then
+   re-run the remaining checks.
 
 ### Editing the plan file
 The plan changes on every tick, so keep every edit to the smallest safe unit.

@@ -221,7 +221,7 @@ Every plan ends with a `## Final Verification` section that re-verifies the Goal
 from scratch on the final tree. It carries **plan-level** checks only (full-suite
 baseline diff, repo-wide state, commit structure); per-step checks live in the
 steps and are not repeated here. Its boxes are executed and ticked by the
-Execution Loop (item 7) — Final Verification is a section, not a step, and
+Execution Loop (item 7, including its close-out order) — Final Verification is a section, not a step, and
 produces no commit.
 
 ```
