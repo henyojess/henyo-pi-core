@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// P4: plan-record-lint — line-level linter for plan-execution records.
+// plan-record-lint — line-level linter for plan-execution records.
 //
 // Usage: node tooling/plan-record-lint.mjs <plan.md>
 //
@@ -8,7 +8,7 @@
 //   R2  every [x] action line (`- [x] N.k ...`) has at least one indented
 //       note line below it, before the next checkbox line
 //   R3  no note under a ticked action contains pending|TODO|will |planned|to be
-//       (case-insensitive — P8's violation marker)
+//       (case-insensitive — the tick-note violation marker)
 //   R4  every commit action's note (`N.k Commit`, except `Commit: none`
 //       baseline lines) contains a 7-character commit hash
 //

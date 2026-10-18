@@ -68,7 +68,7 @@ Then, in your first reply — before any tool call — state:
 The plan changes on every tick, so keep every edit to the smallest safe unit.
 - **Tick a box** — a single-line `edit` where `oldText` is exactly the
   current line. The tick edit's `newText` carries the checkbox line plus its
-  note line in the same call (P3), while `oldText` stays the single
+  note line in the same call, while `oldText` stays the single
   checkbox line. Read the plan
   before the first tick of a step; subsequent
   ticks in that step reuse the known text (your own ticks only changed lines
@@ -96,6 +96,6 @@ The plan changes on every tick, so keep every edit to the smallest safe unit.
   `[assumption]:` / `[deviation]:` so the trail stays findable after the
   session. Commit-action notes quote the 7-character commit hash from the
   commit result — the hash does not exist until the result lands, which
-  enforces the P6 ordering. And: 'pending', 'TODO', 'will', 'planned',
+  enforces the evidence-before-tick ordering. And: 'pending', 'TODO', 'will', 'planned',
   'to be' in a tick note = automatic violation marker: rewrite the note or
   untick the box.

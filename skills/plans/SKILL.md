@@ -42,18 +42,18 @@ Simple list. No diagrams.
 
 ### 4. Assumptions & Open Questions (required)
 
-Every ambiguity the agent could not resolve while writing the plan goes here as a row — nothing hidden in prose. Populated at generation; resolved during review.
+Every ambiguity the agent could not resolve while writing the plan goes here as a row — nothing hidden in prose. Populated at generation, resolved during review. At generation the agent sets each row's status: `[open]` when it has no safe default to proceed with, `[assumption]` when it has a recommended default (recorded in "Agent's read") it can proceed with absent objection.
 
 ```
 ## Assumptions & Open Questions
 
-| # | Item | Agent's read | Status |
-|---|------|--------------|--------|
-| 1 | [ambiguous point] | [what the agent assumed or would choose] | `[open]` |
+| # | Item | Agent's read | Status | Resolution |
+|---|------|--------------|--------|------------|
+| 1 | [ambiguous point] | [what the agent assumed or would choose] | `[open]` | (filled in review) |
 
 Statuses:
-- `[open]` — needs a user decision
-- `[assumption]` — user deferred it; implementation proceeds with "Agent's read"
+- `[open]` — set at generation (no safe default); needs a user decision in review before execution
+- `[assumption]` — set at generation (agent has a recommended default); review confirms it as `[decision]` or the user defers and it stays `[assumption]`, proceeding with "Agent's read"
 - `[decision]` — user confirmed during review; binding, do not revisit in implementation
 ```
 
@@ -75,7 +75,7 @@ the exception — see "Wide refactors" in section 6.
 
 ### 6. Steps
 
-Implementation plans start with the Baseline Pre-Check as Step 1 (section 7) — the only commit-exempt step; every other step ends in exactly one commit. Each step is a self-contained unit: a flat list of numbered actions, with no sub-task level between the step header and its actions. Number actions `N.1`, `N.2`, ... in order, so every checkbox line is unique by construction (Rule 17). The number of actions is whatever the step needs — the template below shows the common shape, not a fixed count. Mark checkboxes as you complete each action (see Discipline section for process):
+Implementation plans start with the Baseline Pre-Check as Step 1 — the only commit-exempt step; every other step ends in exactly one commit. Its full definition is in section 7 (below the Steps template); despite that placement it is always emitted first, as Step 1. Each step is a self-contained unit: a flat list of numbered actions, with no sub-task level between the step header and its actions. Number actions `N.1`, `N.2`, ... in order, so every checkbox line is unique by construction (Rule 17). The number of actions is whatever the step needs — the template below shows the common shape, not a fixed count. Mark checkboxes as you complete each action (see Discipline section for process):
 
 ```
 ## - [ ] Step N: [What] → [Result]
@@ -115,9 +115,10 @@ failure makes subsequent steps impossible (not merely "my test is red").
 **Wide refactors (exception to vertical slicing):** A single mechanical change
 (rename a column, retype a shared symbol) whose blast radius spans the whole
 codebase can't land green as one slice. Don't force it into a step — sequence
-it expand–contract: (1) add the new form beside the old, (2) migrate call sites
-in batches sized by blast radius (one commit each, old form still valid so
-stays green), (3) delete the old form once no caller remains.
+it expand–contract as separate steps, each ending in exactly one commit
+(Rule 2): (1) add the new form beside the old, (2) one step per batch of call
+sites sized by blast radius (old form still valid, so the tree stays green
+after each), (3) delete the old form once no caller remains.
 
 ### 7. Baseline Pre-Check (required — as Step 1)
 
@@ -228,9 +229,10 @@ produces no commit.
 ## Final Verification
 
 - [ ] Record integrity (data-based, not self-report): run
-      plan-record-lint on this plan file (tooling/plan-record-lint.mjs if
-      available, else an equivalent line-level check with `[assumption]:`
-      logged) — exit 0: no line holds two checkboxes, every [x] action has
+      plan-record-lint on this plan file: resolve
+      `tooling/plan-record-lint.mjs` relative to the repo you are executing in;
+      if it is not present there, run an equivalent line-level check and log
+      `[assumption]:` — exit 0: no line holds two checkboxes, every [x] action has
       a note line, no pending/TODO/will markers, commit notes carry 7-char
       hashes
 - [ ] [primary verification] passes
@@ -334,7 +336,7 @@ Source: ~/.pi/agent/notes/<note>.md
 | Editing the plan mid-review Q&A | Feedback gathered item-by-item applies as one coherent revision only after the full pass — interleaving edits churns the plan and loses the decision rationale (Review Flow: gather first, update once) |
 | Batch-marking a step's sub-steps at step end | An interrupt loses all progress and `[assumption]`/`[deviation]` logs vanish into one end-of-step blob; the plan no longer reflects actual state. Tick each sub-step immediately after doing it |
 | Ticking an action in the same message as the command that produces its evidence (e.g. `git commit`) | The evidence event must precede the tick message; the commit hash in the note proves the ordering (the hash cannot be quoted before the commit result lands) |
-| Trusting self-report for process claims | Record integrity is checked against the plan file (P4), never memory (class-7 failure: a retrospective claimed real-time ticking while the transcript showed 12 batch calls) |
+| Trusting self-report for process claims | Record integrity is checked against the plan file (via plan-record-lint), never memory (a retrospective once claimed real-time ticking while the transcript showed 12 batch calls) |
 
 ---
 
@@ -371,7 +373,7 @@ After writing the plan, run through this checklist. Fix any failures before pres
 |---|-------|-----------|
 | 1 | Rule 1 — checkboxes not prose | Prose paragraphs describe what to do |
 | 2 | Rule 2 — at most one commit per step | Multiple steps share one commit, or a step batches more than one commit |
-| 3 | Rule 3 — measurable acceptance | Criteria say "works" or "passes" without counts (acceptance lines only; the Verify sub-steps — "Test suite passes" / "Static checks pass" — are exempt, no counts required there) |
+| 3 | Rule 3 — measurable acceptance | Criteria say "works" or "passes" without counts (acceptance lines only; the step's Verify sub-steps — dynamic, structural, and real-artifact checks — are exempt, no counts required there) |
 | 4 | Rule 4 — scope boundaries | Any step lacks "Do NOT..." |
 | 5 | Rule 5 — dependencies explicit | Dependencies appear after steps or not at all |
 | 6 | Rule 6 — no diagrams | ASCII art, flowcharts, or images |
@@ -402,10 +404,11 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 31 | Rule 17 — checkbox lines unique | Two lines are identical → single-line edit becomes ambiguous |
 | 32 | Rule 13 — no fabricated dates | Plan contains a date not taken from a `date +%F` run in this session |
 | 33 | Rule 15 — handoff path | Final reply does not end with the plan's absolute path on its own line |
+| 34 | Assumptions & Open Questions table has a Resolution column | The 5th column is missing (it is filled during review, not at generation) |
 
 ### Review Flow (when the user asks to review a plan)
 
-Plan review resolves the Assumptions & Open Questions table — it is the decision phase; the plan itself was the async inspection pass. Two phases; no plan edits during Phase 1.
+Plan review resolves the Assumptions & Open Questions table — it is the decision phase; the plan itself was the async inspection pass. Two phases; no plan edits during Phase 1. A plan is not execution-ready while any `[open]` row remains: before executing, either run this Review Flow or get an explicit user waiver, and each then-remaining `[open]` row is downgraded to `[assumption]` (agent picks the best path) with a logged `[assumption]:` note.
 
 **Definitions**
 - **Open item** — a decision not yet made (`[open]` row).
@@ -415,7 +418,9 @@ Plan review resolves the Assumptions & Open Questions table — it is the decisi
 1. State the review objective up front: what decision this review resolves and the
    closure condition — every `[open]` row answered and every `[assumption]` row
    either confirmed or explicitly deferred. One pass per item; once the user
-   answers, the item is settled and is not re-litigated.
+   answers, the item is settled and is not re-litigated. An earlier answer may
+   make a later item moot; when it does, close that later item as `[decision]`
+   with "obviated by item N" rather than re-asking it.
 2. Surface the Assumptions & Open Questions rows **one per turn**: present a
    single item, then **wait for the user's reply** before surfacing the next.
    Order: `[open]` items first, then `[assumption]` rows; binding decisions
@@ -423,8 +428,12 @@ Plan review resolves the Assumptions & Open Questions table — it is the decisi
    agent-side batching, including of items the agent judges trivial.
    The user MAY answer several items in one reply; treat that as settled and
    continue with the remaining unanswered items. Never front-load.
-3. Each prompt: the item + minimal context to judge it + one clear question +
-   the agent's recommended default. Never paste walls of plan text.
+3. Each prompt: the item + minimal context to judge it + one clear question,
+   with every option lettered so the reviewer can refer to it by letter.
+   `[A]` is always the agent's recommended default and is listed first; the
+   remaining options follow as `[B]`, `[C]`, ... in order of preference. The
+   reviewer answers with a letter (e.g. "A", "B"). Never paste walls of plan
+   text.
 4. Record every answer in the reply (a review log), not in the plan file.
 
 **Phase 2 — Single consolidated update (after all answers are collected)**
@@ -432,9 +441,11 @@ Plan review resolves the Assumptions & Open Questions table — it is the decisi
    the Q&A.
 2. Update the Assumptions & Open Questions statuses: user-confirmed row →
    `[decision]`; user-deferred row → `[assumption]`.
-3. Record each decision with its rationale next to the affected row or step;
-   note what was deferred.
+3. Record each decision in the table's Resolution column: the chosen option
+   letter plus a one-line rationale (e.g. "chose [B]: ..."), or "deferred —
+   proceeding with Agent's read" for a deferred row. If the decision changes
+   a step's actions, note it there too.
 4. Re-run the Self-Review Checklist on the updated plan, then hand off the
    plan path (Rule 15).
 
-If any row fails, edit the plan and re-check. Do not present until all 33 pass.
+If any row fails, edit the plan and re-check. Do not present until all 34 pass.
