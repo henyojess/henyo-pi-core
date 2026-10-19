@@ -53,7 +53,7 @@ Every ambiguity the agent could not resolve while writing the plan goes here as 
 
 Statuses:
 - `[open]` — set at generation (no safe default); needs a user decision in review before execution
-- `[assumption]` — set at generation (agent has a recommended default); review confirms it as `[decision]` or the user defers and it stays `[assumption]`, proceeding with "Agent's read"
+- `[assumption]` — set at generation (agent has a recommended default); non-terminal - it becomes a `[decision]` only when the user confirms it or explicitly defers it ("proceeding with Agent's read")
 - `[decision]` — user confirmed during review; binding, do not revisit in implementation
 ```
 
@@ -244,6 +244,9 @@ produces no commit.
 - [ ] Working tree clean (`git status --porcelain` empty) and the commit
       range since the baseline contains only this plan's commits — no
       unrelated files touched
+- [ ] Retro complete - stats + owner review + follow-ups distributed
+      (the project process note's Retrospective section; runs after the
+      RECORD commit, before the next plan starts)
 ```
 
 **When a note in `~/.pi/agent/notes/` spawned the plan**, the note file is deleted at plan generation (Rule 14). Final Verification must include a residual confirmation (guards against a failed delete):
@@ -408,11 +411,12 @@ After writing the plan, run through this checklist. Fix any failures before pres
 
 ### Review Flow (when the user asks to review a plan)
 
-Plan review resolves the Assumptions & Open Questions table — it is the decision phase; the plan itself was the async inspection pass. Two phases; no plan edits during Phase 1. A plan is not execution-ready while any `[open]` row remains: before executing, either run this Review Flow or get an explicit user waiver, and each then-remaining `[open]` row is downgraded to `[assumption]` (agent picks the best path) with a logged `[assumption]:` note.
+Plan review resolves the Assumptions & Open Questions table — it is the decision phase; the plan itself was the async inspection pass. Two phases; no plan edits during Phase 1. A plan is not execution-ready while any row - `[open]` or `[assumption]` - is undecided: before the first tick, either run this Review Flow or get an explicit user waiver, and then **every** row must be a `[decision]`. A decision includes explicit defer ("proceeding with Agent's read"); a bare `[assumption]` is not terminal. One owner reply may settle several rows. Rows added mid-execution do not block continuation (proceed as logged `[assumption]` when recoverable) but block completion: each must be decided or explicitly ratified before Final Verification.
 
 **Definitions**
 - **Open item** — a decision not yet made (`[open]` row).
-- **Assumption** — a decision made without user confirmation (`[assumption]` row).
+- **Assumption** — a decision made without user confirmation (`[assumption]` row); non-terminal.
+- **Decision** — a user-settled row: confirmed, alternative selected, or explicitly deferred; terminal (`[decision]`).
 
 **Phase 1 — Interactive Q&A (gather only, no plan edits)**
 1. State the review objective up front: what decision this review resolves and the
