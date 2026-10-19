@@ -102,7 +102,9 @@ for (const file of sessions) {
   const iso = (t) => (t ? new Date(t).toISOString() : '-');
   console.log(`session: ${file}`);
   console.log(`  span:         ${iso(times[0])} -> ${iso(times[times.length - 1])}`);
-  console.log(`  active:       ${(activeMs / 60000).toFixed(1)} min (gaps > ${idleMin} min excluded)`);
+  console.log(
+    `  active:       ${(activeMs / 60000).toFixed(1)} min (gaps > ${idleMin} min excluded)`,
+  );
   console.log(
     `  compactions:  ${compactions}${maxTokensBefore ? ` (max tokensBefore ${maxTokensBefore})` : ''}`,
   );
