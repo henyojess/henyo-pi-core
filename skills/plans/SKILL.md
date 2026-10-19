@@ -67,6 +67,12 @@ Granularity: one row per *logical unit of change* (e.g. "auth middleware"
 spanning 3 files = 1 row), not per file. Use the "Item" column for the logical
 unit name; add file paths in the "Fix" column.
 
+Baseline numbers are fresh: test/coverage counts in an inventory row come
+from a fresh run on the current tree at plan time (note the sha), never
+carried from the last closeout - a remembered or closeout-quoted count is a
+plan defect (UC8: the plan quoted the UC7 closeout's green counts while the
+tree had already gone red from the owner's post-closeout commit).
+
 Slice shape: prefer *tracer-bullet vertical slices* — one row is a narrow but
 complete end-to-end path through the relevant layers (e.g. data → logic → UI →
 test), not a horizontal layer slice (all data first, then all logic, then all
@@ -240,6 +246,10 @@ produces no commit.
 - [ ] Full test suite re-run; failure list diffed against the Baseline
       Pre-Check record — same pre-existing set, no new failures (never
       compared against a remembered count)
+- [ ] When the plan added or changed calls to an external vendor API: one
+      real end-to-end run through the deployed path (real credentials)
+      before RECORD — the mocked tier proves what the client asked, not
+      that the vendor's contract matches (UC9: ImageKit)
 - [ ] No unintended changes
 - [ ] Working tree clean (`git status --porcelain` empty) and the commit
       range since the baseline contains only this plan's commits — no
@@ -316,6 +326,17 @@ Source: ~/.pi/agent/notes/<note>.md
     this hold for step actions; unnumbered lines (Final Verification, How to
     Use This Plan) must be worded so they stay distinct — so a single-line
     `oldText` is always sufficient.
+18. **Inventory baselines are fresh.** Test/coverage numbers in inventory
+    rows come from a fresh run on the current tree at plan time (with the
+    sha noted), never carried from the last closeout.
+19. **Vendor API contracts are sourced at plan time.** Any external API
+    shape in the plan (endpoint, auth, request/response fields) is verified
+    against the SDK source or a live probe while planning - a contract
+    written from memory is a plan defect (UC9: the ImageKit spec was wrong
+    and the mocked acceptance tier could not catch it).
+20. **Commit-message examples are valid.** The plan's example commit
+    messages pass the repo's commitlint config (type, format) - an invalid
+    example is a plan defect (UC9: `docs+chore:` rejected by the hook).
 
 ---
 
@@ -408,6 +429,9 @@ After writing the plan, run through this checklist. Fix any failures before pres
 | 32 | Rule 13 — no fabricated dates | Plan contains a date not taken from a `date +%F` run in this session |
 | 33 | Rule 15 — handoff path | Final reply does not end with the plan's absolute path on its own line |
 | 34 | Assumptions & Open Questions table has a Resolution column | The 5th column is missing (it is filled during review, not at generation) |
+| 35 | Rule 18 — inventory baselines are fresh | A test/coverage count in the inventory is quoted from the last closeout or memory instead of a fresh run on the current tree (with sha) |
+| 36 | Rule 19 — vendor API contracts sourced at plan time | The plan states an external API shape (endpoint/auth/fields) with no source check (SDK source or live probe) recorded at plan time |
+| 37 | Rule 20 — commit-message examples valid | An example commit message in the plan would fail the repo's commitlint config |
 
 ### Review Flow (when the user asks to review a plan)
 
